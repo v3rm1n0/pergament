@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Palette modelled on the layout of the original app, with own colours. */
+:root {
+  --brand: #5b3f8c;
+  --brand-fg: #ffffff;
+  --bg: #f1f1f2;
+  --surface: #ffffff;
+  --bar: #ebebed;
+  --rail: #e3e3e6;
+  --text: #1c1c1f;
+  --muted: #6c6c74;
+  --border: #d7d7dc;
+  --accent: #5b3f8c;
+  --link: #4b3b8f;
+  --tile-0: #3c3149;
+  --tile-1: #574a6a;
+  --tile-2: #78698c;
+  --tile-fg: #ffffff;
+  --mark: #fff3b0;
+}
+
+.dark {
+  --brand: #3e2d60;
+  --bg: #1a1a1c;
+  --surface: #232326;
+  --bar: #29292d;
+  --rail: #1f1f22;
+  --text: #e8e8ec;
+  --muted: #9c9ca6;
+  --border: #39393f;
+  --accent: #b6a0e3;
+  --link: #bba8ea;
+  --tile-0: #3a2f47;
+  --tile-1: #4e4260;
+  --tile-2: #65597a;
+  --mark: #4a4220;
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-bar: var(--bar);
+  --color-rail: var(--rail);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-tile-0: var(--tile-0);
+  --color-tile-1: var(--tile-1);
+  --color-tile-2: var(--tile-2);
+  --color-tile-fg: var(--tile-fg);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Noto Sans", "Cantarell", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ---------- Reading text ---------- */
+
+.reader {
+  font-size: calc(1.15rem * var(--font-scale, 1));
+  line-height: 1.75;
+  user-select: text;
+}
+.reader h1 {
+  font-size: 1.9em;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.6em 0 0.4em;
+}
+.reader h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.2em 0 0.4em;
+}
+.reader h3 {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin: 1em 0 0.3em;
+}
+.reader p {
+  margin: 0 0 0.9em;
+}
+.reader ul,
+.reader ol {
+  margin: 0 0 0.9em 1.4em;
+  list-style: disc;
+}
+.reader a {
+  color: var(--link);
+  text-decoration: none;
+  cursor: pointer;
+}
+.reader a:hover {
+  text-decoration: underline;
+}
+.reader img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+.reader figure {
+  margin: 1.4em 0;
+}
+.reader .imgCredit,
+.reader .pageNum {
+  font-size: 0.75em;
+  color: var(--muted);
+}
+.reader .chapter-title {
+  display: none;
+}
+.reader .cl {
+  float: left;
+  font-size: 2.8em;
+  line-height: 0.95;
+  font-weight: 700;
+  margin: 0.08em 0.25em 0 0;
+  cursor: pointer;
+}
+.reader .vl {
+  font-size: 0.68em;
+  font-weight: 700;
+  vertical-align: super;
+  color: var(--muted);
+  margin-right: 0.2em;
+  cursor: pointer;
+}
+.reader .v.has-notes > .vl,
+.reader .v.has-notes > .cl {
+  color: var(--accent);
+}
+.reader a.fn,
+.reader a.xr {
+  font-size: 0.66em;
+  vertical-align: super;
+  font-weight: 600;
+  padding: 0 0.1em;
+}
+.reader a.xr {
+  color: var(--muted);
+}
+.reader .selected {
+  background: var(--mark);
+  border-radius: 2px;
+}
+.reader aside,
+.reader .boxContent {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+}
+
+/* Study pane uses the same content styles, a bit smaller. */
+.pane-content {
+  font-size: calc(0.98rem * var(--font-scale, 1));
+  line-height: 1.6;
+  user-select: text;
+}
+.pane-content p {
+  margin: 0 0 0.6em;
+}
+.pane-content a {
+  color: var(--link);
+  cursor: pointer;
+}
+.pane-content .fn-back,
+.pane-content .xr-back {
+  font-weight: 700;
+  margin-right: 0.35em;
+}
