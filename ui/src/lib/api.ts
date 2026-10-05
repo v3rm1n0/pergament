@@ -69,6 +69,65 @@ export interface CatalogItem {
   issue_title: string | null;
   size: number;
   sha1: string;
+  publication_type: number;
+  short_title: string | null;
+  cataloged_on: string | null;
+  image: string | null;
+}
+
+/** A catalog publication plus its library directory if downloaded. */
+export interface CatalogEntry {
+  item: CatalogItem;
+  category: string | null;
+  imageUrl: string | null;
+  local: string | null;
+}
+
+export interface HomeLists {
+  teachingToolbox: CatalogEntry[];
+  whatsNew: CatalogEntry[];
+  dailyText: CatalogEntry | null;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface DatedEntry {
+  entry: CatalogEntry;
+  start: string;
+  end: string;
+}
+
+export interface Meetings {
+  workbook: DatedEntry | null;
+  study: DatedEntry | null;
+  other: CatalogEntry[];
+}
+
+export interface OutlineEntry {
+  level: number;
+  text: string;
+  begin_chapter: number;
+  begin_verse: number;
+  end_chapter: number;
+  end_verse: number | null;
+}
+
+export interface VerseStudy {
+  chapter: number;
+  verse: number;
+  footnotes: { marker: string; index: number; html: string }[];
+  xrefs: { marker: string; block: number; refs: { href: string; label: string }[] }[];
+  notes: string[];
+}
+
+export interface ChapterStudy {
+  outlineTitle: string | null;
+  outline: OutlineEntry[];
+  verses: VerseStudy[];
 }
 
 export interface Language {
@@ -102,7 +161,15 @@ export const api = {
   importFiles: (paths: string[]) => invoke<ImportResult[]>("import_files", { paths }),
   languages: () => invoke<Language[]>("languages"),
   catalogSearch: (lang: string, query: string) =>
-    invoke<CatalogItem[]>("catalog_search", { lang, query }),
+    invoke<CatalogEntry[]>("catalog_search", { lang, query }),
+  chapterStudy: (dir: string, book: number, chapter: number) =>
+    invoke<ChapterStudy>("chapter_study", { dir, book, chapter }),
+  catalogCached: () => invoke<boolean>("catalog_cached"),
+  loadCatalog: () => invoke<void>("load_catalog"),
+  homeLists: (lang: string, date: string) => invoke<HomeLists | null>("home_lists", { lang, date }),
+  categories: (lang: string) => invoke<Category[] | null>("categories", { lang }),
+  category: (lang: string, id: number) => invoke<CatalogEntry[] | null>("category", { lang, id }),
+  meetings: (lang: string, date: string) => invoke<Meetings | null>("meetings", { lang, date }),
   downloadPublication: (item: CatalogItem, lang: string) =>
     invoke<string>("download_publication", { item, lang }),
 };

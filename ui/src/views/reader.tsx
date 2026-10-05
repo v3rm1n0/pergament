@@ -1,68 +1,106 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { AppBar, useApp } from "@/app";
-import { api, chapterTarget, type Page, type Target } from "@/lib/api";
+import { AppBar, BarButton, useApp } from "@/app";
+import { api, chapterTarget, type ChapterStudy, type Page, type Target, type VerseStudy } from "@/lib/api";
 import { splitPage, verseKeyFromId } from "@/lib/page";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { usePublication } from "./publication";
 
-type Selection =
-  | { kind: "footnote"; id: string }
-  | { kind: "xref"; id: string }
-  | { kind: "notes"; verse: string }
-  | null;
-
-function flash(el: Element | null) {
+function flash(el: Element | null, block: ScrollLogicalPosition = "center") {
   if (!el) return;
-  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.scrollIntoView({ block, behavior: "smooth" });
   el.classList.add("selected");
   setTimeout(() => el.classList.remove("selected"), 1600);
+}
+
+/** `chapter:verse`, the key of a verse within the current book. */
+const verseKey = (v: { chapter: number; verse: number }) => `${v.chapter}:${v.verse}`;
+
+/** `v1-12-3-1` -> `12:3`. */
+function verseKeyOfSpan(id: string): string | null {
+  const full = verseKeyFromId(id);
+  return full ? full.split(":").slice(1).join(":") : null;
+}
+
+/** Outline range like "1-9" or "7". */
+function outlineRange(o: ChapterStudy["outline"][number]): string {
+  if (o.end_verse == null || (o.begin_chapter === o.end_chapter && o.begin_verse === o.end_verse)) {
+    return `${o.begin_verse}`;
+  }
+  return o.begin_chapter === o.end_chapter
+    ? `${o.begin_verse}-${o.end_verse}`
+    : `${o.begin_chapter}:${o.begin_verse}–${o.end_chapter}:${o.end_verse}`;
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
   const { openTarget, replace, toast } = useApp();
   const [page, setPage] = useState<Page | null>(null);
-  const [selection, setSelection] = useState<Selection>(null);
+  const [study, setStudy] = useState<ChapterStudy | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [paneOpen, setPaneOpen] = useState(true);
   const articleRef = useRef<HTMLDivElement>(null);
+  const paneRef = useRef<HTMLElement>(null);
   const detail = usePublication(target.publication);
   const chapter = "chapter" in target.kind ? target.kind.chapter : null;
 
   useEffect(() => {
     let live = true;
     setPage(null);
-    setSelection(null);
+    setStudy(null);
+    setSelected(null);
     api
       .renderPage(target)
       .then((p) => live && setPage(p))
       .catch((e) => toast(`Cannot show page: ${e}`));
+    if ("chapter" in target.kind) {
+      const { book, chapter: c } = target.kind.chapter;
+      api
+        .chapterStudy(target.publication, book, c)
+        .then((s) => live && setStudy(s))
+        .catch((e) => toast(`Cannot load study notes: ${e}`));
+    }
     return () => {
       live = false;
     };
   }, [target, toast]);
 
   const split = useMemo(() => (page ? splitPage(page.html) : null), [page]);
-  const hasPane =
-    split !== null &&
-    (Object.keys(split.footnotes).length > 0 || Object.keys(split.xrefs).length > 0 || split.noteOrder.length > 0);
+
+  // Lookups from text markers to the verse that owns them.
+  const owners = useMemo(() => {
+    const fn = new Map<number, string>();
+    const xr = new Map<number, string>();
+    const noted = new Set<string>();
+    for (const v of study?.verses ?? []) {
+      v.footnotes.forEach((f) => fn.set(f.index, verseKey(v)));
+      v.xrefs.forEach((x) => xr.set(x.block, verseKey(v)));
+      if (v.notes.length > 0) noted.add(verseKey(v));
+    }
+    return { fn, xr, noted };
+  }, [study]);
+
+  const selectVerse = useCallback((key: string) => {
+    setSelected(key);
+    setPaneOpen(true);
+    requestAnimationFrame(() =>
+      flash(paneRef.current?.querySelector(`[data-verse="${CSS.escape(key)}"]`) ?? null, "start"),
+    );
+  }, []);
 
   // Mark verses with study notes and jump to the requested verse.
   useEffect(() => {
     const root = articleRef.current;
     if (!root || !split) return;
     root.querySelectorAll<HTMLElement>("span.v[id]").forEach((el) => {
-      const key = verseKeyFromId(el.id);
-      if (key && split.notes[key]) el.classList.add("has-notes");
+      const key = verseKeyOfSpan(el.id);
+      if (key && owners.noted.has(key)) el.classList.add("has-notes");
     });
     if (page?.fragment) flash(root.querySelector(`[id="${CSS.escape(page.fragment)}"]`));
-    else root.parentElement?.scrollTo({ top: 0 });
-    // Arrived via a study-note link: show that note.
-    if (note && chapter) {
-      const key = `${chapter.book}:${chapter.chapter}:${chapter.verse}`;
-      if (split.notes[key]) setSelection({ kind: "notes", verse: key });
-    }
-  }, [split, page]);
+    else root.closest(".overflow-y-auto")?.scrollTo({ top: 0 });
+    if (note && chapter && study) selectVerse(`${chapter.chapter}:${chapter.verse}`);
+    // Runs once per loaded page and study data, not on every selection.
+  }, [split, page, owners, study]);
 
   const follow = useCallback(
     async (href: string) => {
@@ -72,7 +110,6 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           case "open": {
             const t = action.target;
             const k = t.kind;
-            // Same chapter: just scroll to the verse.
             if (
               chapter &&
               "chapter" in k &&
@@ -82,8 +119,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             ) {
               const { book, chapter: c, verse } = k.chapter;
               flash(articleRef.current?.querySelector(`[id="v${book}-${c}-${verse}-1"]`) ?? null);
-              const key = `${book}:${c}:${verse}`;
-              if (action.studyNote && split?.notes[key]) setSelection({ kind: "notes", verse: key });
+              if (action.studyNote) selectVerse(`${c}:${verse}`);
             } else {
               openTarget(t, action.studyNote);
             }
@@ -105,7 +141,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         toast(`Cannot follow link: ${e}`);
       }
     },
-    [chapter, openTarget, split, target.publication, toast],
+    [chapter, openTarget, selectVerse, target.publication, toast],
   );
 
   const onArticleClick = (e: ReactMouseEvent) => {
@@ -114,11 +150,12 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     if (a) {
       e.preventDefault();
       const href = a.getAttribute("href") ?? "";
-      if (/^#footnote\d+$/.test(href)) {
-        setSelection({ kind: "footnote", id: href.slice(1) });
-        setPaneOpen(true);
-      } else if (/^#xref\d+$/.test(href)) {
-        setSelection({ kind: "xref", id: href.slice(1) });
+      const fn = /^#footnote(\d+)$/.exec(href);
+      const xr = /^#xref(\d+)$/.exec(href);
+      if (fn && owners.fn.has(Number(fn[1]))) selectVerse(owners.fn.get(Number(fn[1]))!);
+      else if (xr && owners.xr.has(Number(xr[1]))) selectVerse(owners.xr.get(Number(xr[1]))!);
+      else if (fn && split?.footnotes[`footnote${fn[1]}`]) {
+        setSelected(`footnote${fn[1]}`);
         setPaneOpen(true);
       } else if (href.startsWith("#")) {
         flash(articleRef.current?.querySelector(`[id="${CSS.escape(href.slice(1))}"]`) ?? null);
@@ -127,13 +164,9 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       }
       return;
     }
-    const num = el.closest(".vl, .cl");
-    const verse = num?.closest<HTMLElement>("span.v[id]");
-    const key = verse ? verseKeyFromId(verse.id) : null;
-    if (key && split?.notes[key]) {
-      setSelection({ kind: "notes", verse: key });
-      setPaneOpen(true);
-    }
+    const verse = el.closest(".vl, .cl")?.closest<HTMLElement>("span.v[id]");
+    const key = verse ? verseKeyOfSpan(verse.id) : null;
+    if (key && study?.verses.some((v) => verseKey(v) === key)) selectVerse(key);
   };
 
   const onPaneClick = (e: ReactMouseEvent) => {
@@ -176,110 +209,121 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const docFootnotes = !chapter && split ? Object.keys(split.footnotes) : [];
+  const hasPane = chapter ? study !== null : docFootnotes.length > 0;
+  const subtitle = detail?.card.title ?? "";
+  const edge =
+    "absolute top-1/2 z-10 flex h-10 w-7 -translate-y-1/2 items-center justify-center bg-bar/80 hover:bg-bar";
+
   return (
     <>
-      <AppBar title={page?.title ?? ""}>
+      <AppBar title={page?.title ?? ""} subtitle={subtitle}>
         {hasPane && (
-          <Button
-            variant="ghost"
-            size="icon"
-            title={paneOpen ? "Hide study pane" : "Show study pane"}
-            aria-label="Toggle study pane"
-            onClick={() => setPaneOpen((o) => !o)}
-          >
-            {paneOpen ? <PanelRightClose size={22} strokeWidth={1.6} /> : <PanelRightOpen size={22} strokeWidth={1.6} />}
-          </Button>
+          <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
+            {paneOpen ? (
+              <PanelRightClose size={21} strokeWidth={1.5} />
+            ) : (
+              <PanelRightOpen size={21} strokeWidth={1.5} />
+            )}
+          </BarButton>
         )}
       </AppBar>
       <div className="flex min-h-0 flex-1">
-        <div className="flex-1 overflow-y-auto bg-surface">
-          <div className="mx-auto max-w-3xl px-10 py-8">
-            {split && (
-              <div
-                ref={articleRef}
-                className="reader"
-                onClick={onArticleClick}
-                dangerouslySetInnerHTML={{ __html: split.body }}
-              />
-            )}
-            {chapter && (
-              <div className="mt-10 flex justify-between border-t border-line pt-5">
-                <Button variant="outline" onClick={() => go(-1)}>
-                  <ChevronLeft size={18} /> Previous
-                </Button>
-                <Button variant="outline" onClick={() => go(1)}>
-                  Next <ChevronRight size={18} />
-                </Button>
-              </div>
-            )}
+        <div className="relative min-w-0 flex-1">
+          {chapter && (
+            <>
+              <button aria-label="Previous chapter" className={cn(edge, "left-1")} onClick={() => go(-1)}>
+                <ChevronLeft size={18} />
+              </button>
+              <button aria-label="Next chapter" className={cn(edge, "right-1")} onClick={() => go(1)}>
+                <ChevronRight size={18} />
+              </button>
+            </>
+          )}
+          <div className="h-full overflow-y-auto bg-surface">
+            <div className={cn("mx-auto px-12 py-6", chapter ? "max-w-[46rem]" : "max-w-3xl")}>
+              {split && (
+                <div
+                  ref={articleRef}
+                  className={cn("reader", chapter && "bible")}
+                  onClick={onArticleClick}
+                  dangerouslySetInnerHTML={{ __html: split.body }}
+                />
+              )}
+            </div>
           </div>
         </div>
-        {hasPane && paneOpen && split && (
-          <StudyPane split={split} selection={selection} onSelect={setSelection} onClick={onPaneClick} />
+        {hasPane && paneOpen && (
+          <aside
+            ref={paneRef}
+            onClick={onPaneClick}
+            className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
+          >
+            {chapter && study ? (
+              <StudyPane book={chapter.book} study={study} selected={selected} />
+            ) : (
+              docFootnotes.map((id) => (
+                <div
+                  key={id}
+                  className={cn("pane-content mb-3", selected === id && "selected")}
+                  dangerouslySetInnerHTML={{ __html: split!.footnotes[id] }}
+                />
+              ))
+            )}
+          </aside>
         )}
       </div>
     </>
   );
 }
 
-function StudyPane({
-  split,
-  selection,
-  onSelect,
-  onClick,
-}: {
-  split: NonNullable<ReturnType<typeof splitPage>>;
-  selection: Selection;
-  onSelect: (s: Selection) => void;
-  onClick: (e: ReactMouseEvent) => void;
-}) {
-  const selectedHtml =
-    selection?.kind === "footnote"
-      ? split.footnotes[selection.id]
-      : selection?.kind === "xref"
-        ? split.xrefs[selection.id]
-        : selection?.kind === "notes"
-          ? split.notes[selection.verse]?.join("")
-          : undefined;
-  const heading =
-    selection?.kind === "footnote" ? "Footnote" : selection?.kind === "xref" ? "Cross references" : "Study notes";
-
+function VerseSection({ v, selected }: { v: VerseStudy; selected: boolean }) {
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-line bg-bg" onClick={onClick}>
-      <div className="border-b border-line px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted">
-        {selectedHtml ? heading : "Study"}
-      </div>
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {selectedHtml ? (
-          <div className="pane-content" dangerouslySetInnerHTML={{ __html: selectedHtml }} />
-        ) : split.noteOrder.length > 0 ? (
-          <div className="space-y-5">
-            {split.noteOrder.map((key) => (
-              <div
-                key={key}
-                className="pane-content cursor-pointer rounded bg-surface p-3 ring-1 ring-line hover:ring-accent"
-                onClick={(e) => {
-                  if (!(e.target as HTMLElement).closest("a")) onSelect({ kind: "notes", verse: key });
-                }}
-                dangerouslySetInnerHTML={{ __html: split.notes[key].join("") }}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted">Select a footnote or cross-reference marker in the text.</p>
-        )}
-      </div>
-      {selectedHtml && (
-        <button
-          className="border-t border-line px-5 py-3 text-left text-sm text-accent hover:bg-bar"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(null);
-          }}
-        >
-          {split.noteOrder.length > 0 ? "Show all study notes" : "Close"}
-        </button>
+    <section data-verse={verseKey(v)} className={cn("mb-5 scroll-mt-2 px-1", selected && "selected")}>
+      <h3 className="mb-2 text-[1.05rem] font-semibold">{verseKey(v)}</h3>
+      {v.footnotes.map((f) => (
+        <div key={`f${f.index}`} className="mb-2 flex gap-2">
+          <span className="text-link">*</span>
+          <div className="pane-content" dangerouslySetInnerHTML={{ __html: f.html }} />
+        </div>
+      ))}
+      {v.xrefs.map((x) => (
+        <p key={`x${x.block}`} className="mb-2">
+          <span className="mr-2 italic text-fg/80">{x.marker}</span>
+          {x.refs.map((r, i) => (
+            <span key={i}>
+              <a href={r.href}>{r.label}</a>
+              {i < x.refs.length - 1 && "; "}
+            </span>
+          ))}
+        </p>
+      ))}
+      {v.notes.map((n, i) => (
+        <div key={`n${i}`} className="pane-content mb-2" dangerouslySetInnerHTML={{ __html: n }} />
+      ))}
+    </section>
+  );
+}
+
+function StudyPane({ book, study, selected }: { book: number; study: ChapterStudy; selected: string | null }) {
+  return (
+    <>
+      {study.outline.length > 0 && (
+        <section className="mb-5">
+          <h3 className="mb-2 text-[1.05rem] font-semibold">{study.outlineTitle ?? "Outline"}</h3>
+          {study.outline.map((o, i) => (
+            <div key={i} style={{ paddingLeft: `${Math.max(0, o.level - 2) * 1.3}rem` }}>
+              {o.text}{" "}
+              <a className="text-xs" href={`#v${book}-${o.begin_chapter}-${o.begin_verse}-1`}>
+                ({outlineRange(o)})
+              </a>
+            </div>
+          ))}
+        </section>
       )}
-    </aside>
+      {study.verses.map((v) => (
+        <VerseSection key={verseKey(v)} v={v} selected={selected === verseKey(v)} />
+      ))}
+    </>
   );
 }

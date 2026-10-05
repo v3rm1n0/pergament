@@ -98,3 +98,23 @@ describe("language filter", () => {
     expect(inLanguage(items, "X")).toEqual([{ langCode: "X" }, { langCode: null }]);
   });
 });
+
+import { addDays, ago, isoDate, rangeLabel, weekLabel, weekStart } from "./dates";
+
+describe("dates", () => {
+  it("finds the meeting week", () => {
+    const wed = new Date(2026, 9, 7); // 2026-10-07, a Wednesday
+    expect(isoDate(weekStart(wed))).toBe("2026-10-05");
+    expect(isoDate(weekStart(new Date(2026, 9, 11)))).toBe("2026-10-05"); // Sunday
+    expect(weekLabel(weekStart(wed))).toBe("October 5-11");
+    expect(weekLabel(new Date(2026, 8, 28))).toBe("September 28 - October 4");
+    expect(isoDate(addDays(new Date(2026, 9, 5), 7))).toBe("2026-10-12");
+  });
+  it("formats ages and ranges", () => {
+    const now = new Date("2026-10-05T12:00:00Z");
+    expect(ago("2026-10-04T07:21:15+00:00", now)).toBe("1 day ago");
+    expect(ago("2026-10-03T07:21:15+00:00", now)).toBe("2 days ago");
+    expect(ago(null, now)).toBe("");
+    expect(rangeLabel("2026-10-05", "2026-11-01")).toBe("October 5 to November 1");
+  });
+});

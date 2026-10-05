@@ -4,39 +4,44 @@
 
 /* Palette modelled on the layout of the original app, with own colours. */
 :root {
-  --brand: #5b3f8c;
+  --brand: #5b3d8f;
   --brand-fg: #ffffff;
-  --bg: #f1f1f2;
+  --bg: #f0f0f0;
   --surface: #ffffff;
-  --bar: #ebebed;
-  --rail: #e3e3e6;
-  --text: #1c1c1f;
-  --muted: #6c6c74;
-  --border: #d7d7dc;
-  --accent: #5b3f8c;
-  --link: #4b3b8f;
+  --bar: #f0f0f0;
+  --rail: #e4e4e4;
+  --tile: #e2e2e2;
+  --text: #1b1b1b;
+  --muted: #6b6b6b;
+  --border: #d6d6d6;
+  --accent: #5b3d8f;
+  --link: #3f5fae;
+  --verse: #3f5fae;
   --tile-0: #3c3149;
   --tile-1: #574a6a;
   --tile-2: #78698c;
   --tile-fg: #ffffff;
-  --mark: #fff3b0;
+  --mark: #fff0a8;
 }
 
+/* Dark: black content, dark grey bars, like the original. */
 .dark {
-  --brand: #3e2d60;
-  --bg: #1a1a1c;
-  --surface: #232326;
-  --bar: #29292d;
-  --rail: #1f1f22;
-  --text: #e8e8ec;
-  --muted: #9c9ca6;
-  --border: #39393f;
-  --accent: #b6a0e3;
-  --link: #bba8ea;
-  --tile-0: #3a2f47;
+  --brand: #5b3d8f;
+  --bg: #000000;
+  --surface: #000000;
+  --bar: #1f1f1f;
+  --rail: #2b2b2b;
+  --tile: #2e2e2e;
+  --text: #e6e6e6;
+  --muted: #9a9a9a;
+  --border: #333333;
+  --accent: #a68ddb;
+  --link: #7b9fe8;
+  --verse: #7b9fe8;
+  --tile-0: #3a3046;
   --tile-1: #4e4260;
   --tile-2: #65597a;
-  --mark: #4a4220;
+  --mark: #3d3a1a;
 }
 
 @theme inline {
@@ -50,6 +55,8 @@
   --color-muted: var(--muted);
   --color-line: var(--border);
   --color-accent: var(--accent);
+  --color-tile: var(--tile);
+  --color-link: var(--link);
   --color-tile-0: var(--tile-0);
   --color-tile-1: var(--tile-1);
   --color-tile-2: var(--tile-2);
@@ -184,4 +191,69 @@ body {
 .pane-content .xr-back {
   font-weight: 700;
   margin-right: 0.35em;
+}
+
+/* ---------- Bible text, as in the original reader ---------- */
+
+.reader.bible {
+  font-family: "Noto Serif", "Georgia", "Times New Roman", serif;
+  font-size: calc(1.2rem * var(--font-scale, 1));
+  line-height: 1.55;
+}
+.reader.bible p {
+  margin: 0;
+  text-indent: 1.2em;
+}
+.reader.bible header,
+.reader.bible h1 {
+  display: none;
+}
+.reader.bible .cl {
+  float: none;
+  font-size: 1.6em;
+  font-weight: 400;
+  color: var(--verse);
+  margin: 0 0.15em 0 -1.2em;
+  line-height: 1;
+}
+.reader.bible .vl {
+  vertical-align: baseline;
+  font-size: 0.9em;
+  font-weight: 400;
+  color: var(--verse);
+  margin: 0 0.25em 0 0.6em;
+  font-family: "Segoe UI", "Noto Sans", sans-serif;
+}
+.reader.bible .v.has-notes > .vl,
+.reader.bible .v.has-notes > .cl {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+/* Footnote markers show as an asterisk, cross references as their letter. */
+.reader a.fn {
+  font-size: 0;
+}
+.reader a.fn::after {
+  content: "*";
+  font-size: calc(0.8rem * var(--font-scale, 1));
+  vertical-align: super;
+  color: var(--verse);
+  padding: 0 0.15em;
+}
+.reader.bible a.xr {
+  font-style: italic;
+  color: var(--muted);
+}
+.study-pane .fn-ref p,
+.study-pane .fcc p {
+  display: inline;
+}
+.study-pane a {
+  color: var(--link);
+  cursor: pointer;
+}
+.study-pane .pane-content {
+  font-size: inherit;
+  line-height: inherit;
 }

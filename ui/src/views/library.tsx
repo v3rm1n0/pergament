@@ -1,0 +1,155 @@
+import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  BookText,
+  CalendarClock,
+  Castle,
+  FileText,
+  Layers,
+  ListChecks,
+  Newspaper,
+  NotebookTabs,
+  ScrollText,
+  Sparkles,
+  Tent,
+  Users,
+} from "lucide-react";
+import { AppBar, useApp } from "@/app";
+import { api, type CatalogEntry, type Category } from "@/lib/api";
+import { inLanguage } from "@/lib/settings";
+import { cn } from "@/lib/utils";
+import { CatalogPrompt, GridCard } from "@/components/catalog";
+import { HomeLibraryGrid } from "./downloaded";
+
+/** Icons per category id (see CATEGORIES in src/catalog.rs). */
+const ICONS: Record<number, LucideIcon> = {
+  1: BookOpen,
+  2: BookText,
+  4: NotebookTabs,
+  6: Layers,
+  7: Newspaper,
+  10: ScrollText,
+  13: Sparkles,
+  14: Castle,
+  17: ListChecks,
+  22: FileText,
+  30: Users,
+  31: CalendarClock,
+  [-1]: Tent,
+};
+
+function Tabs({ value, onChange }: { value: string; onChange: (v: "publications" | "downloaded") => void }) {
+  const tab = (id: "publications" | "downloaded", label: string) => (
+    <button
+      onClick={() => onChange(id)}
+      className={cn(
+        "relative px-2 pb-2.5 pt-3 text-[0.85rem] font-medium uppercase tracking-wide text-fg/85",
+        value === id && "text-accent after:absolute after:inset-x-2 after:bottom-0 after:h-[2px] after:bg-accent",
+      )}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex gap-3 bg-bar px-3">
+      {tab("publications", "Publications")}
+      {tab("downloaded", "Downloaded")}
+    </div>
+  );
+}
+
+export function LibraryView({ tab = "publications" }: { tab?: "publications" | "downloaded" }) {
+  const { lang, languageName, replace, push, catalogVersion, toast, publications } = useApp();
+  const [categories, setCategories] = useState<Category[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .categories(lang)
+      .then((c) => live && setCategories(c))
+      .catch((e) => {
+        toast(String(e));
+        if (live) setCategories(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [lang, catalogVersion, toast]);
+
+  return (
+    <>
+      <AppBar title="Library" subtitle={languageName(lang)} />
+      <Tabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        {tab === "downloaded" ? (
+          <HomeLibraryGrid pubs={inLanguage(publications, lang)} />
+        ) : categories === null ? (
+          <CatalogPrompt />
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-1">
+            {(categories ?? []).map((c) => {
+              const Icon = ICONS[c.id] ?? FileText;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => push({ name: "category", id: c.id, title: c.name })}
+                  className="flex h-[86px] items-center gap-5 bg-tile px-6 text-left text-[0.95rem] hover:brightness-125"
+                >
+                  <Icon size={36} strokeWidth={1.1} className="shrink-0" />
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function CategoryView({ id, title }: { id: number; title: string }) {
+  const { lang, languageName, catalogVersion, toast } = useApp();
+  const [items, setItems] = useState<CatalogEntry[] | null | undefined>(undefined);
+  const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    api
+      .category(lang, id)
+      .then((c) => live && setItems(c))
+      .catch((e) => toast(String(e)));
+    return () => {
+      live = false;
+    };
+  }, [lang, id, catalogVersion, toast]);
+
+  const q = filter.trim().toLowerCase();
+  const shown = (items ?? []).filter(
+    (e) => !q || `${e.item.title} ${e.item.issue_title ?? ""} ${e.item.symbol}`.toLowerCase().includes(q),
+  );
+  return (
+    <>
+      <AppBar title={title} subtitle={languageName(lang)} />
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        {items === null ? (
+          <CatalogPrompt />
+        ) : (
+          <>
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter"
+              className="mb-5 h-9 w-72 bg-tile px-3 text-sm outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
+            />
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3 gap-y-5">
+              {shown.map((e) => (
+                <GridCard key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
