@@ -16,7 +16,7 @@ use crate::{Error, Result};
 const PUBLICATIONS: &str = "publications";
 
 /// An imported publication as recorded in the index.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Entry {
     pub symbol: String,
     pub meps_language: i64,
