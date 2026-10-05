@@ -160,3 +160,13 @@ fn rejects_non_catalog_database() {
         .unwrap();
     assert!(Catalog::open(&path, "x".into()).is_err());
 }
+
+#[test]
+fn search_matches_every_word_anywhere() {
+    let (_t, c) = open();
+    // Words appear in different places and order: title vs issue title.
+    assert_eq!(c.search(2, "Wachtturm Nr. 2026", 10).unwrap().len(), 1);
+    assert_eq!(c.search(2, "2025 wachtturm", 10).unwrap().len(), 1);
+    assert_eq!(c.search(2, "wachtturm studienbibel", 10).unwrap().len(), 0);
+    assert_eq!(c.search(2, "   ", 10).unwrap().len(), 3);
+}
