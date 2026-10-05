@@ -11,8 +11,13 @@ fn build(path: &std::path::Path) {
              Symbol TEXT NOT NULL, KeySymbol TEXT);
          CREATE TABLE PublicationAsset (Id INTEGER PRIMARY KEY, PublicationId INTEGER NOT NULL,
              MepsLanguageId INTEGER NOT NULL, Signature TEXT NOT NULL, Size INTEGER NOT NULL,
-             MimeType TEXT);
-         CREATE TABLE ImageAsset (Id INTEGER PRIMARY KEY, NameFragment TEXT NOT NULL);
+             MimeType TEXT, CatalogedOn TEXT);
+         CREATE TABLE ImageAsset (Id INTEGER PRIMARY KEY, NameFragment TEXT NOT NULL,
+             Width INTEGER NOT NULL DEFAULT 270, Height INTEGER NOT NULL DEFAULT 270);
+         CREATE TABLE DatedText (Class INTEGER, Start TEXT, End TEXT, PublicationId INTEGER);
+         CREATE TABLE CuratedAsset (ListType INTEGER, SortOrder INTEGER, PublicationAssetId INTEGER);
+         CREATE TABLE PublicationAttribute (Name TEXT, Id INTEGER PRIMARY KEY);
+         CREATE TABLE PublicationAttributeMap (PublicationId INTEGER, PublicationAttributeId INTEGER);
          CREATE TABLE PublicationAssetImageMap (PublicationAssetId INTEGER, ImageAssetId INTEGER);",
     )
     .unwrap();
@@ -65,11 +70,24 @@ fn build(path: &std::path::Path) {
         )
         .unwrap();
         c.execute(
-            "INSERT INTO PublicationAsset VALUES (?1, ?1, ?2, ?3, ?4, 'application/x-jwpub')",
-            params![id, lang, format!("{id:040}"), 1000 * id],
+            "INSERT INTO PublicationAsset VALUES (?1, ?1, ?2, ?3, ?4, 'application/x-jwpub', ?5)",
+            params![
+                id,
+                lang,
+                format!("{id:040}"),
+                1000 * id,
+                format!("2026-10-0{id}T00:00:00+00:00")
+            ],
         )
         .unwrap();
     }
+    c.execute_batch(
+        "INSERT INTO DatedText VALUES (106, '2026-09-07', '2026-11-01', 1);
+         INSERT INTO CuratedAsset VALUES (2, 1, 3), (2, 0, 1);
+         INSERT INTO PublicationAttribute VALUES ('Convention', 3);
+         INSERT INTO PublicationAttributeMap VALUES (2, 3);",
+    )
+    .unwrap();
     // Language evidence: two German covers, one stray English one, one universal.
     let images = [
         (1, 1, "images/aa/2026000_X_cvr.jpg"),
@@ -79,8 +97,11 @@ fn build(path: &std::path::Path) {
         (5, 1, "images/ee/2026000_univ_sqr-120.jpg"),
     ];
     for (img, asset, name) in images {
-        c.execute("INSERT INTO ImageAsset VALUES (?1, ?2)", params![img, name])
-            .unwrap();
+        c.execute(
+            "INSERT INTO ImageAsset (Id, NameFragment) VALUES (?1, ?2)",
+            params![img, name],
+        )
+        .unwrap();
         c.execute(
             "INSERT INTO PublicationAssetImageMap VALUES (?1, ?2)",
             params![asset, img],
@@ -169,4 +190,92 @@ fn search_matches_every_word_anywhere() {
     assert_eq!(c.search(2, "2025 wachtturm", 10).unwrap().len(), 1);
     assert_eq!(c.search(2, "wachtturm studienbibel", 10).unwrap().len(), 0);
     assert_eq!(c.search(2, "   ", 10).unwrap().len(), 3);
+}
+
+#[test]
+fn categories_curated_new_and_dated() {
+    use jwlinux::catalog::{CONVENTION, DATED_MEETING_WORKBOOK, LIST_TEACHING_TOOLBOX};
+    let (_t, c) = open();
+    assert_eq!(c.categories(2).unwrap(), vec![(14, 3), (CONVENTION, 1)]);
+    assert_eq!(c.by_category(2, CONVENTION, 10).unwrap()[0].symbol, "wp25");
+    let toolbox: Vec<_> = c
+        .curated(2, LIST_TEACHING_TOOLBOX)
+        .unwrap()
+        .into_iter()
+        .map(|i| i.symbol)
+        .collect();
+    assert_eq!(toolbox, ["wp26", "nwtsty"]);
+    assert_eq!(c.whats_new(2, 1).unwrap()[0].symbol, "nwtsty");
+    let week = c.dated(2, DATED_MEETING_WORKBOOK, "2026-10-07").unwrap();
+    assert_eq!(week.len(), 1);
+    assert_eq!(week[0].0.symbol, "wp26");
+    assert_eq!(week[0].1, "2026-09-07");
+    assert!(
+        c.dated(2, DATED_MEETING_WORKBOOK, "2027-01-01")
+            .unwrap()
+            .is_empty()
+    );
+    // Images: the square one is preferred.
+    assert_eq!(
+        c.find("wp", 2, Some(20260900))
+            .unwrap()
+            .unwrap()
+            .image
+            .as_deref(),
+        Some("images/ee/2026000_univ_sqr-120.jpg")
+    );
+}
+
+#[test]
+fn image_paths() {
+    use jwlinux::catalog::safe_image_path;
+    assert!(safe_image_path("images/33/1102021352_univ_sqr-120x120.jpg"));
+    for bad in [
+        "images/../x.jpg",
+        "/images/a/b.jpg",
+        "images/a/../../x",
+        "x/a/b.jpg",
+        "images/a/b/c.jpg",
+        "images/a/.x",
+    ] {
+        assert!(!safe_image_path(bad), "{bad}");
+    }
+}
+
+/// Against the real catalog (values checked against the original app on
+/// 2026-10-05). Set JWL_TEST_CATALOG to a catalog.db.
+#[test]
+fn real_catalog() {
+    use jwlinux::catalog::*;
+    let Some(path) = std::env::var_os("JWL_TEST_CATALOG") else {
+        eprintln!("skipping: JWL_TEST_CATALOG not set");
+        return;
+    };
+    let c = Catalog::open(std::path::Path::new(&path), "test".into()).unwrap();
+    let meetings = c.dated(2, DATED_MEETING_WORKBOOK, "2026-10-07").unwrap();
+    assert_eq!(
+        (meetings[0].0.key_symbol.as_str(), meetings[0].0.issue_tag),
+        ("mwb", 20260900)
+    );
+    let study = c.dated(2, DATED_WATCHTOWER_STUDY, "2026-10-07").unwrap();
+    assert_eq!(
+        (study[0].0.key_symbol.as_str(), study[0].0.issue_tag),
+        ("w", 20260800)
+    );
+    assert_eq!(
+        (study[0].1.as_str(), study[0].2.as_str()),
+        ("2026-10-05", "2026-11-01")
+    );
+    let toolbox = c.curated(2, LIST_TEACHING_TOOLBOX).unwrap();
+    assert!(toolbox.iter().any(|i| i.key_symbol == "lff"));
+    assert_eq!(c.whats_new(2, 1).unwrap()[0].key_symbol, "sjj");
+    let cats = c.categories(2).unwrap();
+    assert!(cats.contains(&(14, 1745)));
+    assert!(
+        c.curated(2, LIST_MEETINGS)
+            .unwrap()
+            .iter()
+            .any(|i| i.key_symbol == "S-38")
+    );
+    assert!(toolbox.iter().all(|i| i.image.is_some()));
 }
