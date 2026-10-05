@@ -99,3 +99,80 @@ fn watchtower() {
     assert_eq!(entry.symbol, "wp26");
     assert_eq!(entry.issue_tag, "20260900");
 }
+
+fn open_library(var: &str) -> Option<(tempfile::TempDir, Library, jwlinux::Entry)> {
+    let path = fixture(var)?;
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path()).unwrap();
+    let entry = lib.import(&path).unwrap();
+    Some((tmp, lib, entry))
+}
+
+/// `verse_ref` must agree with the `id="v{book}-{ch}-{verse}[-part]"` span in
+/// every decoded verse.
+#[test]
+fn study_bible_verse_refs() {
+    let Some((_tmp, lib, entry)) = open_library("JWL_TEST_JWPUB") else {
+        return;
+    };
+    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+    let conn = jwpub::open_db(&lib.db_path(&entry)).unwrap();
+    let mut stmt = conn
+        .prepare("SELECT BibleVerseId, Content FROM BibleVerse")
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?)))
+        .unwrap();
+    for row in rows {
+        let (id, blob) = row.unwrap();
+        let html = p.decode(&blob).unwrap();
+        let r = p.verse_ref(id).unwrap();
+        let expected = format!("id=\"v{}-{}-{}", r.book, r.chapter, r.verse);
+        assert!(
+            html.contains(&format!("{expected}\"")) || html.contains(&format!("{expected}-")),
+            "verse {id}: {expected} not in {html}"
+        );
+    }
+}
+
+#[test]
+fn study_bible_renders_chapters() {
+    let Some((_tmp, lib, entry)) = open_library("JWL_TEST_JWPUB") else {
+        return;
+    };
+    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+    let r = jwlinux::Renderer::new(&p, jwlinux::RenderOptions::default());
+    // Genesis 1 has footnotes and cross references, Matthew 1 study notes.
+    let gen1 = r.chapter(1, 1).unwrap();
+    assert!(gen1.contains("class=\"footnotes\""));
+    assert!(gen1.contains("class=\"xrefs\""));
+    assert!(r.chapter(40, 1).unwrap().contains("class=\"study-notes\""));
+    for book in p.bible_books().unwrap() {
+        for ch in 1..=book.chapters {
+            let html = r.chapter(book.number, ch).unwrap();
+            assert!(!html.contains("jwpub:"), "{} {ch}", book.number);
+            assert!(!html.contains("data-"), "{} {ch}", book.number);
+        }
+    }
+}
+
+#[test]
+fn all_documents_render() {
+    for var in ["JWL_TEST_JWPUB", "JWL_TEST_JWPUB_WP"] {
+        let Some((_tmp, lib, entry)) = open_library(var) else {
+            continue;
+        };
+        let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+        let r = jwlinux::Renderer::new(
+            &p,
+            jwlinux::RenderOptions {
+                media_base: Some("file:///m/".into()),
+                standalone: true,
+            },
+        );
+        for d in p.documents().unwrap().into_iter().filter(|d| d.has_content) {
+            let html = r.document(d.id).unwrap();
+            assert!(!html.contains("jwpub"), "{var} doc {}", d.id);
+        }
+    }
+}
