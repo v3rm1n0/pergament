@@ -3,3 +3,5 @@
 .direnv/
 *.jwpub
 /testdata/
+/dist/
+/node_modules/

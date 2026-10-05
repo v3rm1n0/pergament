@@ -17,17 +17,22 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # Native libraries for the later GTK4/libadwaita + WebKitGTK reader.
-        guiLibs = with pkgs; [
-          gtk4
-          libadwaita
-          webkitgtk_6_0
+        # Native libraries for the Tauri v2 desktop app (WebKitGTK 4.1 + GTK3).
+        tauriLibs = with pkgs; [
+          webkitgtk_4_1
+          gtk3
+          libsoup_3
           glib
+          glib-networking
           cairo
           pango
           gdk-pixbuf
-          graphene
+          atk
+          librsvg
+          dbus
+          openssl
         ];
+
         version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
         src = pkgs.lib.fileset.toSource {
           root = ./.;
@@ -36,7 +41,7 @@
             ./Cargo.lock
             ./src
             ./tests
-            ./gtk
+            ./src-tauri
           ];
         };
         meta = {
@@ -62,39 +67,14 @@
             mainProgram = "jwl";
           };
         };
-
-        jwlinux-gtk = pkgs.rustPlatform.buildRustPackage {
-          pname = "jwlinux-gtk";
-          inherit version src;
-          cargoLock.lockFile = ./Cargo.lock;
-          cargoBuildFlags = [
-            "-p"
-            "jwlinux-gtk"
-          ];
-          cargoTestFlags = [
-            "-p"
-            "jwlinux-gtk"
-          ];
-          nativeBuildInputs = [
-            pkgs.pkg-config
-            pkgs.wrapGAppsHook4
-          ];
-          buildInputs = [ pkgs.sqlite ] ++ guiLibs;
-          postInstall = ''
-            install -Dm644 gtk/data/io.github.jwlinux.Reader.desktop -t $out/share/applications
-          '';
-          meta = meta // {
-            mainProgram = "jwlinux-gtk";
-          };
-        };
       in
       {
         packages = {
           default = jwlinux;
-          inherit jwlinux jwlinux-gtk;
+          inherit jwlinux;
         };
         checks = {
-          inherit jwlinux jwlinux-gtk;
+          inherit jwlinux;
         };
 
         devShells.default = pkgs.mkShell {
@@ -108,8 +88,12 @@
             cargo-nextest
             cargo-deny
 
+            # Frontend (React + Vite) and Tauri CLI via pnpm
+            nodejs_22
+            pnpm
+
             pkg-config
-            wrapGAppsHook4
+            wrapGAppsHook3
 
             # Inspecting .jwpub files (zip -> manifest.json + contents zip -> SQLite)
             sqlite-interactive
@@ -121,18 +105,16 @@
             hexyl
           ];
 
-          buildInputs =
-            (with pkgs; [
-              sqlite
-              openssl
-            ])
-            ++ guiLibs;
+          buildInputs = [ pkgs.sqlite ] ++ tauriLibs;
 
           RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
           RUST_BACKTRACE = "1";
 
           shellHook = ''
-            echo "jwlinux dev shell: $(rustc --version)"
+            # GTK file dialogs need the schemas; TLS in WebKit needs glib-networking.
+            export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
+            export GIO_MODULE_DIR="${pkgs.glib-networking}/lib/gio/modules/"
+            echo "jwlinux dev shell: $(rustc --version), node $(node --version)"
             [ -n "$JWL_TEST_JWPUB" ] || echo "hint: export JWL_TEST_JWPUB=/path/to/nwtsty_X.jwpub for fixture tests"
           '';
         };
