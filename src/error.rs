@@ -41,6 +41,9 @@ pub enum Error {
     #[error("not found: {0}")]
     NotFound(String),
 
+    #[error("network error: {0}")]
+    Http(String),
+
     #[error("no data directory available (set XDG_DATA_HOME or HOME)")]
     NoDataDir,
 }
