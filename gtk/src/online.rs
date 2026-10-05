@@ -219,12 +219,15 @@ fn show_results(ui: &Ui, page: &Page, code: &str, items: Vec<CatalogItem>) {
         return;
     }
     for item in items {
-        let mut subtitle = format!("{} · {:.1} MB", item.symbol, item.size as f64 / 1e6);
-        if let Some(t) = item.issue_title.as_deref().filter(|t| !t.is_empty()) {
-            subtitle = format!("{t} · {subtitle}");
-        }
+        // Periodicals share one long title; the issue title tells them apart.
+        let title = item
+            .issue_title
+            .as_deref()
+            .filter(|t| !t.is_empty())
+            .unwrap_or(&item.title);
+        let subtitle = format!("{} · {:.1} MB", item.symbol, item.size as f64 / 1e6);
         let row = adw::ActionRow::builder()
-            .title(glib::markup_escape_text(&item.title))
+            .title(glib::markup_escape_text(title))
             .subtitle(glib::markup_escape_text(&subtitle))
             .build();
         let button = gtk::Button::builder()
