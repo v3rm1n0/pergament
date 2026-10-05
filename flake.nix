@@ -28,32 +28,74 @@
           gdk-pixbuf
           graphene
         ];
+        version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+        src = pkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = pkgs.lib.fileset.unions [
+            ./Cargo.toml
+            ./Cargo.lock
+            ./src
+            ./tests
+            ./gtk
+          ];
+        };
+        meta = {
+          description = "Unofficial native Linux reader for JW publications (.jwpub)";
+          platforms = pkgs.lib.platforms.linux;
+        };
+
         jwlinux = pkgs.rustPlatform.buildRustPackage {
           pname = "jwlinux";
-          version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
-          src = pkgs.lib.fileset.toSource {
-            root = ./.;
-            fileset = pkgs.lib.fileset.unions [
-              ./Cargo.toml
-              ./Cargo.lock
-              ./src
-              ./tests
-            ];
-          };
+          inherit version src;
           cargoLock.lockFile = ./Cargo.lock;
+          cargoBuildFlags = [
+            "-p"
+            "jwlinux"
+          ];
+          cargoTestFlags = [
+            "-p"
+            "jwlinux"
+          ];
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.sqlite ];
-          meta = {
-            description = "Unofficial native Linux reader for JW publications (.jwpub)";
+          meta = meta // {
             mainProgram = "jwl";
-            platforms = pkgs.lib.platforms.linux;
+          };
+        };
+
+        jwlinux-gtk = pkgs.rustPlatform.buildRustPackage {
+          pname = "jwlinux-gtk";
+          inherit version src;
+          cargoLock.lockFile = ./Cargo.lock;
+          cargoBuildFlags = [
+            "-p"
+            "jwlinux-gtk"
+          ];
+          cargoTestFlags = [
+            "-p"
+            "jwlinux-gtk"
+          ];
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.wrapGAppsHook4
+          ];
+          buildInputs = [ pkgs.sqlite ] ++ guiLibs;
+          postInstall = ''
+            install -Dm644 gtk/data/io.github.jwlinux.Reader.desktop -t /share/applications
+          '';
+          meta = meta // {
+            mainProgram = "jwlinux-gtk";
           };
         };
       in
       {
-        packages.default = jwlinux;
-        packages.jwlinux = jwlinux;
-        checks.default = jwlinux;
+        packages = {
+          default = jwlinux;
+          inherit jwlinux jwlinux-gtk;
+        };
+        checks = {
+          inherit jwlinux jwlinux-gtk;
+        };
 
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
