@@ -18,7 +18,7 @@ pub struct Publication {
     is_bible: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct DocumentInfo {
     pub id: i64,
     pub meps_document_id: i64,
@@ -27,7 +27,7 @@ pub struct DocumentInfo {
     pub has_content: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct BibleBook {
     pub number: i64,
     pub title: String,
@@ -38,7 +38,7 @@ pub struct BibleBook {
 }
 
 /// A verse position: book, chapter, verse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct VerseRef {
     pub book: i64,
     pub chapter: i64,
@@ -55,6 +55,19 @@ pub struct Chapter {
     pub post_content: Option<String>,
     pub first_verse_id: i64,
     pub last_verse_id: i64,
+}
+
+/// (item id, parent id, title, document id, Bible book) of a navigation item.
+type TocRow = (i64, i64, String, Option<i64>, Option<i64>);
+
+/// A node of the navigation tree.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct TocNode {
+    pub title: String,
+    pub document_id: Option<i64>,
+    /// Bible book number when the node is a Bible book.
+    pub bible_book: Option<i64>,
+    pub children: Vec<TocNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -288,6 +301,87 @@ impl Publication {
             chapter,
             verse,
         })
+    }
+
+    /// The publication's navigation tree. Uses the `jwpub` view when there
+    /// are several (the Bible's has the tabs EINFÜHRUNG, BÜCHER, INDEX, …).
+    pub fn toc(&self) -> Result<Vec<TocNode>> {
+        let has_views: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'PublicationViewItem'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if has_views.is_none() {
+            return Ok(Vec::new());
+        }
+        let view: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT PublicationViewId FROM PublicationView
+                 ORDER BY Symbol = 'jwpub' DESC, PublicationViewId LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(view) = view else {
+            return Ok(Vec::new());
+        };
+        // Only Bibles have a BibleBook table to map book documents to numbers.
+        let sql = if self.is_bible {
+            "SELECT i.PublicationViewItemId, i.ParentPublicationViewItemId, IFNULL(i.Title, ''),
+                    i.DefaultDocumentId, b.BibleBookId
+             FROM PublicationViewItem i
+             LEFT JOIN BibleBook b ON b.BookDocumentId = i.DefaultDocumentId
+             WHERE i.PublicationViewId = ?1
+             ORDER BY i.PublicationViewItemId"
+        } else {
+            "SELECT PublicationViewItemId, ParentPublicationViewItemId, IFNULL(Title, ''),
+                    DefaultDocumentId, NULL
+             FROM PublicationViewItem
+             WHERE PublicationViewId = ?1
+             ORDER BY PublicationViewItemId"
+        };
+        let mut stmt = self.conn.prepare(sql)?;
+        let rows: Vec<TocRow> = stmt
+            .query_map([view], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+
+        fn build(parent: i64, rows: &[TocRow], depth: usize) -> Vec<TocNode> {
+            if depth > 16 {
+                return Vec::new(); // malformed or cyclic tree
+            }
+            rows.iter()
+                .filter(|r| r.1 == parent)
+                .map(|r| TocNode {
+                    title: r.2.clone(),
+                    document_id: r.3.filter(|d| *d >= 0),
+                    bible_book: r.4,
+                    children: build(r.0, rows, depth + 1),
+                })
+                .collect()
+        }
+        Ok(build(-1, &rows, 0))
+    }
+
+    /// File name of the cover image inside the publication directory.
+    pub fn cover_image(&self) -> Result<Option<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT FilePath FROM Multimedia
+             WHERE FilePath LIKE '%\\_cvr.jpg' ESCAPE '\\' OR FilePath LIKE '%\\_sqr%' ESCAPE '\\'
+             ORDER BY FilePath LIKE '%\\_cvr.jpg' ESCAPE '\\' DESC, Width DESC",
+        )?;
+        let names: Vec<String> = stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        Ok(names.into_iter().find(|n| {
+            crate::render::media_name(&format!("jwpub-media://{n}")).is_some()
+                && self.dir.join(n).is_file()
+        }))
     }
 
     /// Study notes attached to verses in `first..=last`.

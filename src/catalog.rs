@@ -27,7 +27,7 @@ struct CatalogManifest {
 }
 
 /// One downloadable publication.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CatalogItem {
     pub key_symbol: String,
     pub symbol: String,
