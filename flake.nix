@@ -81,7 +81,7 @@
           ];
           buildInputs = [ pkgs.sqlite ] ++ guiLibs;
           postInstall = ''
-            install -Dm644 gtk/data/io.github.jwlinux.Reader.desktop -t /share/applications
+            install -Dm644 gtk/data/io.github.jwlinux.Reader.desktop -t $out/share/applications
           '';
           meta = meta // {
             mainProgram = "jwlinux-gtk";
