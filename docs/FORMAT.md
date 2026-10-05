@@ -148,7 +148,31 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
 - **Bible links**: `<a href="jwpub://b/NWTR/{book}:{ch}:{v}-{book}:{ch}:{v}" class="b">`.
 - **Publication links**: `<a href="jwpub://p/X:{MepsDocumentId}/" class="xt" data-xtid="N">`,
   where `X` is the MEPS language code. Some carry a suffix after the slash,
-  e.g. `jwpub://p/X:1001070144/1-1` in study notes (meaning unknown).
+  e.g. `jwpub://p/X:1001070144/1-1` in study notes (meaning unknown). Some
+  point at a Bible **book** document (e.g. 1001070144 = Matthew), which has no
+  content; jwlinux opens chapter 1 of that book.
+- **Verse links in book documents**: `jwpub://c/X:{book MepsDocumentId}/{ch}:{v}[-{ch}:{v}]`
+  (12,604 in nwtsty). Outlines use them plainly (`…/1:1-1:31`, 5,733 links);
+  study notes add `$`-separated alternatives that name the target study
+  note's paragraphs, e.g. `jwpub://c/X:1001070145/8:38$p/X:1001070636/47-47:752`
+  = Mark 8:38, paragraph 47 of "Markus: Studienanmerkungen zu Kapitel 8",
+  which is exactly `VerseCommentary` 757 (`CommentaryMepsDocumentId`
+  1001070636, `BeginParagraphOrdinal` 47). The meaning of `:752` is unknown.
+  6 links have a bare chapter before the dash (`16-17:5`).
+- **Book abbreviations** ("1Mo", "Jos", "Apg"): no table holds them. They are
+  the labels of Bible links (`<a href="jwpub://b/NWTR/1:5:1…">1Mo 5:1</a>`);
+  taking the most common label word per book gives one clear abbreviation for
+  all 66 books in nwtsty, matching the original app's study pane.
+- **Outline** (`BibleOutlineEntry`): `Level`, `BeginChapterNumber`/`BeginVerseNumber`,
+  `EndChapterNumber`/`EndVerseNumber`, encrypted `Content` (an `<ul class="outline">`
+  fragment; the innermost `<p>` is the line), `Book`, `Class` (115 = the book's
+  outline document `BibleBook.OutlineDocumentId`, e.g. "1. Mose: Übersicht";
+  114 also occurs). Genesis 12 gives "Abram zieht von Haran nach Kanaan (1-9)",
+  "Gott gibt Abram Versprechen (7)", "Abram und Sarai in Ägypten (10-20)", as
+  in the original app.
+- **Footnotes and cross references per verse**: `Footnote.BibleVerseId` and
+  `BibleCitation.BibleVerseId` give the verse they belong to.
+- **Language code of a file**: the manifest `name` is `{symbol}_{code}[_{issue}].jwpub`.
 - **Study notes** (`VerseCommentary.Content`) are the same text as the
   per-chapter study note documents (`Document.Class` 118), split per verse;
   they exist from Matthew 1:1 (`BibleVerseId` 23261) on.
@@ -180,7 +204,19 @@ Relevant tables [own]:
 |---|---|
 | `Publication` | `Id`, `MepsLanguageId`, `KeySymbol` (undated symbol, e.g. `wp`, `w`, `nwtsty`; never NULL), `Symbol` (dated, e.g. `wp26`), `IssueTagNumber` (0 for undated), `Year`, `Title`, `ShortTitle`, `IssueTitle`, `CoverTitle`, `PublicationTypeId`. Unique on (`KeySymbol`, `IssueTagNumber`, `MepsLanguageId`) |
 | `PublicationAsset` | one per publication; `MimeType` is always `application/x-jwpub`; **`Size` = file size, `ExpandedSize` = manifest `expandedSize`, `Signature` = SHA-1 of the `.jwpub` file** (verified on both fixtures) |
-| `ImageAsset`, `PublicationAssetImageMap` | cover images; `NameFragment` like `images/2b/302014021_univ_sqr-126.jpg` |
+| `ImageAsset`, `PublicationAssetImageMap` | cover images; `NameFragment` like `images/2b/302014021_univ_sqr-126.jpg`, served at `https://app.jw-cdn.org/catalogs/publications/{NameFragment}` ([jwapi] notes; fetched once, `image/jpeg`). Kinds: `sqr` (square 120/270/600), `lsr` (wide), `cvr` (cover) |
+| `DatedText` | `Class`, `Start`, `End`, `PublicationId`. Class **4** = daily text (`es26`, whole year), **68** = Watchtower study weeks (`w`), **106** = meeting workbook weeks (`mwb`); also 91, 92 before 2010. For 2026-10-07 in German: `w` 2026-08 for 2026-10-05..11-01 and `mwb` 2026-09 for 2026-09-07..11-01, matching the original app's Meetings view |
+| `CuratedAsset` | `ListType`, `SortOrder`, `PublicationAssetId`. List **2** = "Teaching Toolbox" on the original Home screen (lff, ll, wp26, tracts T-ftr, T-fam, …), list **0** = "Other Meeting Publications" (sjj, lmd, th, S-38), list 1 = sjj only |
+| `PublicationAttribute`(`Map`) | named attributes, e.g. `Convention` (the original's "Convention Releases"), `Study`, `Public`, `Archive` |
+
+`PublicationTypeId` has no name table. Names follow from the symbols per type
+and match the original app's Library categories: 1 Bible (nwt, nwtsty), 2
+Books (bh, cl, lff), 4 Brochures and Booklets (fg, ll, es), 6 Index (rsg
+"Studienleitfaden"), 7 Kingdom Ministry (km), 10 Tracts and Invitations (T-…,
+CO-inv), 13 Awake! (g), 14 Watchtower (w, wp), 17 Guidelines (S-38), 22 Article
+Series (ijw…), 30 Meeting Workbooks (mwb), 31 Programs (CA-…, CO-…).
+"What's New" in the original app is the newest `PublicationAsset.CatalogedOn`
+(sjj, es27, rsg, gwt, mwb 2027-01 on 2026-10-05).
 
 The catalog has **no language table**. jwlinux derives MEPS-id →
 language-code pairs from language-specific image names
@@ -222,8 +258,6 @@ byte). An unknown publication returns HTTP `400` with
 - `BibleCitation.MarginalClassification`, `SortPosition`.
 - The suffix in publication links like `jwpub://p/X:1001070144/1-1`.
 - `VerseMultimediaMap` (media attached to verses) is not rendered yet.
-- Abbreviated Bible book names: no table holding them was found;
-  cross references use `BibleBook.ChapterDisplayTitle` (e.g. "Psalm").
 - Full list of `Document.Class`/`Type` values across other publication types.
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.
