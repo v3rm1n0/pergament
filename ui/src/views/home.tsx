@@ -3,6 +3,7 @@ import { BookOpen, CloudDownload, FolderInput, Trash2 } from "lucide-react";
 import { AppBar, useApp } from "@/app";
 import { api, type PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { inLanguage } from "@/lib/settings";
 
 function Cover({ pub }: { pub: PubCard }) {
   const [failed, setFailed] = useState(false);
@@ -92,7 +93,8 @@ function Section({ title, pubs }: { title: string; pubs: PubCard[] }) {
 }
 
 export function HomeView() {
-  const { publications, importFiles, push } = useApp();
+  const { publications: all, importFiles, push, lang } = useApp();
+  const publications = inLanguage(all, lang);
   const bibles = publications.filter((p) => p.isBible);
   const others = publications
     .filter((p) => !p.isBible)
@@ -104,8 +106,13 @@ export function HomeView() {
         {publications.length === 0 ? (
           <div className="mx-auto mt-24 max-w-md text-center">
             <BookOpen className="mx-auto mb-4 text-muted" size={56} strokeWidth={1.1} />
-            <h2 className="mb-2 text-xl font-semibold">Your library is empty</h2>
-            <p className="mb-6 text-muted">Import .jwpub files you have, or search and download publications.</p>
+            <h2 className="mb-2 text-xl font-semibold">
+              {all.length === 0 ? "Your library is empty" : `Nothing in your library for language ${lang}`}
+            </h2>
+            <p className="mb-6 text-muted">
+              Import .jwpub files you have, search and download publications, or pick another language in the
+              top-right corner.
+            </p>
             <div className="flex justify-center gap-3">
               <Button onClick={() => void importFiles()}>
                 <FolderInput size={18} /> Import

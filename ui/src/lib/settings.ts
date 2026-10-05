@@ -43,3 +43,17 @@ export function defaultLangCode(locale: string): string {
   const map: Record<string, string> = { de: "X", en: "E", es: "S", fr: "F", it: "I" };
   return map[locale.slice(0, 2).toLowerCase()] ?? "E";
 }
+
+export function loadLang(): string {
+  const l = read("lang");
+  return l && /^[A-Z0-9-]{1,8}$/.test(l) ? l : defaultLangCode(navigator.language);
+}
+
+export function saveLang(code: string) {
+  write("lang", code);
+}
+
+/** Publications shown for a language; entries without a recorded code always show. */
+export function inLanguage<T extends { langCode: string | null }>(items: T[], code: string): T[] {
+  return items.filter((p) => p.langCode == null || p.langCode === code);
+}

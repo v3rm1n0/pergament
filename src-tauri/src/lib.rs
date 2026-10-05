@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use jwlinux::Library;
 use jwlinux::catalog::{Catalog, CatalogItem};
+use jwlinux::languages::Language;
 use jwlinux::links::Link;
 use jwlinux::navigate::{Page, Target};
 use jwlinux::net::{Client, HttpConfig};
@@ -164,6 +165,19 @@ fn catalog(app: &AppHandle) -> ApiResult<Arc<Mutex<Catalog>>> {
     Ok(catalog)
 }
 
+/// Language list (code, names), cached for a week.
+#[tauri::command]
+async fn languages(app: AppHandle) -> ApiResult<Vec<Language>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let cache = app.state::<AppState>().cache.clone();
+        let client = Client::new(HttpConfig::default());
+        jwlinux::languages::load(&client, &cache, Duration::from_secs(7 * 24 * 3600))
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn catalog_search(
     app: AppHandle,
@@ -266,6 +280,7 @@ pub fn run() {
             remove_publication,
             import_files,
             catalog_search,
+            languages,
             download_publication,
         ])
         .run(tauri::generate_context!())

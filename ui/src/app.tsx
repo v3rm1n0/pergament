@@ -14,7 +14,18 @@ import {
 } from "lucide-react";
 import { api, type PubCard, type Target } from "@/lib/api";
 import { currentView, initialNav, navReducer, type View } from "@/lib/nav";
-import { loadFontScale, loadTheme, prefersDark, saveFontScale, saveTheme, type Theme } from "@/lib/settings";
+import {
+  inLanguage,
+  loadFontScale,
+  loadLang,
+  loadTheme,
+  prefersDark,
+  saveFontScale,
+  saveLang,
+  saveTheme,
+  type Theme,
+} from "@/lib/settings";
+import { LanguageMenu } from "@/components/language-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -41,6 +52,9 @@ interface AppContextValue {
   fontScale: number;
   setFontScale: (n: number) => void;
   importFiles: () => Promise<void>;
+  /** Selected language code, e.g. `X`. */
+  lang: string;
+  setLang: (code: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -70,6 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [fontScale, setFontScaleState] = useState(loadFontScale);
+  const [lang, setLangState] = useState(loadLang);
   const systemDark = useSystemDark();
   const dark = prefersDark(theme, systemDark);
 
@@ -142,8 +157,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setFontScaleState(n);
       },
       importFiles,
+      lang,
+      setLang: (code) => {
+        saveLang(code);
+        setLangState(code);
+      },
     }),
-    [nav, publications, refreshPublications, toast, theme, dark, fontScale, importFiles],
+    [nav, publications, refreshPublications, toast, theme, dark, fontScale, importFiles, lang],
   );
 
   return (
@@ -213,8 +233,9 @@ function RailButton({
 
 /** Icon rail on the left. */
 export function Rail() {
-  const { view, root, publications, toast } = useApp();
-  const bible = publications.find((p) => p.isBible && p.symbol === "nwtsty") ?? publications.find((p) => p.isBible);
+  const { view, root, publications, toast, lang } = useApp();
+  const bibles = inLanguage(publications, lang).filter((p) => p.isBible);
+  const bible = bibles.find((p) => p.symbol === "nwtsty") ?? bibles[0];
   const inBible =
     (view.name === "publication" || view.name === "chapters") && bible !== undefined && view.dir === bible.dir;
   return (
@@ -244,7 +265,8 @@ export function Rail() {
 
 /** Top bar of a view: back button, title and actions. */
 export function AppBar({ title, children }: { title: string; children?: ReactNode }) {
-  const { canGoBack, back, push, importFiles, dark, setTheme } = useApp();
+  const { canGoBack, back, push, importFiles, dark, setTheme, lang, setLang, publications } = useApp();
+  const libraryCodes = [...new Set(publications.map((p) => p.langCode).filter((c): c is string => !!c))];
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line bg-bar px-3">
       {canGoBack ? (
@@ -277,6 +299,7 @@ export function AppBar({ title, children }: { title: string; children?: ReactNod
       >
         {dark ? <Sun size={22} strokeWidth={1.6} /> : <Moon size={22} strokeWidth={1.6} />}
       </Button>
+      <LanguageMenu value={lang} onChange={setLang} libraryCodes={libraryCodes} />
     </header>
   );
 }

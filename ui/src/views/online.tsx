@@ -3,7 +3,6 @@ import { Check, Download, Search } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { AppBar, useApp } from "@/app";
 import { api, type CatalogItem, type Progress as ProgressEvent } from "@/lib/api";
-import { defaultLangCode } from "@/lib/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -12,8 +11,7 @@ const taskKey = (i: CatalogItem) => `download:${i.symbol}:${i.issue_tag}`;
 const mb = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
 
 export function OnlineView() {
-  const { toast, refreshPublications, push } = useApp();
-  const [lang, setLang] = useState(() => defaultLangCode(navigator.language));
+  const { toast, refreshPublications, push, lang } = useApp();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<CatalogItem[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -29,11 +27,10 @@ export function OnlineView() {
     };
   }, []);
 
-  const search = async () => {
-    if (!lang.trim()) return;
+  const search = async (code = lang) => {
     setSearching(true);
     try {
-      setItems(await api.catalogSearch(lang.trim(), query.trim()));
+      setItems(await api.catalogSearch(code, query.trim()));
     } catch (e) {
       toast(String(e));
     } finally {
@@ -49,7 +46,7 @@ export function OnlineView() {
     const key = taskKey(item);
     setProgress((p) => ({ ...p, [key]: { task: key, done: 0, total: item.size } }));
     try {
-      const dir = await api.downloadPublication(item, lang.trim());
+      const dir = await api.downloadPublication(item, lang);
       setDone((d) => ({ ...d, [key]: dir }));
       toast(`Imported ${item.issue_title || item.title}`, {
         label: "Open",
@@ -66,6 +63,15 @@ export function OnlineView() {
     }
   };
 
+  // The language is chosen in the top-right corner; search again when it changes.
+  const [searchedLang, setSearchedLang] = useState(lang);
+  useEffect(() => {
+    if (lang !== searchedLang) {
+      setSearchedLang(lang);
+      if (items !== null) void search(lang);
+    }
+  });
+
   const catalog = progress.catalog;
   return (
     <>
@@ -78,13 +84,6 @@ export function OnlineView() {
             void search();
           }}
         >
-          <Input
-            aria-label="Language code"
-            title="Language code, e.g. X (German) or E (English)"
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-            className="w-20 text-center uppercase"
-          />
           <Input
             autoFocus
             placeholder="Title or symbol, e.g. Wachtturm Studienausgabe"
@@ -109,7 +108,8 @@ export function OnlineView() {
 
         {items === null ? (
           <p className="max-w-3xl text-muted">
-            Searches the public jw.org catalog. The first search downloads it (about 58 MB); downloads are
+            Searches the public jw.org catalog in the language selected in the top-right corner ({lang}). The
+            first search downloads the catalog (about 58 MB); downloads are
             verified and then imported into your library.
           </p>
         ) : items.length === 0 ? (

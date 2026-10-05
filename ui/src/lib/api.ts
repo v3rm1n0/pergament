@@ -24,6 +24,7 @@ export interface PubCard {
   year: number;
   issueTag: string;
   mepsLanguage: number;
+  langCode: string | null;
   publicationType: string | null;
   isBible: boolean;
   cover: string | null;
@@ -70,6 +71,14 @@ export interface CatalogItem {
   sha1: string;
 }
 
+export interface Language {
+  code: string;
+  name: string;
+  vernacular: string;
+  rtl: boolean;
+  signLanguage: boolean;
+}
+
 export interface ImportResult {
   path: string;
   title: string | null;
@@ -91,6 +100,7 @@ export const api = {
   openExternal: (url: string) => invoke<void>("open_external", { url }),
   removePublication: (dir: string) => invoke<void>("remove_publication", { dir }),
   importFiles: (paths: string[]) => invoke<ImportResult[]>("import_files", { paths }),
+  languages: () => invoke<Language[]>("languages"),
   catalogSearch: (lang: string, query: string) =>
     invoke<CatalogItem[]>("catalog_search", { lang, query }),
   downloadPublication: (item: CatalogItem, lang: string) =>
