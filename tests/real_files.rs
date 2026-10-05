@@ -73,6 +73,7 @@ fn study_bible() {
     };
     let (entry, conn, key) = import_and_decode_all(path);
     assert_eq!(entry.symbol, "nwtsty");
+    assert_eq!(entry.lang_code.as_deref(), Some("X"));
     assert_eq!(entry.issue_tag, "0");
 
     let verses: i64 = conn
