@@ -7,6 +7,7 @@ pub mod crypto;
 mod error;
 pub mod jwpub;
 pub mod library;
+pub mod links;
 pub mod manifest;
 pub mod net;
 pub mod reader;
