@@ -9,6 +9,7 @@ pub mod jwpub;
 pub mod library;
 pub mod links;
 pub mod manifest;
+pub mod navigate;
 pub mod net;
 pub mod reader;
 pub mod remote;
