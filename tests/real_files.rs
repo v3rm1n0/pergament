@@ -176,3 +176,32 @@ fn all_documents_render() {
         }
     }
 }
+
+/// Live download from jw.org. Opt-in only: set JWL_TEST_NETWORK=1.
+#[test]
+fn live_download_matches_fixture() {
+    if std::env::var_os("JWL_TEST_NETWORK").is_none() {
+        eprintln!("skipping: JWL_TEST_NETWORK not set");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path().join("lib")).unwrap();
+    let client = jwlinux::net::Client::new(jwlinux::net::HttpConfig::default());
+    let req = jwlinux::remote::Request {
+        key_symbol: "wp",
+        lang_code: "X",
+        issue_tag: Some(20260900),
+    };
+    let entry = jwlinux::remote::download(
+        &client,
+        &mut lib,
+        &tmp.path().join("dl"),
+        &req,
+        None,
+        &mut |_, _| {},
+    )
+    .unwrap();
+    assert_eq!(entry.symbol, "wp26");
+    assert_eq!(entry.issue_tag, "20260900");
+    assert_eq!(entry.meps_language, 2);
+}
