@@ -11,6 +11,14 @@ pub enum Link {
         lang_code: String,
         meps_document_id: i64,
     },
+    /// `jwlinux://note/{lang}:{book_document}/{ch}:{v}[-…]`: the study note
+    /// on a verse; `book_document` is the MEPS id of the Bible book document.
+    StudyNote {
+        lang_code: String,
+        book_document: i64,
+        chapter: i64,
+        verse: i64,
+    },
     /// http(s) link to open in a browser.
     External(String),
     /// `#id` within the current page.
@@ -40,6 +48,22 @@ impl Link {
             return Some(Self::Document {
                 lang_code: lang.to_owned(),
                 meps_document_id: id,
+            });
+        }
+        if let Some(rest) = uri.strip_prefix("jwlinux://note/") {
+            let (lang, tail) = rest.split_once(':')?;
+            let (doc, position) = tail.split_once('/')?;
+            // `8:38`, `8:38-8:40`, or rarely a bare chapter `16-17:5`.
+            let start = position.split('-').next()?;
+            let (chapter, verse) = match start.split_once(':') {
+                Some((c, v)) => (c.parse().ok()?, v.parse().ok()?),
+                None => (start.parse().ok()?, 1),
+            };
+            return Some(Self::StudyNote {
+                lang_code: lang.to_owned(),
+                book_document: doc.parse().ok()?,
+                chapter,
+                verse,
             });
         }
         if uri.starts_with("https://") || uri.starts_with("http://") {
@@ -82,6 +106,24 @@ mod tests {
             Link::parse("#footnote1"),
             Some(Link::Fragment("footnote1".into()))
         );
+        assert_eq!(
+            Link::parse("jwlinux://note/X:1001070145/8:38"),
+            Some(Link::StudyNote {
+                lang_code: "X".into(),
+                book_document: 1001070145,
+                chapter: 8,
+                verse: 38
+            })
+        );
+        assert_eq!(
+            Link::parse("jwlinux://note/X:1001070145/16-17:5"),
+            Some(Link::StudyNote {
+                lang_code: "X".into(),
+                book_document: 1001070145,
+                chapter: 16,
+                verse: 1
+            })
+        );
         assert!(matches!(
             Link::parse("https://www.jw.org/"),
             Some(Link::External(_))
@@ -90,6 +132,7 @@ mod tests {
             "jwlinux://bible/99:1:1",
             "jwlinux://bible/x",
             "jwlinux://pub/X:abc/",
+            "jwlinux://note/X:1/x:1",
             "file:///etc/passwd",
             "javascript:x",
         ] {

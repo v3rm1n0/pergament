@@ -306,6 +306,16 @@ pub fn rewrite_href(href: &str) -> Option<String> {
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '-')))
         .then(|| format!("jwlinux://pub/{rest}"));
     }
+    if let Some(rest) = href.strip_prefix("jwpub://c/") {
+        // `X:1001070145/8:38$p/X:1001070636/47-47:752`: study note on a verse;
+        // the `$`-separated alternatives name the same note's paragraphs.
+        let head = rest.split('$').next().unwrap_or_default();
+        return (!head.is_empty()
+            && head
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '-')))
+        .then(|| format!("jwlinux://note/{head}"));
+    }
     if href.starts_with("https://") || href.starts_with("http://") {
         return Some(href.to_owned());
     }
@@ -437,6 +447,10 @@ mod tests {
             Some("jwlinux://pub/X:1001070144/1-1")
         );
         assert_eq!(
+            rewrite_href("jwpub://c/X:1001070145/8:38$p/X:1001070636/47-47:752").as_deref(),
+            Some("jwlinux://note/X:1001070145/8:38")
+        );
+        assert_eq!(
             rewrite_href("#footnotesource1").as_deref(),
             Some("#footnotesource1")
         );
@@ -448,6 +462,7 @@ mod tests {
             "#a\"b",
             "data:text/html,x",
             "jwpub://p/../../x?y",
+            "jwpub://c/X:1/8:38\"x",
         ] {
             assert_eq!(rewrite_href(bad), None, "{bad}");
         }

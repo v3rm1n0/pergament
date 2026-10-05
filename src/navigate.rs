@@ -15,15 +15,16 @@ pub struct Target {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub enum TargetKind {
     Document(i64),
     Chapter { book: i64, chapter: i64, verse: i64 },
 }
 
 /// A rendered page.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct Page {
+    pub title: String,
     pub html: String,
     /// Element id to scroll to, if any.
     pub fragment: Option<String>,
@@ -70,6 +71,19 @@ pub fn find_document(
     Ok(None)
 }
 
+/// The Bible book number if `document_id` is a book document of `entry`.
+fn bible_book_of(library: &Library, entry: &Entry, document_id: i64) -> Result<Option<i64>> {
+    let publication = Publication::open(library, entry)?;
+    if !publication.is_bible() {
+        return Ok(None);
+    }
+    Ok(publication
+        .bible_books()?
+        .into_iter()
+        .find(|b| b.book_document_id == Some(document_id))
+        .map(|b| b.number))
+}
+
 /// Turn a clicked link into a target inside the library, if possible.
 pub fn resolve(library: &Library, current: Option<&Entry>, link: &Link) -> Result<Option<Target>> {
     Ok(match link {
@@ -93,16 +107,59 @@ pub fn resolve(library: &Library, current: Option<&Entry>, link: &Link) -> Resul
         }
         Link::Document {
             meps_document_id, ..
-        } => find_document(library, *meps_document_id, current)?.map(|(e, id)| Target {
-            publication: e.dir_name,
-            kind: TargetKind::Document(id),
-        }),
+        } => match find_document(library, *meps_document_id, current)? {
+            // A Bible book document has no text of its own: open chapter 1.
+            Some((e, id)) => Some(match bible_book_of(library, &e, id)? {
+                Some(book) => Target {
+                    publication: e.dir_name,
+                    kind: TargetKind::Chapter {
+                        book,
+                        chapter: 1,
+                        verse: 1,
+                    },
+                },
+                None => Target {
+                    publication: e.dir_name,
+                    kind: TargetKind::Document(id),
+                },
+            }),
+            None => None,
+        },
+        Link::StudyNote {
+            book_document,
+            chapter,
+            verse,
+            ..
+        } => match find_document(library, *book_document, current)? {
+            Some((e, id)) => bible_book_of(library, &e, id)?.map(|book| Target {
+                publication: e.dir_name,
+                kind: TargetKind::Chapter {
+                    book,
+                    chapter: *chapter,
+                    verse: *verse,
+                },
+            }),
+            None => None,
+        },
         Link::External(_) | Link::Fragment(_) => None,
     })
 }
 
 /// Render a target as a standalone page with images from the library.
 pub fn page(library: &Library, target: &Target) -> Result<Page> {
+    render(library, target, true, |_, p| {
+        Some(file_url_for_dir(p.media_dir()))
+    })
+}
+
+/// Render a target. `media_base` maps the publication to the URL prefix its
+/// images are served under (see [`RenderOptions::media_base`]).
+pub fn render(
+    library: &Library,
+    target: &Target,
+    standalone: bool,
+    media_base: impl Fn(&Entry, &Publication) -> Option<String>,
+) -> Result<Page> {
     let entry = library
         .get_by_dir(&target.publication)?
         .ok_or_else(|| crate::Error::NotFound(target.publication.clone()))?;
@@ -110,12 +167,18 @@ pub fn page(library: &Library, target: &Target) -> Result<Page> {
     let renderer = Renderer::new(
         &publication,
         RenderOptions {
-            media_base: Some(file_url_for_dir(publication.media_dir())),
-            standalone: true,
+            media_base: media_base(&entry, &publication),
+            standalone,
         },
     );
     Ok(match target.kind {
         TargetKind::Document(id) => Page {
+            title: publication
+                .documents()?
+                .into_iter()
+                .find(|d| d.id == id)
+                .map(|d| d.title)
+                .unwrap_or_default(),
             html: renderer.document(id)?,
             fragment: None,
             name: format!("{}-d{id}", entry.dir_name),
@@ -125,6 +188,7 @@ pub fn page(library: &Library, target: &Target) -> Result<Page> {
             chapter,
             verse,
         } => Page {
+            title: format!("{} {chapter}", publication.bible_book(book)?.chapter_title),
             html: renderer.chapter(book, chapter)?,
             fragment: (verse > 1).then(|| format!("v{book}-{chapter}-{verse}-1")),
             name: format!("{}-b{book}-{chapter}", entry.dir_name),
