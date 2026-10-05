@@ -10,6 +10,7 @@ pub mod library;
 pub mod manifest;
 pub mod net;
 pub mod reader;
+pub mod remote;
 pub mod render;
 
 pub use error::{Error, Result};
