@@ -125,7 +125,7 @@ pub fn resolve(library: &Library, current: Option<&Entry>, link: &Link) -> Resul
             }),
             None => None,
         },
-        Link::StudyNote {
+        Link::BookVerse {
             book_document,
             chapter,
             verse,

@@ -413,6 +413,256 @@ impl Publication {
         }
         Ok(notes)
     }
+
+    /// Footnotes of a Bible book document attached to verses in
+    /// `first..=last`: `(verse id, footnote index, html)`.
+    pub fn footnotes_for_verses(
+        &self,
+        document_id: i64,
+        first: i64,
+        last: i64,
+    ) -> Result<Vec<(i64, i64, String)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT BibleVerseId, FootnoteIndex, Content FROM Footnote
+             WHERE DocumentId = ?1 AND BibleVerseId BETWEEN ?2 AND ?3 AND Content IS NOT NULL
+             ORDER BY BibleVerseId, FootnoteIndex",
+        )?;
+        let rows = stmt.query_map(params![document_id, first, last], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, Vec<u8>>(2)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (verse, index, blob) = row?;
+            out.push((verse, index, self.decode(&blob)?));
+        }
+        Ok(out)
+    }
+
+    /// Cross references of a Bible book document attached to verses in
+    /// `first..=last`: `(verse id, block, first verse, last verse)`, in order.
+    pub fn citations_for_verses(
+        &self,
+        document_id: i64,
+        first: i64,
+        last: i64,
+    ) -> Result<Vec<(i64, i64, i64, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT BibleVerseId, BlockNumber, FirstBibleVerseId,
+                    IFNULL(LastBibleVerseId, FirstBibleVerseId)
+             FROM BibleCitation
+             WHERE DocumentId = ?1 AND BibleVerseId BETWEEN ?2 AND ?3
+             ORDER BY BibleVerseId, BlockNumber, ElementNumber",
+        )?;
+        let rows = stmt.query_map(params![document_id, first, last], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Title of the book's outline document, e.g. "1. Mose: Übersicht".
+    pub fn overview_title(&self, book: i64) -> Result<Option<String>> {
+        self.require_bible()?;
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT d.Title FROM BibleBook b
+                 JOIN Document d ON d.DocumentId = COALESCE(b.OutlineDocumentId, b.OverviewDocumentId)
+                 WHERE b.BibleBookId = ?1",
+                [book],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Outline entries (below the chapter level) overlapping `chapter`.
+    /// Uses the overview outline (class 115) where a book has one.
+    pub fn outline(&self, book: i64, chapter: i64) -> Result<Vec<OutlineEntry>> {
+        self.require_bible()?;
+        let class: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT Class FROM BibleOutlineEntry WHERE Book = ?1
+                 GROUP BY Class ORDER BY Class = 115 DESC, Class LIMIT 1",
+                [book],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(class) = class else {
+            return Ok(Vec::new());
+        };
+        let mut stmt = self.conn.prepare(
+            "SELECT Level, BeginChapterNumber, IFNULL(BeginVerseNumber, 1),
+                    EndChapterNumber, EndVerseNumber, Content
+             FROM BibleOutlineEntry
+             WHERE Book = ?1 AND Class = ?2 AND Level > 1
+               AND BeginChapterNumber <= ?3 AND EndChapterNumber >= ?3 AND Content IS NOT NULL
+             ORDER BY BibleOutlineEntryId",
+        )?;
+        let rows = stmt.query_map(params![book, class, chapter], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+                r.get::<_, Vec<u8>>(5)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (level, bc, bv, ec, ev, blob) = row?;
+            let text = outline_text(&self.decode(&blob)?);
+            if text.is_empty() {
+                continue;
+            }
+            out.push(OutlineEntry {
+                level,
+                text,
+                begin_chapter: bc,
+                begin_verse: bv,
+                end_chapter: ec,
+                end_verse: ev,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Abbreviated Bible book names (e.g. 1 → "1Mo", 44 → "Apg"), mined from
+    /// the labels of Bible links in the publication itself; the most common
+    /// abbreviation per book wins. Cached next to the publication files.
+    pub fn book_abbreviations(&self) -> Result<std::collections::HashMap<i64, String>> {
+        use std::collections::HashMap;
+        let cache = self.dir.join(".jwlinux-abbreviations.json");
+        if let Ok(bytes) = std::fs::read(&cache)
+            && let Ok(map) = serde_json::from_slice::<HashMap<i64, String>>(&bytes)
+        {
+            return Ok(map);
+        }
+        let mut votes: HashMap<i64, HashMap<String, u32>> = HashMap::new();
+        for sql in [
+            "SELECT Content FROM VerseCommentary WHERE Content IS NOT NULL",
+            "SELECT Content FROM Footnote WHERE Content IS NOT NULL",
+            "SELECT Content FROM Document WHERE Content IS NOT NULL",
+        ] {
+            let mut stmt = match self.conn.prepare(sql) {
+                Ok(s) => s,
+                Err(_) => continue, // table missing in this publication
+            };
+            let blobs = stmt.query_map([], |r| r.get::<_, Vec<u8>>(0))?;
+            for blob in blobs {
+                let Ok(html) = self.decode(&blob?) else {
+                    continue;
+                };
+                for (book, abbr) in bible_link_labels(&html) {
+                    *votes.entry(book).or_default().entry(abbr).or_default() += 1;
+                }
+            }
+        }
+        let map: HashMap<i64, String> = votes
+            .into_iter()
+            .filter_map(|(book, v)| {
+                v.into_iter()
+                    .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.len().cmp(&a.0.len())))
+                    .map(|(abbr, _)| (book, abbr))
+            })
+            .collect();
+        let _ = std::fs::write(&cache, serde_json::to_vec(&map)?);
+        Ok(map)
+    }
+}
+
+/// An outline line, e.g. "Abram zieht von Haran nach Kanaan" for 12:1-9.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct OutlineEntry {
+    pub level: i64,
+    pub text: String,
+    pub begin_chapter: i64,
+    pub begin_verse: i64,
+    pub end_chapter: i64,
+    pub end_verse: Option<i64>,
+}
+
+/// Text of the innermost `<p>` of an outline entry, without the trailing
+/// verse range in parentheses.
+fn outline_text(html: &str) -> String {
+    let last_p = html.rfind("<p").map_or(html, |i| &html[i..]);
+    let p = last_p.split("</p>").next().unwrap_or(last_p);
+    let text = strip_tags(p);
+    let text = match text.rfind('(') {
+        Some(i) if text.trim_end().ends_with(')') => &text[..i],
+        _ => &text,
+    };
+    text.trim().to_owned()
+}
+
+/// Remove tags and decode the few entities that occur in publication text.
+pub(crate) fn strip_tags(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.replace("&nbsp;", "\u{a0}")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+}
+
+/// `(book, abbreviation)` for each `<a href="jwpub://b/NWTR/B:…">Abbr C:V</a>`
+/// whose label starts with a book abbreviation followed by a chapter.
+fn bible_link_labels(html: &str) -> Vec<(i64, String)> {
+    const HREF: &str = "href=\"jwpub://b/";
+    let mut out = Vec::new();
+    let mut rest = html;
+    while let Some(i) = rest.find(HREF) {
+        rest = &rest[i + HREF.len()..];
+        // `NWTR/40:1:1-40:1:1"…>label<`
+        let Some(slash) = rest.find('/') else { break };
+        let book: Option<i64> = rest[slash + 1..]
+            .split(':')
+            .next()
+            .and_then(|b| b.parse().ok());
+        let (Some(book), Some(gt)) = (book, rest.find('>')) else {
+            continue;
+        };
+        let label_start = &rest[gt + 1..];
+        let label = label_start
+            .split('<')
+            .next()
+            .unwrap_or_default()
+            .trim_start();
+        if let Some(abbr) = abbreviation_of(label) {
+            out.push((book, abbr));
+        }
+    }
+    out
+}
+
+/// "1Mo 5:1;" -> "1Mo", "Apg 7:3" -> "Apg"; `None` if the label does not
+/// start with a word followed by a chapter number.
+fn abbreviation_of(label: &str) -> Option<String> {
+    let (word, tail) = label.split_once(' ')?;
+    let word = word.trim_end_matches('.');
+    let mut chars = word.chars();
+    let first = chars.next()?;
+    let rest: String = chars.collect();
+    let valid = (first.is_ascii_digit() || first.is_alphabetic())
+        && !rest.is_empty()
+        && rest.chars().all(char::is_alphabetic)
+        && word.chars().filter(char::is_ascii_digit).count() <= 1
+        && word.chars().count() <= 6;
+    (valid && tail.starts_with(|c: char| c.is_ascii_digit())).then(|| word.to_owned())
 }
 
 const BOOK_SELECT: &str = "SELECT b.BibleBookId, IFNULL(b.BookDisplayTitle, ''),
@@ -428,4 +678,28 @@ fn book_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<BibleBook> {
         book_document_id: r.get(3)?,
         chapters: r.get(4)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn abbreviations_from_labels() {
+        assert_eq!(abbreviation_of("1Mo 5:1;").as_deref(), Some("1Mo"));
+        assert_eq!(abbreviation_of("Apg 7:3, 4").as_deref(), Some("Apg"));
+        assert_eq!(abbreviation_of("Vers 3"), Some("Vers".into())); // filtered by majority vote
+        assert_eq!(abbreviation_of("Offenbarung 1:1"), None); // too long to be an abbreviation
+        assert_eq!(abbreviation_of(" 6:9;"), None);
+        assert_eq!(abbreviation_of("12:1"), None);
+        let html = r#"(<a href="jwpub://b/NWTR/1:5:1-1:5:1" data-bid="3-1" class="b">1Mo 5:1;</a><a href="jwpub://b/NWTR/1:6:9-1:6:9" class="b"> 6:9;</a>"#;
+        assert_eq!(bible_link_labels(html), vec![(1, "1Mo".to_owned())]);
+    }
+
+    #[test]
+    fn outline_texts() {
+        let html = r#"<ul class="outline"><li class="L1 chapterNo"><ul><li class="L2"><p id="p53" data-pid="53">Abram zieht von Haran nach Kanaan <span class="altsize">(</span><a class="it" href="jwpub://c/X:1/12:1-12:9"><span class="altsize">1-9</span></a><span class="altsize">)</span></p></li></ul></li></ul>"#;
+        assert_eq!(outline_text(html), "Abram zieht von Haran nach Kanaan");
+        assert_eq!(strip_tags("a&nbsp;<b>b</b> &amp; c"), "a\u{a0}b & c");
+    }
 }

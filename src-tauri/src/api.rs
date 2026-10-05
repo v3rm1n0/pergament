@@ -137,7 +137,13 @@ pub fn link_action(library: &Library, current: Option<&str>, href: &str) -> ApiR
         _ => match navigate::resolve(library, current.as_ref(), &link).map_err(err)? {
             Some(target) => LinkAction::Open {
                 target,
-                study_note: matches!(link, Link::StudyNote { .. }),
+                study_note: matches!(
+                    link,
+                    Link::BookVerse {
+                        study_note: true,
+                        ..
+                    }
+                ),
             },
             None => LinkAction::Missing {
                 url: match &link {
