@@ -7,6 +7,7 @@ mod error;
 pub mod jwpub;
 pub mod library;
 pub mod manifest;
+pub mod net;
 pub mod reader;
 pub mod render;
 
