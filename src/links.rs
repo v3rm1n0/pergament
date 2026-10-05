@@ -11,13 +11,15 @@ pub enum Link {
         lang_code: String,
         meps_document_id: i64,
     },
-    /// `jwlinux://note/{lang}:{book_document}/{ch}:{v}[-…]`: the study note
-    /// on a verse; `book_document` is the MEPS id of the Bible book document.
-    StudyNote {
+    /// `jwlinux://verse/{lang}:{book_document}/{ch}:{v}[-…]`: a verse given by
+    /// the MEPS id of its Bible book document. `jwlinux://note/…` is the same
+    /// but points at the study note on that verse (`study_note`).
+    BookVerse {
         lang_code: String,
         book_document: i64,
         chapter: i64,
         verse: i64,
+        study_note: bool,
     },
     /// http(s) link to open in a browser.
     External(String),
@@ -50,7 +52,11 @@ impl Link {
                 meps_document_id: id,
             });
         }
-        if let Some(rest) = uri.strip_prefix("jwlinux://note/") {
+        let book_verse = uri
+            .strip_prefix("jwlinux://note/")
+            .map(|r| (r, true))
+            .or_else(|| uri.strip_prefix("jwlinux://verse/").map(|r| (r, false)));
+        if let Some((rest, study_note)) = book_verse {
             let (lang, tail) = rest.split_once(':')?;
             let (doc, position) = tail.split_once('/')?;
             // `8:38`, `8:38-8:40`, or rarely a bare chapter `16-17:5`.
@@ -59,11 +65,12 @@ impl Link {
                 Some((c, v)) => (c.parse().ok()?, v.parse().ok()?),
                 None => (start.parse().ok()?, 1),
             };
-            return Some(Self::StudyNote {
+            return Some(Self::BookVerse {
                 lang_code: lang.to_owned(),
                 book_document: doc.parse().ok()?,
                 chapter,
                 verse,
+                study_note,
             });
         }
         if uri.starts_with("https://") || uri.starts_with("http://") {
@@ -108,20 +115,22 @@ mod tests {
         );
         assert_eq!(
             Link::parse("jwlinux://note/X:1001070145/8:38"),
-            Some(Link::StudyNote {
+            Some(Link::BookVerse {
                 lang_code: "X".into(),
                 book_document: 1001070145,
                 chapter: 8,
-                verse: 38
+                verse: 38,
+                study_note: true
             })
         );
         assert_eq!(
-            Link::parse("jwlinux://note/X:1001070145/16-17:5"),
-            Some(Link::StudyNote {
+            Link::parse("jwlinux://verse/X:1001070145/16-17:5"),
+            Some(Link::BookVerse {
                 lang_code: "X".into(),
                 book_document: 1001070145,
                 chapter: 16,
-                verse: 1
+                verse: 1,
+                study_note: false
             })
         );
         assert!(matches!(
