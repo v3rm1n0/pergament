@@ -161,32 +161,48 @@ impl Catalog {
             .map(|(id, _)| *id)
     }
 
-    /// Publications in a language whose title or symbol contains `query`
-    /// (all of them if `query` is empty), newest first.
+    /// Publications in a language where every word of `query` appears in a
+    /// title or symbol (all of them if `query` is empty), newest first.
     pub fn search(
         &self,
         meps_language: i64,
         query: &str,
         limit: usize,
     ) -> Result<Vec<CatalogItem>> {
-        let pattern = format!(
-            "%{}%",
-            query
-                .replace('\\', "\\\\")
-                .replace('%', "\\%")
-                .replace('_', "\\_")
-        );
+        let words: Vec<String> = query
+            .split_whitespace()
+            .take(16)
+            .map(|w| {
+                format!(
+                    "%{}%",
+                    w.replace('\\', "\\\\")
+                        .replace('%', "\\%")
+                        .replace('_', "\\_")
+                )
+            })
+            .collect();
+        // One condition per word; parameters ?3.. hold the patterns.
+        let conditions: String = (0..words.len())
+            .map(|i| {
+                let p = format!("?{}", i + 3);
+                format!(
+                    " AND (p.Title LIKE {p} ESCAPE '\\' OR p.ShortTitle LIKE {p} ESCAPE '\\'
+                      OR IFNULL(p.IssueTitle, '') LIKE {p} ESCAPE '\\'
+                      OR IFNULL(p.CoverTitle, '') LIKE {p} ESCAPE '\\'
+                      OR p.Symbol LIKE {p} ESCAPE '\\' OR p.KeySymbol LIKE {p} ESCAPE '\\')"
+                )
+            })
+            .collect();
         let mut stmt = self.conn.prepare(&format!(
             "{ITEM_SELECT}
-             WHERE p.MepsLanguageId = ?1
-               AND (p.Title LIKE ?2 ESCAPE '\\' OR p.ShortTitle LIKE ?2 ESCAPE '\\'
-                    OR IFNULL(p.IssueTitle, '') LIKE ?2 ESCAPE '\\'
-                    OR IFNULL(p.CoverTitle, '') LIKE ?2 ESCAPE '\\'
-                    OR p.Symbol LIKE ?2 ESCAPE '\\' OR p.KeySymbol LIKE ?2 ESCAPE '\\')
+             WHERE p.MepsLanguageId = ?1{conditions}
              ORDER BY p.Year DESC, p.IssueTagNumber DESC, p.KeySymbol
-             LIMIT ?3"
+             LIMIT ?2"
         ))?;
-        let rows = stmt.query_map(params![meps_language, pattern, limit as i64], item_from_row)?;
+        let mut values: Vec<rusqlite::types::Value> =
+            vec![meps_language.into(), (limit as i64).into()];
+        values.extend(words.into_iter().map(Into::into));
+        let rows = stmt.query_map(rusqlite::params_from_iter(values), item_from_row)?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
