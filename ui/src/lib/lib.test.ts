@@ -89,3 +89,12 @@ describe("settings", () => {
     expect(defaultLangCode("pt-BR")).toBe("E");
   });
 });
+
+import { inLanguage } from "./settings";
+
+describe("language filter", () => {
+  it("keeps the selected language and unknown entries", () => {
+    const items = [{ langCode: "X" }, { langCode: "E" }, { langCode: null }];
+    expect(inLanguage(items, "X")).toEqual([{ langCode: "X" }, { langCode: null }]);
+  });
+});

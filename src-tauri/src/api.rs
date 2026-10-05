@@ -34,6 +34,7 @@ pub struct PubCard {
     pub year: i64,
     pub issue_tag: String,
     pub meps_language: i64,
+    pub lang_code: Option<String>,
     pub publication_type: Option<String>,
     pub is_bible: bool,
     pub cover: Option<String>,
@@ -56,6 +57,7 @@ fn card(entry: &Entry, publication: &Publication) -> ApiResult<PubCard> {
         year: entry.year,
         issue_tag: entry.issue_tag.clone(),
         meps_language: entry.meps_language,
+        lang_code: entry.lang_code.clone(),
         publication_type: entry.publication_type.clone(),
         is_bible: publication.is_bible(),
         cover: publication
