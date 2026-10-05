@@ -296,3 +296,61 @@ fn toc_and_covers() {
         Some("2026000_X_cvr.jpg")
     );
 }
+
+/// Study-note links (`jwpub://c/`) and links to Bible book documents.
+#[test]
+fn study_note_and_book_links() {
+    use jwlinux::links::Link;
+    use jwlinux::navigate::{self, TargetKind};
+    let Some(bible) = fixture("JWL_TEST_JWPUB") else {
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path()).unwrap();
+    let nwtsty = lib.import(&bible).unwrap();
+
+    // Rendered study notes link to other notes via jwlinux://note/.
+    let html = navigate::page(
+        &lib,
+        &navigate::Target {
+            publication: nwtsty.dir_name.clone(),
+            kind: TargetKind::Chapter {
+                book: 40,
+                chapter: 16,
+                verse: 1,
+            },
+        },
+    )
+    .unwrap()
+    .html;
+    assert!(html.contains("jwlinux://note/X:1001070145/8:38"));
+    assert!(!html.contains("jwpub:"));
+
+    // MEPS 1001070145 is the book document of Mark (41).
+    let link = Link::parse("jwlinux://note/X:1001070145/8:38").unwrap();
+    let t = navigate::resolve(&lib, Some(&nwtsty), &link)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        t.kind,
+        TargetKind::Chapter {
+            book: 41,
+            chapter: 8,
+            verse: 38
+        }
+    );
+
+    // MEPS 1001070144 is Matthew's book document: open chapter 1.
+    let link = Link::parse("jwlinux://pub/X:1001070144/1-1").unwrap();
+    let t = navigate::resolve(&lib, Some(&nwtsty), &link)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        t.kind,
+        TargetKind::Chapter {
+            book: 40,
+            chapter: 1,
+            verse: 1
+        }
+    );
+}
