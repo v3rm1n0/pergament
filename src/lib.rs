@@ -4,6 +4,10 @@
 
 pub mod crypto;
 mod error;
+pub mod jwpub;
+pub mod library;
 pub mod manifest;
 
 pub use error::{Error, Result};
+pub use jwpub::JwPub;
+pub use library::{Entry, Library};
