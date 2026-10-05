@@ -30,6 +30,7 @@ fn imports_valid_publication() {
     assert_eq!(entry.symbol, common::SYMBOL);
     assert_eq!(entry.meps_language, common::LANG);
     assert_eq!(entry.dir_name, "tst_0");
+    assert_eq!(entry.lang_code.as_deref(), Some("E"));
     assert!(lib.db_path(&entry).is_file());
     assert!(lib.publication_dir(&entry).join("img_1.jpg").is_file());
     assert_eq!(lib.list().unwrap(), vec![entry.clone()]);

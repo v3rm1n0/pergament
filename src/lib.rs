@@ -6,6 +6,7 @@ pub mod catalog;
 pub mod crypto;
 mod error;
 pub mod jwpub;
+pub mod languages;
 pub mod library;
 pub mod links;
 pub mod manifest;
