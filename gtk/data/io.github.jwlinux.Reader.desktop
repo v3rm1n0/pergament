@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=jwlinux
+GenericName=Publication Reader
+Comment=Unofficial reader for JW publications (.jwpub)
+Exec=jwlinux-gtk
+Icon=accessories-dictionary
+Terminal=false
+Categories=Office;Viewer;
+StartupNotify=true
