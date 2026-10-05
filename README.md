@@ -64,19 +64,28 @@ point to the files in the library. Use `--fragment` for just the content.
 
 ## Desktop app
 
-`jwlinux-gtk` is a GTK4/libadwaita reader for the same library:
+A Tauri v2 app (`src-tauri/`, React frontend in `ui/`) with a layout modelled on
+the original app (own name, colours and icons):
 
-- sidebar with your publications, their documents and, for Bibles, books
-  and chapters; the reader shows pages in WebKitGTK with JavaScript off
-- links work inside the app: Bible references open the chapter in your
-  Bible, publication links open the document if it is in the library
-  (otherwise you can open it on jw.org), web links open in your browser
-- import `.jwpub` files (Ctrl+O), search and download online (Ctrl+F)
-- follows the system light/dark style, or force one in the menu
-- `jwlinux-gtk nwtsty 19:23` or `jwlinux-gtk wp26 3` opens a page directly
+- **Home**: daily text booklet, favorites, Teaching Toolbox and What's New
+- **Bible**: tabs from the publication's own navigation, Testament book tiles,
+  chapter grid, and a reader with a study pane (outline, footnotes,
+  abbreviated cross references and study notes per verse)
+- **Library**: publication categories from the catalog, downloaded publications
+- **Meetings**: workbook and Watchtower study of the selected week
+- **Personal Study**: layout only; notes, tags and playlists are not built yet
+- language selector in the top right, light/dark theme, import (.jwpub)
+
+Catalog content (Home lists, categories, meetings) needs the public catalog
+(about 58 MB); it is downloaded only when you ask for it. Cover images are
+fetched once and cached. On Linux the app sets
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` (unless set) to avoid rendering glitches on
+some GPUs.
 
 ```sh
-nix run .#jwlinux-gtk
+nix develop
+pnpm install
+pnpm tauri dev
 ```
 
 ## Development
