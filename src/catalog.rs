@@ -40,6 +40,13 @@ pub struct CatalogItem {
     pub size: u64,
     /// SHA-1 of the `.jwpub` file.
     pub sha1: String,
+    /// `Publication.PublicationTypeId`, see [`category_name`].
+    pub publication_type: i64,
+    pub short_title: Option<String>,
+    /// When it was added to the catalog (RFC 3339).
+    pub cataloged_on: Option<String>,
+    /// Square cover image as a path below [`IMAGE_BASE`].
+    pub image: Option<String>,
 }
 
 #[derive(Debug)]
@@ -230,9 +237,169 @@ impl Catalog {
     }
 }
 
+impl Catalog {
+    fn items(&self, sql_tail: &str, params: impl rusqlite::Params) -> Result<Vec<CatalogItem>> {
+        let mut stmt = self.conn.prepare(&format!("{ITEM_SELECT} {sql_tail}"))?;
+        let rows = stmt.query_map(params, item_from_row)?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Categories with publications in a language: `(type id, count)`, in the
+    /// order of [`CATEGORIES`]. Convention releases are an attribute and are
+    /// reported as [`CONVENTION`].
+    pub fn categories(&self, meps_language: i64) -> Result<Vec<(i64, i64)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT PublicationTypeId, count(*) FROM Publication
+             WHERE MepsLanguageId = ?1 GROUP BY PublicationTypeId",
+        )?;
+        let counts: HashMap<i64, i64> = stmt
+            .query_map([meps_language], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let convention: i64 = self.conn.query_row(
+            "SELECT count(*) FROM PublicationAttributeMap m
+             JOIN PublicationAttribute a ON a.Id = m.PublicationAttributeId
+             JOIN Publication p ON p.Id = m.PublicationId
+             WHERE a.Name = 'Convention' AND p.MepsLanguageId = ?1",
+            [meps_language],
+            |r| r.get(0),
+        )?;
+        Ok(CATEGORIES
+            .iter()
+            .filter_map(|(id, _)| match *id {
+                CONVENTION => (convention > 0).then_some((CONVENTION, convention)),
+                id => counts.get(&id).map(|n| (id, *n)),
+            })
+            .collect())
+    }
+
+    /// Publications of a category, newest first.
+    pub fn by_category(
+        &self,
+        meps_language: i64,
+        category: i64,
+        limit: usize,
+    ) -> Result<Vec<CatalogItem>> {
+        if category == CONVENTION {
+            return self.items(
+                "WHERE p.MepsLanguageId = ?1 AND p.Id IN (
+                     SELECT m.PublicationId FROM PublicationAttributeMap m
+                     JOIN PublicationAttribute t ON t.Id = m.PublicationAttributeId
+                     WHERE t.Name = 'Convention')
+                 ORDER BY p.Year DESC, p.IssueTagNumber DESC, p.Title LIMIT ?2",
+                params![meps_language, limit as i64],
+            );
+        }
+        self.items(
+            "WHERE p.MepsLanguageId = ?1 AND p.PublicationTypeId = ?2
+             ORDER BY p.Year DESC, p.IssueTagNumber DESC, p.Title LIMIT ?3",
+            params![meps_language, category, limit as i64],
+        )
+    }
+
+    /// A curated list (`CuratedAsset.ListType`, e.g. [`LIST_TEACHING_TOOLBOX`]).
+    pub fn curated(&self, meps_language: i64, list: i64) -> Result<Vec<CatalogItem>> {
+        self.items(
+            "JOIN CuratedAsset c ON c.PublicationAssetId = a.Id
+             WHERE p.MepsLanguageId = ?1 AND c.ListType = ?2
+             ORDER BY c.SortOrder",
+            params![meps_language, list],
+        )
+    }
+
+    /// Most recently cataloged publications.
+    pub fn whats_new(&self, meps_language: i64, limit: usize) -> Result<Vec<CatalogItem>> {
+        self.items(
+            "WHERE p.MepsLanguageId = ?1 ORDER BY a.CatalogedOn DESC LIMIT ?2",
+            params![meps_language, limit as i64],
+        )
+    }
+
+    /// Publications whose dated range of `class` (see [`DATED_MEETING_WORKBOOK`]
+    /// etc.) contains `date` (`YYYY-MM-DD`): `(item, start, end)`.
+    pub fn dated(
+        &self,
+        meps_language: i64,
+        class: i64,
+        date: &str,
+    ) -> Result<Vec<(CatalogItem, String, String)>> {
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT * FROM ({ITEM_SELECT}
+                 WHERE p.MepsLanguageId = ?1) item
+             JOIN (SELECT d.Start, d.End, p2.KeySymbol AS ks, p2.IssueTagNumber AS it
+                   FROM DatedText d JOIN Publication p2 ON p2.Id = d.PublicationId
+                   WHERE p2.MepsLanguageId = ?1 AND d.Class = ?2 AND ?3 BETWEEN d.Start AND d.End)
+               ON ks = item.KeySymbol AND it = item.IssueTagNumber
+             ORDER BY 1"
+        ))?;
+        let rows = stmt.query_map(params![meps_language, class, date], |r| {
+            Ok((
+                item_from_row(r)?,
+                r.get::<_, String>(13)?,
+                r.get::<_, String>(14)?,
+            ))
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+}
+
+/// Base URL of catalog images; `CatalogItem::image` is relative to it.
+pub const IMAGE_BASE: &str = "https://app.jw-cdn.org/catalogs/publications/";
+
+/// `images/ab/name.jpg` with only safe characters.
+pub fn safe_image_path(path: &str) -> bool {
+    let mut parts = path.split('/');
+    matches!(
+        (parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some("images"), Some(dir), Some(file), None)
+            if !dir.is_empty()
+                && dir.chars().all(|c| c.is_ascii_alphanumeric())
+                && !file.starts_with('.')
+                && file.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+    )
+}
+
+/// Pseudo category id for convention releases (an attribute, not a type).
+pub const CONVENTION: i64 = -1;
+
+/// `PublicationTypeId` → category name, in display order. Derived from the
+/// symbols in each type (docs/FORMAT.md, "Publication catalog").
+pub const CATEGORIES: &[(i64, &str)] = &[
+    (2, "Books"),
+    (4, "Brochures and Booklets"),
+    (10, "Tracts and Invitations"),
+    (22, "Article Series"),
+    (14, "Watchtower"),
+    (13, "Awake!"),
+    (30, "Meeting Workbooks"),
+    (7, "Kingdom Ministry"),
+    (31, "Programs"),
+    (6, "Index"),
+    (17, "Guidelines"),
+    (CONVENTION, "Convention Releases"),
+    (1, "Bible"),
+];
+
+pub fn category_name(id: i64) -> Option<&'static str> {
+    CATEGORIES.iter().find(|(i, _)| *i == id).map(|(_, n)| *n)
+}
+
+/// `CuratedAsset.ListType` values (docs/FORMAT.md).
+pub const LIST_MEETINGS: i64 = 0;
+pub const LIST_TEACHING_TOOLBOX: i64 = 2;
+
+/// `DatedText.Class` values (docs/FORMAT.md).
+pub const DATED_DAILY_TEXT: i64 = 4;
+pub const DATED_WATCHTOWER_STUDY: i64 = 68;
+pub const DATED_MEETING_WORKBOOK: i64 = 106;
+
 const ITEM_SELECT: &str =
     "SELECT p.KeySymbol, p.Symbol, p.MepsLanguageId, p.IssueTagNumber, p.Year,
-        p.Title, p.IssueTitle, a.Size, a.Signature
+        p.Title, p.IssueTitle, a.Size, a.Signature, p.PublicationTypeId, p.ShortTitle,
+        a.CatalogedOn,
+        (SELECT i.NameFragment FROM PublicationAssetImageMap m
+           JOIN ImageAsset i ON i.Id = m.ImageAssetId
+         WHERE m.PublicationAssetId = a.Id
+         ORDER BY i.NameFragment LIKE '%\\_sqr%' ESCAPE '\\' DESC, abs(i.Width - 270) LIMIT 1)
      FROM Publication p JOIN PublicationAsset a ON a.PublicationId = p.Id";
 
 fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
@@ -246,6 +413,12 @@ fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
         issue_title: r.get(6)?,
         size: r.get::<_, i64>(7)?.max(0) as u64,
         sha1: r.get(8)?,
+        publication_type: r.get(9)?,
+        short_title: r.get(10)?,
+        cataloged_on: r.get(11)?,
+        image: r
+            .get::<_, Option<String>>(12)?
+            .filter(|p| safe_image_path(p)),
     })
 }
 
