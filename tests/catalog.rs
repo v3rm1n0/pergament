@@ -278,4 +278,13 @@ fn real_catalog() {
             .any(|i| i.key_symbol == "S-38")
     );
     assert!(toolbox.iter().all(|i| i.image.is_some()));
+    let other = c.curated(2, LIST_MEETINGS).unwrap();
+    // S-38 has no image in the catalog.
+    assert!(
+        other
+            .iter()
+            .filter(|i| i.key_symbol != "S-38")
+            .all(|i| i.image.is_some())
+    );
+    assert!(meetings[0].0.image.is_some(), "{:?}", meetings[0].0);
 }
