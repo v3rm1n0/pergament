@@ -36,9 +36,28 @@ jwl show nwtsty 19:23 > psalm23.html          # Bible chapter (book:chapter)
 jwl show wp26 3 > article.html                # document by DocumentId
 ```
 
+Downloading from jw.org's public services:
+
+```sh
+jwl search X wachtturm                        # search the catalog (X = German)
+jwl download wp --lang X --issue 20260900     # download, verify, import
+jwl download nwtsty --lang X                  # undated works need no issue
+```
+
+`search` downloads the public publication catalog once (about 58 MB) and
+checks for a newer one at most once a day (`--refresh` forces a check).
+Language codes are mapped to MEPS ids from the catalog; for languages that
+cannot be mapped, pass `--meps-id`. Downloads resume after interruptions, are
+checked against the MD5 from the download API and, when the catalog is
+cached, against its size and SHA-1, and then go through the normal import.
+Requests carry a `jwlinux/…` User-Agent, are spaced at least one second apart
+and are retried with backoff on network errors, 429 and 5xx.
+
 The library lives in `$XDG_DATA_HOME/jwlinux` (usually
 `~/.local/share/jwlinux`). Override it with `--library DIR` or
-`JWL_LIBRARY`. Re-importing a publication replaces the existing copy.
+`JWL_LIBRARY`. The catalog and partial downloads are kept in
+`$XDG_CACHE_HOME/jwlinux` (`--cache DIR` or `JWL_CACHE`). Re-importing a
+publication replaces the existing copy.
 
 `jwl show` writes a complete HTML page with light and dark styles. Images
 point to the files in the library. Use `--fragment` for just the content.
@@ -55,7 +74,8 @@ cargo fmt --check
 Tests build small valid and malicious `.jwpub` files in memory. To also
 test against real publications, set `JWL_TEST_JWPUB` (study Bible) and
 `JWL_TEST_JWPUB_WP` (a Watchtower issue) to their paths. Those tests are
-skipped when the variables are not set.
+skipped when the variables are not set. `JWL_TEST_NETWORK=1` enables a test
+that downloads one Watchtower issue (about 3 MB) from jw.org.
 
 ## License
 

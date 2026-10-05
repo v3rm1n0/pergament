@@ -157,6 +157,60 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   The file is inside `contents`.
 - Styling classes are site CSS (`du-*`, `dc-*`), which is not part of the file.
 
+## Download services
+
+Endpoints come from [jwapi] (`notes.txt`, `libjw/jwhttp/*.go`) and [msp]
+(`test/e2e/*.test.js`). All were checked with live requests on 2026-10-05,
+sent with jwlinux's own User-Agent and no app tokens. jwapi's notes impersonate
+the official app (`User-Agent: jwlibrary-android`, bearer tokens from
+`tokens/jwl-public.jwt`); jwlinux does **not** do that and does not use any
+endpoint that needs such credentials.
+
+### Publication catalog
+
+1. `GET https://app.jw-cdn.org/catalogs/publications/v4/manifest.json`
+   returns `{"version": 1, "current": "<uuid>"}`. [jwapi, own]
+2. `GET https://app.jw-cdn.org/catalogs/publications/v4/<uuid>/catalog.db.gz`
+   returns a gzipped SQLite database (58 MB gzipped, 216 MB unpacked on
+   2026-10-05). Ranged requests are supported. [jwapi, own]
+
+Relevant tables [own]:
+
+| Table | Notes |
+|---|---|
+| `Publication` | `Id`, `MepsLanguageId`, `KeySymbol` (undated symbol, e.g. `wp`, `w`, `nwtsty`; never NULL), `Symbol` (dated, e.g. `wp26`), `IssueTagNumber` (0 for undated), `Year`, `Title`, `ShortTitle`, `IssueTitle`, `CoverTitle`, `PublicationTypeId`. Unique on (`KeySymbol`, `IssueTagNumber`, `MepsLanguageId`) |
+| `PublicationAsset` | one per publication; `MimeType` is always `application/x-jwpub`; **`Size` = file size, `ExpandedSize` = manifest `expandedSize`, `Signature` = SHA-1 of the `.jwpub` file** (verified on both fixtures) |
+| `ImageAsset`, `PublicationAssetImageMap` | cover images; `NameFragment` like `images/2b/302014021_univ_sqr-126.jpg` |
+
+The catalog has **no language table**. jwlinux derives MEPS-id →
+language-code pairs from language-specific image names
+(`…_{CODE}_cvr.jpg` etc.), taking the most frequent code per
+`MepsLanguageId`. This covers 313 of 875 language ids (0 `E`, 1 `S`, 2 `X`,
+3 `F`, 4 `I`, …); every derived code exists in the jw.org language list.
+It is a heuristic, not an official mapping. For other languages pass the
+MEPS id explicitly.
+
+### Language list
+
+`GET https://www.jw.org/en/languages/` returns JSON
+`{"languages": [{"symbol", "langcode", "name", "vernacularName", "direction", "isSignLanguage", …}]}`.
+It has no MEPS ids. [jwapi `utils/getmepslangs`, own]
+
+### Download links (pub-media)
+
+`GET https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub={KeySymbol}&issue={YYYYMM}&fileformat=JWPUB&alllangs=0&langwritten={CODE}`
+([msp] uses `b.jw-cdn.org`, [jwapi] `app.jw-cdn.org`). Omit `issue` for undated
+publications. Both `issue=202609` and `issue=20260900` work; the response
+reports `"issue": "202609"`. [own]
+
+Response (fields used):
+`files.{CODE}.JWPUB[]` → `{ title, filesize, file: { url, checksum, modifiedDatetime } }`.
+**`file.checksum` is the MD5 of the `.jwpub` file**, and `filesize` its size
+(both verified on both fixtures). File URLs are on `https://cfp2.jw-cdn.org/…`.
+They support `Range` requests (`206` with `content-range`, checked byte for
+byte). An unknown publication returns HTTP `400` with
+`[{"id": …, "title": "Bad Request", "status": 400}]`. [own]
+
 ## Unknown / not relied upon
 
 - What the `C` constant protects beyond obfuscation. We only reproduce the
@@ -173,4 +227,6 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
 - Full list of `Document.Class`/`Type` values across other publication types.
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.
-- Download API endpoints (not investigated yet).
+- Whether `GETPUBMEDIALINKS` ever returns more than one JWPUB file per
+  language; jwlinux takes the first.
+- Rate limits on the jw.org side (none hit at one request per second).
