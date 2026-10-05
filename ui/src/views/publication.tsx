@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
-import { AppBar, useApp } from "@/app";
+import { FileText, Star } from "lucide-react";
+import { AppBar, BarButton, useApp } from "@/app";
+import { loadFavorites, toggleFavorite } from "@/lib/settings";
 import { api, documentTarget, type PubDetail, type TocNode } from "@/lib/api";
 import { bookShade, booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { cn } from "@/lib/utils";
@@ -92,8 +93,19 @@ function DocList({ dir, nodes }: { dir: string; nodes: TocNode[] }) {
   );
 }
 
+/** Star in the top bar that adds the publication to the Home favorites. */
+function FavoriteButton({ dir }: { dir: string }) {
+  const [on, setOn] = useState(() => loadFavorites().includes(dir));
+  return (
+    <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => setOn(toggleFavorite(dir).includes(dir))}>
+      <Star size={21} strokeWidth={1.5} className={on ? "fill-accent text-accent" : undefined} />
+    </BarButton>
+  );
+}
+
 export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const { replace } = useApp();
+  const { lang, languageName } = useApp();
   const detail = usePublication(dir);
   if (!detail) return <AppBar title="" />;
   const title = detail.card.shortTitle ?? detail.card.title;
@@ -103,7 +115,9 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   if (toc.length <= 1) {
     return (
       <>
-        <AppBar title={title} />
+        <AppBar title={title} subtitle={languageName(lang)}>
+          <FavoriteButton dir={dir} />
+        </AppBar>
         <div className="flex-1 overflow-y-auto px-8 py-8">
           <DocList dir={dir} nodes={toc[0]?.children ?? []} />
         </div>
@@ -114,7 +128,9 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const active = String(tab ?? booksTabIndex(toc));
   return (
     <>
-      <AppBar title={title} />
+      <AppBar title={title} subtitle={languageName(lang)}>
+        <FavoriteButton dir={dir} />
+      </AppBar>
       <Tabs
         value={active}
         onValueChange={(v) => replace({ name: "publication", dir, tab: Number(v) })}

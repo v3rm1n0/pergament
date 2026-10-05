@@ -6,7 +6,11 @@ export type View =
   | { name: "chapters"; dir: string; book: number }
   | { name: "reader"; target: Target; note?: boolean }
   | { name: "online" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "library"; tab?: "publications" | "downloaded" }
+  | { name: "category"; id: number; title: string }
+  | { name: "meetings" }
+  | { name: "personal" };
 
 export interface NavState {
   stack: View[];
