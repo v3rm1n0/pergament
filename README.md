@@ -62,6 +62,23 @@ publication replaces the existing copy.
 `jwl show` writes a complete HTML page with light and dark styles. Images
 point to the files in the library. Use `--fragment` for just the content.
 
+## Desktop app
+
+`jwlinux-gtk` is a GTK4/libadwaita reader for the same library:
+
+- sidebar with your publications, their documents and, for Bibles, books
+  and chapters; the reader shows pages in WebKitGTK with JavaScript off
+- links work inside the app: Bible references open the chapter in your
+  Bible, publication links open the document if it is in the library
+  (otherwise you can open it on jw.org), web links open in your browser
+- import `.jwpub` files (Ctrl+O), search and download online (Ctrl+F)
+- follows the system light/dark style, or force one in the menu
+- `jwlinux-gtk nwtsty 19:23` or `jwlinux-gtk wp26 3` opens a page directly
+
+```sh
+nix run .#jwlinux-gtk
+```
+
 ## Development
 
 ```sh
