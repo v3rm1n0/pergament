@@ -26,6 +26,8 @@ pub struct AppState {
     root: PathBuf,
     cache: PathBuf,
     catalog: Mutex<Option<Arc<Mutex<Catalog>>>>,
+    /// Shared client for catalog images, so their requests are rate limited together.
+    image_client: Mutex<Client>,
 }
 
 impl AppState {
@@ -165,6 +167,111 @@ fn catalog(app: &AppHandle) -> ApiResult<Arc<Mutex<Catalog>>> {
     Ok(catalog)
 }
 
+/// The catalog if it is loaded or cached; never downloads.
+fn cached_catalog(app: &AppHandle) -> ApiResult<Option<Arc<Mutex<Catalog>>>> {
+    let state = app.state::<AppState>();
+    let mut slot = state.catalog.lock().map_err(|e| e.to_string())?;
+    if slot.is_none()
+        && let Some(c) = Catalog::open_cached(&state.cache).map_err(|e| e.to_string())?
+    {
+        *slot = Some(Arc::new(Mutex::new(c)));
+    }
+    Ok(slot.clone())
+}
+
+/// Run `f` with the cached catalog and the MEPS id of `lang`; `None` when no
+/// catalog is cached yet.
+fn with_catalog<T>(
+    app: &AppHandle,
+    lang: &str,
+    f: impl FnOnce(&Catalog, i64, &Library) -> ApiResult<T>,
+) -> ApiResult<Option<T>> {
+    let Some(catalog) = cached_catalog(app)? else {
+        return Ok(None);
+    };
+    let catalog = catalog.lock().map_err(|e| e.to_string())?;
+    let meps = catalog
+        .meps_language(lang)
+        .ok_or_else(|| format!("unknown language code {lang:?}"))?;
+    let state = app.state::<AppState>();
+    let lib = state.lib()?;
+    f(&catalog, meps, &lib).map(Some)
+}
+
+#[tauri::command]
+fn chapter_study(
+    state: State<'_, AppState>,
+    dir: String,
+    book: i64,
+    chapter: i64,
+) -> ApiResult<jwlinux::render::ChapterStudy> {
+    api::chapter_study(&*state.lib()?, &dir, book, chapter)
+}
+
+/// Whether a catalog is available without downloading.
+#[tauri::command]
+async fn catalog_cached(app: AppHandle) -> ApiResult<bool> {
+    tauri::async_runtime::spawn_blocking(move || Ok(cached_catalog(&app)?.is_some()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Download (or refresh) the catalog; reports `progress` events.
+#[tauri::command]
+async fn load_catalog(app: AppHandle) -> ApiResult<()> {
+    tauri::async_runtime::spawn_blocking(move || catalog(&app).map(|_| ()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn home_lists(
+    app: AppHandle,
+    lang: String,
+    date: String,
+) -> ApiResult<Option<api::HomeLists>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, lib| {
+            api::home_lists(c, meps, lib, &date)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn categories(app: AppHandle, lang: String) -> ApiResult<Option<Vec<api::Category>>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, _| api::categories(c, meps))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn category(
+    app: AppHandle,
+    lang: String,
+    id: i64,
+) -> ApiResult<Option<Vec<api::CatalogEntry>>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, lib| api::category(c, meps, lib, id))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn meetings(app: AppHandle, lang: String, date: String) -> ApiResult<Option<api::Meetings>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, lib| {
+            api::meetings(c, meps, lib, &date)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Language list (code, names), cached for a week.
 #[tauri::command]
 async fn languages(app: AppHandle) -> ApiResult<Vec<Language>> {
@@ -183,14 +290,13 @@ async fn catalog_search(
     app: AppHandle,
     lang: String,
     query: String,
-) -> ApiResult<Vec<CatalogItem>> {
+) -> ApiResult<Vec<api::CatalogEntry>> {
     tauri::async_runtime::spawn_blocking(move || {
-        let catalog = catalog(&app)?;
-        let catalog = catalog.lock().map_err(|e| e.to_string())?;
-        let meps = catalog
-            .meps_language(&lang)
-            .ok_or_else(|| format!("unknown language code {lang:?}"))?;
-        catalog.search(meps, &query, 200).map_err(|e| e.to_string())
+        catalog(&app)?;
+        with_catalog(&app, &lang, |c, meps, lib| {
+            api::search_entries(c, meps, lib, &query)
+        })
+        .map(Option::unwrap_or_default)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -229,12 +335,31 @@ async fn download_publication(
     .map_err(|e| e.to_string())?
 }
 
+/// Catalog images are fetched once (rate limited) and cached; publication
+/// images are read from the library.
 fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
     let state = app.state::<AppState>();
-    let file = state
-        .lib()
-        .ok()
-        .and_then(|lib| api::media_file(&lib, &state.root.join("publications"), path));
+    let file = match api::catalog_image_path(&state.cache, path) {
+        Some((rel, cached)) => {
+            if !cached.is_file() {
+                let fetched = state.image_client.lock().ok().and_then(|client| {
+                    let url = format!("{}{rel}", jwlinux::catalog::IMAGE_BASE);
+                    let mut ignore = |_: u64, _: Option<u64>| {};
+                    client
+                        .download(&url, &cached, &Default::default(), &mut ignore)
+                        .ok()
+                });
+                if fetched.is_none() {
+                    let _ = std::fs::remove_file(jwlinux::net::part_path(&cached));
+                }
+            }
+            cached.is_file().then_some(cached)
+        }
+        None => state
+            .lib()
+            .ok()
+            .and_then(|lib| api::media_file(&lib, &state.root.join("publications"), path)),
+    };
     match file.and_then(|f| std::fs::read(&f).ok().map(|bytes| (f, bytes))) {
         Some((f, bytes)) => Response::builder()
             .header("Content-Type", api::mime_for(&f))
@@ -267,9 +392,16 @@ pub fn run() {
             root,
             cache,
             catalog: Mutex::new(None),
+            image_client: Mutex::new(Client::new(HttpConfig {
+                min_interval: Duration::from_millis(100),
+                max_retries: 2,
+                ..HttpConfig::default()
+            })),
         })
-        .register_uri_scheme_protocol(api::MEDIA_SCHEME, |ctx, request| {
-            media_response(ctx.app_handle(), request.uri().path())
+        .register_asynchronous_uri_scheme_protocol(api::MEDIA_SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let path = request.uri().path().to_owned();
+            std::thread::spawn(move || responder.respond(media_response(&app, &path)));
         })
         .invoke_handler(tauri::generate_handler![
             list_publications,
@@ -281,6 +413,13 @@ pub fn run() {
             import_files,
             catalog_search,
             languages,
+            chapter_study,
+            catalog_cached,
+            load_catalog,
+            home_lists,
+            categories,
+            category,
+            meetings,
             download_publication,
         ])
         .run(tauri::generate_context!())
