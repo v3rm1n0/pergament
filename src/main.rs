@@ -1,7 +1,12 @@
+use std::io::Write as _;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use jwlinux::catalog::Catalog;
+use jwlinux::net::{Client, HttpConfig};
+use jwlinux::remote::{self, Request};
 use jwlinux::render::file_url_for_dir;
 use jwlinux::{Entry, Library, Publication, RenderOptions, Renderer};
 
@@ -12,6 +17,10 @@ struct Cli {
     /// Library directory (default: $XDG_DATA_HOME/jwlinux)
     #[arg(long, global = true, env = "JWL_LIBRARY")]
     library: Option<PathBuf>,
+
+    /// Cache directory for the catalog and downloads (default: $XDG_CACHE_HOME/jwlinux)
+    #[arg(long, global = true, env = "JWL_CACHE")]
+    cache: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Command,
@@ -39,6 +48,35 @@ enum Command {
         #[arg(long)]
         fragment: bool,
     },
+    /// Search the online catalog for publications in a language
+    Search {
+        /// Language code, e.g. X (German) or E (English)
+        lang: String,
+        /// Words to look for in titles and symbols (empty: list newest)
+        query: Vec<String>,
+        /// MEPS language id, for languages the code cannot be mapped for
+        #[arg(long)]
+        meps_id: Option<i64>,
+        #[arg(long, default_value_t = 30)]
+        limit: usize,
+        /// Check for a newer catalog even if the cached one is recent
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// Download a publication from jw.org and import it
+    Download {
+        /// Symbol, e.g. nwtsty, w, wp or a dated one like wp26
+        publication: String,
+        /// Language code, e.g. X
+        #[arg(long)]
+        lang: String,
+        /// Issue tag for periodicals, e.g. 20260900 (default: newest in catalog)
+        #[arg(long)]
+        issue: Option<i64>,
+        /// MEPS language id, if the language code cannot be mapped
+        #[arg(long)]
+        meps_id: Option<i64>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -48,8 +86,89 @@ fn main() -> Result<()> {
         None => Library::open_default(),
     }
     .context("opening library")?;
+    let cache = match cli.cache {
+        Some(dir) => dir,
+        None => dirs::cache_dir()
+            .context("no cache directory (set XDG_CACHE_HOME)")?
+            .join("jwlinux"),
+    };
 
     match cli.command {
+        Command::Search {
+            lang,
+            query,
+            meps_id,
+            limit,
+            refresh,
+        } => {
+            let client = Client::new(HttpConfig::default());
+            let catalog = Catalog::load(
+                &client,
+                &cache,
+                refresh,
+                Duration::from_secs(24 * 3600),
+                &mut progress("catalog"),
+            )?;
+            let meps = resolve_language(&catalog, &lang, meps_id)?;
+            let items = catalog.search(meps, &query.join(" "), limit)?;
+            if items.is_empty() {
+                println!("nothing found");
+            }
+            for i in items {
+                let issue = if i.issue_tag > 0 {
+                    format!("--issue {}", i.issue_tag)
+                } else {
+                    String::new()
+                };
+                println!(
+                    "{:<8} {:<16} {:>6.1} MB  {}{}",
+                    i.key_symbol,
+                    issue,
+                    i.size as f64 / 1e6,
+                    i.title,
+                    i.issue_title.map(|t| format!(" – {t}")).unwrap_or_default()
+                );
+            }
+        }
+        Command::Download {
+            publication,
+            lang,
+            issue,
+            meps_id,
+        } => {
+            let client = Client::new(HttpConfig::default());
+            // Use the catalog for extra checks if one is cached; never force
+            // a full catalog download just to fetch one file.
+            let catalog = Catalog::open_cached(&cache)?;
+            let item = match &catalog {
+                Some(c) => {
+                    let meps = resolve_language(c, &lang, meps_id)?;
+                    let item = c.find(&publication, meps, issue)?;
+                    if item.is_none() {
+                        bail!(
+                            "{publication} ({lang}{}) is not in the catalog, see `jwl search {lang}`",
+                            issue.map(|i| format!(", issue {i}")).unwrap_or_default()
+                        );
+                    }
+                    item
+                }
+                None => None,
+            };
+            let req = Request {
+                key_symbol: item.as_ref().map_or(&publication, |i| &i.key_symbol),
+                lang_code: &lang,
+                issue_tag: item.as_ref().map(|i| i.issue_tag).or(issue),
+            };
+            let entry = remote::download(
+                &client,
+                &mut library,
+                &cache.join("downloads"),
+                &req,
+                item.as_ref(),
+                &mut progress(&publication),
+            )?;
+            println!("imported {}: {}", entry.dir_name, entry.title);
+        }
         Command::Import { files } => {
             let mut failed = 0;
             for file in files {
@@ -134,4 +253,40 @@ fn list_documents(pub_: &Publication) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn resolve_language(catalog: &Catalog, code: &str, meps_id: Option<i64>) -> Result<i64> {
+    if let Some(id) = meps_id {
+        return Ok(id);
+    }
+    catalog.meps_language(code).with_context(|| {
+        format!("language code {code:?} is not known from the catalog, pass --meps-id")
+    })
+}
+
+/// Progress printer for stderr, updating at most once per percent.
+fn progress(label: &str) -> impl FnMut(u64, Option<u64>) + use<> {
+    let label = label.to_owned();
+    let mut last = u64::MAX;
+    move |done, total| {
+        let mb = done as f64 / 1e6;
+        let (key, line) = match total {
+            Some(t) if t > 0 => {
+                let pct = done * 100 / t;
+                (
+                    pct,
+                    format!("{label}: {mb:.1}/{:.1} MB ({pct}%)", t as f64 / 1e6),
+                )
+            }
+            _ => (done >> 20, format!("{label}: {mb:.1} MB")),
+        };
+        if key != last {
+            last = key;
+            let mut err = std::io::stderr();
+            let _ = write!(err, "\r{line}   ");
+            if total.is_some_and(|t| done >= t) {
+                let _ = writeln!(err);
+            }
+        }
+    }
 }
