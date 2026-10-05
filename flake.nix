@@ -28,8 +28,33 @@
           gdk-pixbuf
           graphene
         ];
+        jwlinux = pkgs.rustPlatform.buildRustPackage {
+          pname = "jwlinux";
+          version = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [
+              ./Cargo.toml
+              ./Cargo.lock
+              ./src
+              ./tests
+            ];
+          };
+          cargoLock.lockFile = ./Cargo.lock;
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = [ pkgs.sqlite ];
+          meta = {
+            description = "Unofficial native Linux reader for JW publications (.jwpub)";
+            mainProgram = "jwl";
+            platforms = pkgs.lib.platforms.linux;
+          };
+        };
       in
       {
+        packages.default = jwlinux;
+        packages.jwlinux = jwlinux;
+        checks.default = jwlinux;
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             # Rust toolchain (stable, from nixpkgs)
