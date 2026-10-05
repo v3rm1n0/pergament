@@ -30,6 +30,9 @@ pub struct Entry {
     pub db_file: String,
     pub contents_hash: String,
     pub imported_at: i64,
+    /// Language code from the file name, e.g. `X`; `None` for entries
+    /// imported before this was recorded.
+    pub lang_code: Option<String>,
 }
 
 #[derive(Debug)]
@@ -66,6 +69,13 @@ impl Library {
                  UNIQUE (symbol, meps_language, issue_tag)
              );",
         )?;
+        // Added after the first release of the index.
+        let has_lang: bool = index
+            .prepare("SELECT 1 FROM pragma_table_info('publication') WHERE name = 'lang_code'")?
+            .exists([])?;
+        if !has_lang {
+            index.execute_batch("ALTER TABLE publication ADD COLUMN lang_code TEXT;")?;
+        }
         Ok(Self {
             root,
             index,
@@ -122,6 +132,7 @@ impl Library {
             db_file,
             contents_hash: pub_.manifest.hash.to_ascii_lowercase(),
             imported_at: now(),
+            lang_code: lang_code_from_name(&pub_.manifest.name),
         };
 
         let final_dir = pubs_dir.join(&entry.dir_name);
@@ -138,8 +149,8 @@ impl Library {
         )?;
         tx.execute(
             "INSERT INTO publication (symbol, meps_language, issue_tag, year, title, short_title,
-                 publication_type, dir_name, db_file, contents_hash, imported_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                 publication_type, dir_name, db_file, contents_hash, imported_at, lang_code)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 entry.symbol,
                 entry.meps_language,
@@ -151,7 +162,8 @@ impl Library {
                 entry.dir_name,
                 entry.db_file,
                 entry.contents_hash,
-                entry.imported_at
+                entry.imported_at,
+                entry.lang_code
             ],
         )?;
 
@@ -239,7 +251,7 @@ impl Library {
 }
 
 const COLUMNS: &str = "symbol, meps_language, issue_tag, year, title, short_title, \
-     publication_type, dir_name, db_file, contents_hash, imported_at";
+     publication_type, dir_name, db_file, contents_hash, imported_at, lang_code";
 
 fn row_to_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
     Ok(Entry {
@@ -254,6 +266,7 @@ fn row_to_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
         db_file: r.get(8)?,
         contents_hash: r.get(9)?,
         imported_at: r.get(10)?,
+        lang_code: r.get(11)?,
     })
 }
 
@@ -281,4 +294,69 @@ fn now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64)
+}
+
+/// Language code from a manifest name like `nwtsty_X.jwpub` or
+/// `wp_X_202609.jwpub` (`<symbol>_<code>[_<issue>]`, see docs/FORMAT.md).
+pub fn lang_code_from_name(name: &str) -> Option<String> {
+    let stem = name.strip_suffix(".jwpub").unwrap_or(name);
+    let code = stem.split('_').nth(1)?;
+    (!code.is_empty()
+        && code.len() <= 8
+        && code
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-'))
+    .then(|| code.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lang_codes_from_names() {
+        assert_eq!(lang_code_from_name("nwtsty_X.jwpub").as_deref(), Some("X"));
+        assert_eq!(
+            lang_code_from_name("wp_X_202609.jwpub").as_deref(),
+            Some("X")
+        );
+        assert_eq!(lang_code_from_name("fg_E.jwpub").as_deref(), Some("E"));
+        assert_eq!(
+            lang_code_from_name("w_ASL_202601.jwpub").as_deref(),
+            Some("ASL")
+        );
+        for bad in [
+            "nwtsty.jwpub",
+            "a_x.jwpub",
+            "a_/etc.jwpub",
+            "a__b.jwpub",
+            "",
+        ] {
+            assert_eq!(lang_code_from_name(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn migrates_old_index() {
+        let tmp = tempfile::tempdir().unwrap();
+        let conn = Connection::open(tmp.path().join("index.sqlite")).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE publication (id INTEGER PRIMARY KEY, symbol TEXT NOT NULL,
+                 meps_language INTEGER NOT NULL, issue_tag TEXT NOT NULL, year INTEGER NOT NULL,
+                 title TEXT NOT NULL, short_title TEXT, publication_type TEXT,
+                 dir_name TEXT NOT NULL UNIQUE, db_file TEXT NOT NULL, contents_hash TEXT NOT NULL,
+                 imported_at INTEGER NOT NULL, UNIQUE (symbol, meps_language, issue_tag));
+             INSERT INTO publication VALUES (1, 'old', 0, '0', 2020, 'Old', NULL, NULL,
+                 'old_0', 'old.db', 'aa', 0);",
+        )
+        .unwrap();
+        drop(conn);
+        let lib = Library::open(tmp.path()).unwrap();
+        let all = lib.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].lang_code, None);
+        // Opening again must not fail on the existing column.
+        drop(lib);
+        Library::open(tmp.path()).unwrap();
+    }
 }
