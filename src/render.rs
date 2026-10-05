@@ -16,7 +16,7 @@ use std::path::Path;
 use lol_html::html_content::{Element, TextChunk};
 use lol_html::{RewriteStrSettings, element, rewrite_str, text};
 
-use crate::reader::{Chapter, Publication, VerseRef};
+use crate::reader::{Chapter, OutlineEntry, Publication, VerseRef};
 use crate::{Error, Result};
 
 #[derive(Debug, Clone, Default)]
@@ -32,6 +32,50 @@ pub struct Renderer<'a> {
     publication: &'a Publication,
     options: RenderOptions,
     sanitizer: ammonia::Builder<'static>,
+    abbreviations: std::cell::OnceCell<std::collections::HashMap<i64, String>>,
+}
+
+/// Study pane content of a Bible chapter.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChapterStudy {
+    /// e.g. "1. Mose: Übersicht".
+    pub outline_title: Option<String>,
+    pub outline: Vec<OutlineEntry>,
+    /// Verses that have footnotes, cross references or study notes, in order.
+    pub verses: Vec<VerseStudy>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct VerseStudy {
+    pub chapter: i64,
+    pub verse: i64,
+    pub footnotes: Vec<StudyFootnote>,
+    pub xrefs: Vec<StudyXref>,
+    /// Sanitized study note HTML.
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct StudyFootnote {
+    /// Marker text in the verse, e.g. "a"; links to `#footnotesource{index}`.
+    pub marker: String,
+    pub index: i64,
+    pub html: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct StudyXref {
+    /// Marker letter in the verse; links to `#xrefsource{block}`.
+    pub marker: String,
+    pub block: i64,
+    pub refs: Vec<StudyRef>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct StudyRef {
+    pub href: String,
+    pub label: String,
 }
 
 /// Markers found while rewriting: `(number, marker text)`.
@@ -47,6 +91,7 @@ impl<'a> Renderer<'a> {
             publication,
             options,
             sanitizer: sanitizer(),
+            abbreviations: std::cell::OnceCell::new(),
         }
     }
 
@@ -169,29 +214,113 @@ impl<'a> Renderer<'a> {
         Ok(section("study-notes", "Study notes", &out))
     }
 
-    /// `<a href="jwlinux://bible/…">Psalm 23:1-3</a>` for a verse id range.
+    /// `<a href="jwlinux://bible/…">Ps 23:1-3</a>` for a verse id range.
     fn reference_link(&self, first: i64, last: i64) -> Result<String> {
-        let a = self.publication.verse_ref(first)?;
-        let b = self.publication.verse_ref(last)?;
-        let name = self.publication.bible_book(a.book)?.chapter_title;
-        let label = if a == b {
-            format!("{name} {}:{}", a.chapter, a.verse)
-        } else if a.book == b.book && a.chapter == b.chapter {
-            format!("{name} {}:{}-{}", a.chapter, a.verse, b.verse)
-        } else if a.book == b.book {
-            format!("{name} {}:{}–{}:{}", a.chapter, a.verse, b.chapter, b.verse)
-        } else {
-            let other = self.publication.bible_book(b.book)?.chapter_title;
-            format!(
-                "{name} {}:{}–{other} {}:{}",
-                a.chapter, a.verse, b.chapter, b.verse
-            )
-        };
+        let (href, label) = self.reference(first, last)?;
         Ok(format!(
-            "<a class=\"b\" href=\"{}\">{}</a>",
-            bible_url(a, b),
+            "<a class=\"b\" href=\"{href}\">{}</a>",
             escape(&label)
         ))
+    }
+
+    /// Link target and label for a verse id range, using the publication's
+    /// own book abbreviations ("Jos 24:3", "Apg 7:3, 4", "Ps 23:1-6").
+    fn reference(&self, first: i64, last: i64) -> Result<(String, String)> {
+        let a = self.publication.verse_ref(first)?;
+        let b = self.publication.verse_ref(last)?;
+        let name = |book: i64| -> Result<String> {
+            Ok(match self.abbreviations()?.get(&book) {
+                Some(abbr) => abbr.clone(),
+                None => self.publication.bible_book(book)?.chapter_title,
+            })
+        };
+        let label = reference_label(&name(a.book)?, &name(b.book)?, a, b);
+        Ok((bible_url(a, b), label))
+    }
+
+    fn abbreviations(&self) -> Result<&std::collections::HashMap<i64, String>> {
+        if let Some(map) = self.abbreviations.get() {
+            return Ok(map);
+        }
+        let map = self.publication.book_abbreviations()?;
+        Ok(self.abbreviations.get_or_init(|| map))
+    }
+
+    /// Footnotes, cross references and study notes of a chapter grouped by
+    /// verse, plus the outline lines for the chapter (the study pane).
+    pub fn chapter_study(&self, book: i64, chapter: i64) -> Result<ChapterStudy> {
+        use std::collections::BTreeMap;
+        let ch = self.publication.chapter(book, chapter)?;
+        // Marker letters as they appear in the text.
+        let markers = self.rewrite(&ch.content)?.1;
+        let fn_letter: std::collections::HashMap<i64, String> = markers
+            .footnotes
+            .iter()
+            .map(|(n, l)| (*n, l.trim().to_owned()))
+            .collect();
+        let xr_letter: std::collections::HashMap<i64, String> = markers
+            .citations
+            .iter()
+            .map(|(n, l)| (*n, l.trim().to_owned()))
+            .collect();
+
+        let mut verses: BTreeMap<i64, VerseStudy> = BTreeMap::new();
+
+        if let Some(doc) = ch.book.book_document_id {
+            for (verse, index, html) in
+                self.publication
+                    .footnotes_for_verses(doc, ch.first_verse_id, ch.last_verse_id)?
+            {
+                let html = self.clean(&self.rewrite(&html)?.0);
+                verse_entry(&mut verses, self.publication, verse)?
+                    .footnotes
+                    .push(StudyFootnote {
+                        marker: fn_letter.get(&index).cloned().unwrap_or_default(),
+                        index,
+                        html,
+                    });
+            }
+            let mut last_block = None;
+            for (verse, block, first, last) in
+                self.publication
+                    .citations_for_verses(doc, ch.first_verse_id, ch.last_verse_id)?
+            {
+                let (href, label) = self.reference(first, last)?;
+                let v = verse_entry(&mut verses, self.publication, verse)?;
+                if last_block != Some(block) || v.xrefs.is_empty() {
+                    v.xrefs.push(StudyXref {
+                        marker: xr_letter.get(&block).cloned().unwrap_or_default(),
+                        block,
+                        refs: Vec::new(),
+                    });
+                }
+                last_block = Some(block);
+                v.xrefs
+                    .last_mut()
+                    .expect("pushed above")
+                    .refs
+                    .push(StudyRef { href, label });
+            }
+        }
+        for note in self
+            .publication
+            .study_notes(ch.first_verse_id, ch.last_verse_id)?
+        {
+            let html = self.clean(&self.rewrite(&note.content)?.0);
+            verse_entry(&mut verses, self.publication, note.verse_id)?
+                .notes
+                .push(html);
+        }
+
+        Ok(ChapterStudy {
+            outline_title: self.publication.overview_title(book)?,
+            outline: self.publication.outline(book, chapter)?,
+            verses: verses.into_values().collect(),
+        })
+    }
+
+    fn clean(&self, html: &str) -> String {
+        self.sanitizer.clean(html).to_string()
     }
 
     /// Rewrite links, images and markers in one HTML fragment.
@@ -307,14 +436,19 @@ pub fn rewrite_href(href: &str) -> Option<String> {
         .then(|| format!("jwlinux://pub/{rest}"));
     }
     if let Some(rest) = href.strip_prefix("jwpub://c/") {
-        // `X:1001070145/8:38$p/X:1001070636/47-47:752`: study note on a verse;
-        // the `$`-separated alternatives name the same note's paragraphs.
-        let head = rest.split('$').next().unwrap_or_default();
+        // `X:1001070105/1:1-1:31` is a verse range in a Bible book document.
+        // With `$p/X:1001070636/47-47:752` alternatives it points at the study
+        // note on that verse (the alternatives name the note's paragraphs).
+        let (head, alternatives) = match rest.split_once('$') {
+            Some((h, _)) => (h, true),
+            None => (rest, false),
+        };
+        let kind = if alternatives { "note" } else { "verse" };
         return (!head.is_empty()
             && head
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '-')))
-        .then(|| format!("jwlinux://note/{head}"));
+        .then(|| format!("jwlinux://{kind}/{head}"));
     }
     if href.starts_with("https://") || href.starts_with("http://") {
         return Some(href.to_owned());
@@ -331,6 +465,25 @@ pub fn media_name(src: &str) -> Option<&str> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')))
     .then_some(name)
+}
+
+/// "Jos 24:3", "Apg 7:3, 4" (two verses), "Ps 23:1-6", "1Mo 1:1–2:3",
+/// "Rut 4:22–1Sa 1:1".
+pub fn reference_label(name: &str, end_name: &str, a: VerseRef, b: VerseRef) -> String {
+    if a == b {
+        format!("{name} {}:{}", a.chapter, a.verse)
+    } else if a.book == b.book && a.chapter == b.chapter && b.verse == a.verse + 1 {
+        format!("{name} {}:{}, {}", a.chapter, a.verse, b.verse)
+    } else if a.book == b.book && a.chapter == b.chapter {
+        format!("{name} {}:{}-{}", a.chapter, a.verse, b.verse)
+    } else if a.book == b.book {
+        format!("{name} {}:{}–{}:{}", a.chapter, a.verse, b.chapter, b.verse)
+    } else {
+        format!(
+            "{name} {}:{}–{end_name} {}:{}",
+            a.chapter, a.verse, b.chapter, b.verse
+        )
+    }
 }
 
 fn bible_url(a: VerseRef, b: VerseRef) -> String {
@@ -354,6 +507,28 @@ pub fn file_url_for_dir(dir: &Path) -> String {
         out.push('/');
     }
     out
+}
+
+/// The study entry of a verse, created on first use.
+fn verse_entry<'m>(
+    verses: &'m mut std::collections::BTreeMap<i64, VerseStudy>,
+    publication: &Publication,
+    verse_id: i64,
+) -> Result<&'m mut VerseStudy> {
+    use std::collections::btree_map::Entry;
+    Ok(match verses.entry(verse_id) {
+        Entry::Occupied(e) => e.into_mut(),
+        Entry::Vacant(e) => {
+            let r = publication.verse_ref(verse_id)?;
+            e.insert(VerseStudy {
+                chapter: r.chapter,
+                verse: r.verse,
+                footnotes: Vec::new(),
+                xrefs: Vec::new(),
+                notes: Vec::new(),
+            })
+        }
+    })
 }
 
 fn section(class: &str, heading: &str, inner: &str) -> String {
@@ -451,6 +626,10 @@ mod tests {
             Some("jwlinux://note/X:1001070145/8:38")
         );
         assert_eq!(
+            rewrite_href("jwpub://c/X:1001070105/1:1-1:31").as_deref(),
+            Some("jwlinux://verse/X:1001070105/1:1-1:31")
+        );
+        assert_eq!(
             rewrite_href("#footnotesource1").as_deref(),
             Some("#footnotesource1")
         );
@@ -466,6 +645,31 @@ mod tests {
         ] {
             assert_eq!(rewrite_href(bad), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn reference_labels() {
+        let v = |book, chapter, verse| VerseRef {
+            book,
+            chapter,
+            verse,
+        };
+        assert_eq!(
+            reference_label("Jos", "Jos", v(6, 24, 3), v(6, 24, 3)),
+            "Jos 24:3"
+        );
+        assert_eq!(
+            reference_label("Apg", "Apg", v(44, 7, 3), v(44, 7, 4)),
+            "Apg 7:3, 4"
+        );
+        assert_eq!(
+            reference_label("Ps", "Ps", v(19, 23, 1), v(19, 23, 6)),
+            "Ps 23:1-6"
+        );
+        assert_eq!(
+            reference_label("1Mo", "1Mo", v(1, 1, 1), v(1, 2, 3)),
+            "1Mo 1:1–2:3"
+        );
     }
 
     #[test]

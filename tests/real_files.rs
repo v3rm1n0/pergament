@@ -355,3 +355,48 @@ fn study_note_and_book_links() {
         }
     );
 }
+
+/// The study pane for Genesis 12, checked against the original app.
+#[test]
+fn chapter_study_genesis_12() {
+    let Some(bible) = fixture("JWL_TEST_JWPUB") else {
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path()).unwrap();
+    let entry = lib.import(&bible).unwrap();
+    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+
+    let abbr = p.book_abbreviations().unwrap();
+    assert_eq!(abbr.len(), 66);
+    assert_eq!(abbr[&1], "1Mo");
+    assert_eq!(abbr[&44], "Apg");
+    assert_eq!(abbr[&66], "Off");
+
+    let r = jwlinux::Renderer::new(&p, jwlinux::RenderOptions::default());
+    let s = r.chapter_study(1, 12).unwrap();
+    assert_eq!(s.outline_title.as_deref(), Some("1. Mose: Übersicht"));
+    let lines: Vec<_> = s.outline.iter().map(|o| o.text.as_str()).collect();
+    assert_eq!(
+        lines,
+        [
+            "Abram zieht von Haran nach Kanaan",
+            "Gott gibt Abram Versprechen",
+            "Abram und Sarai in Ägypten"
+        ]
+    );
+    let v1 = &s.verses[0];
+    assert_eq!((v1.chapter, v1.verse), (12, 1));
+    assert_eq!(v1.footnotes.len(), 1);
+    assert!(v1.footnotes[0].html.contains("Familie"));
+    let refs: Vec<_> = v1.xrefs[0].refs.iter().map(|r| r.label.as_str()).collect();
+    assert_eq!(refs, ["Jos 24:3", "Apg 7:3, 4"]);
+    // Matthew has study notes.
+    assert!(
+        r.chapter_study(40, 1)
+            .unwrap()
+            .verses
+            .iter()
+            .any(|v| !v.notes.is_empty())
+    );
+}
