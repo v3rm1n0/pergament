@@ -8,7 +8,7 @@ aes = "0.9.3"
 ammonia = "4.2.1"
 anyhow = "1.0.104"
 cbc = { version = "0.2.1", features = ["alloc"] }
-clap = { version = "4.6.7", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
 dirs = "7.0.0"
 flate2 = "1.1.10"
 hex = "0.4.3"
