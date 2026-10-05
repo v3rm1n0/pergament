@@ -259,3 +259,40 @@ fn navigation_across_publications() {
         Some("v19-23-4-1")
     );
 }
+
+#[test]
+fn toc_and_covers() {
+    let (Some(bible), Some(wp)) = (fixture("JWL_TEST_JWPUB"), fixture("JWL_TEST_JWPUB_WP")) else {
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path()).unwrap();
+    let nwtsty_entry = lib.import(&bible).unwrap();
+    let nwtsty = jwlinux::Publication::open(&lib, &nwtsty_entry).unwrap();
+    let toc = nwtsty.toc().unwrap();
+    // The study Bible's navigation view: EINFÜHRUNG, BÜCHER, INDEX, ANHANG A-C.
+    assert_eq!(toc.len(), 6);
+    let books = &toc[1];
+    assert_eq!(books.children.len(), 2);
+    let numbers: Vec<i64> = books
+        .children
+        .iter()
+        .flat_map(|t| &t.children)
+        .map(|b| b.bible_book.unwrap())
+        .collect();
+    assert_eq!(numbers, (1..=66).collect::<Vec<_>>());
+    assert_eq!(books.children[0].children.len(), 39);
+    assert!(nwtsty.cover_image().unwrap().unwrap().ends_with("_cvr.jpg"));
+
+    let wp_entry = lib.import(&wp).unwrap();
+    let wp = jwlinux::Publication::open(&lib, &wp_entry).unwrap();
+    let toc = wp.toc().unwrap();
+    assert_eq!(toc.len(), 1);
+    assert_eq!(toc[0].children.len(), 8);
+    assert_eq!(toc[0].children[3].document_id, Some(3));
+    assert!(toc[0].children.iter().all(|c| c.bible_book.is_none()));
+    assert_eq!(
+        wp.cover_image().unwrap().as_deref(),
+        Some("2026000_X_cvr.jpg")
+    );
+}

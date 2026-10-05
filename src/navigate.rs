@@ -7,14 +7,15 @@ use crate::reader::Publication;
 use crate::render::{RenderOptions, Renderer, file_url_for_dir};
 
 /// Something a viewer can show.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Target {
     /// `Entry::dir_name` of the publication.
     pub publication: String,
     pub kind: TargetKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum TargetKind {
     Document(i64),
     Chapter { book: i64, chapter: i64, verse: i64 },
