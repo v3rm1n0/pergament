@@ -205,3 +205,57 @@ fn live_download_matches_fixture() {
     assert_eq!(entry.issue_tag, "20260900");
     assert_eq!(entry.meps_language, 2);
 }
+
+/// Bible links from an article open the imported Bible; publication links
+/// resolve by MEPS document id.
+#[test]
+fn navigation_across_publications() {
+    use jwlinux::links::Link;
+    use jwlinux::navigate::{self, TargetKind};
+    let (Some(bible), Some(wp)) = (fixture("JWL_TEST_JWPUB"), fixture("JWL_TEST_JWPUB_WP")) else {
+        return;
+    };
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path()).unwrap();
+    let nwtsty = lib.import(&bible).unwrap();
+    let wp = lib.import(&wp).unwrap();
+
+    let link = Link::parse("jwlinux://bible/19:23:1-19:23:3").unwrap();
+    let t = navigate::resolve(&lib, Some(&wp), &link).unwrap().unwrap();
+    assert_eq!(t.publication, nwtsty.dir_name);
+    assert_eq!(
+        t.kind,
+        TargetKind::Chapter {
+            book: 19,
+            chapter: 23,
+            verse: 1
+        }
+    );
+    let page = navigate::page(&lib, &t).unwrap();
+    assert!(page.html.contains("v19-23-1"));
+
+    // MEPS document 2026003 is the article "Kann eine bessere Politik …".
+    let link = Link::parse("jwlinux://pub/X:2026003/").unwrap();
+    let t = navigate::resolve(&lib, Some(&nwtsty), &link)
+        .unwrap()
+        .unwrap();
+    assert_eq!(t.publication, wp.dir_name);
+    assert_eq!(t.kind, TargetKind::Document(3));
+
+    let link = Link::parse("jwlinux://pub/X:1/").unwrap();
+    assert!(navigate::resolve(&lib, Some(&wp), &link).unwrap().is_none());
+
+    // Verse > 1 scrolls to the verse span.
+    let t = navigate::Target {
+        publication: nwtsty.dir_name.clone(),
+        kind: TargetKind::Chapter {
+            book: 19,
+            chapter: 23,
+            verse: 4,
+        },
+    };
+    assert_eq!(
+        navigate::page(&lib, &t).unwrap().fragment.as_deref(),
+        Some("v19-23-4-1")
+    );
+}
