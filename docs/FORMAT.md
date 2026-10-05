@@ -117,7 +117,16 @@ multiple of 16; e.g. `808082`). Its meaning is unknown.
 HTML fragments (no `<html>`/`<body>`), with elements carrying
 `id="pN" data-pid="N"` paragraph IDs. [own]
 
-- **Bible verses**: `<span id="v{book}-{chapter}-{verse}-{part}" class="v">`.
+- **Bible verses**: in `BibleChapter.Content` they are
+  `<span id="v{book}-{chapter}-{verse}-{part}" class="v">`; in
+  `BibleVerse.Content` the suffix is missing: `id="v{book}-{chapter}-{verse}"`.
+  **Psalm superscriptions are verse 0** (e.g. `v19-3-0`); their
+  `BibleVerse.Label` is empty (116 rows). The first verse of a chapter is
+  labelled `<span class="cl">{chapter}</span>`, the others
+  `<span class="vl">{verse}</span>`. Mapping every `BibleVerseId` to
+  book/chapter (via `BibleChapter.FirstVerseId..LastVerseId`) and verse (via
+  `Label`) agrees with the span id for all 31194 verses (test
+  `study_bible_verse_refs`).
   Verse numbers are `<span class="vl">`; chapter numbers are
   `<span class="cl"><strong>1</strong>`. Empty tooltip helper spans have
   class `tt`.
@@ -127,6 +136,10 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   chapters of a book (Gen 1: 1–11, Gen 2: 12–27, matching
   `BibleChapter.FirstFootnoteId..LastFootnoteId`). Footnote content is
   `<div id="footnoteN" data-fnid="N" class="fcc fn-ref"><p>…</p></div>`.
+  Regular documents (e.g. Watchtower articles) already contain their
+  footnotes inline in a `<div class="groupFootnote">` with the same
+  `id="footnoteN"` and a back link `href="#footnotesourceN"`; Bible chapters
+  only carry the markers.
 - **Marginal cross-reference markers**: `<span data-mid="N" class="m">a…</span>`.
   `N` is `BibleCitation.BlockNumber` within the book document; the rows with
   that block (ordered by `ElementNumber`) are the referenced verse ranges.
@@ -134,7 +147,11 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   row.
 - **Bible links**: `<a href="jwpub://b/NWTR/{book}:{ch}:{v}-{book}:{ch}:{v}" class="b">`.
 - **Publication links**: `<a href="jwpub://p/X:{MepsDocumentId}/" class="xt" data-xtid="N">`,
-  where `X` is the MEPS language code.
+  where `X` is the MEPS language code. Some carry a suffix after the slash,
+  e.g. `jwpub://p/X:1001070144/1-1` in study notes (meaning unknown).
+- **Study notes** (`VerseCommentary.Content`) are the same text as the
+  per-chapter study note documents (`Document.Class` 118), split per verse;
+  they exist from Matthew 1:1 (`BibleVerseId` 23261) on.
 - **External links**: `https://www.jw.org/finder?wtlocale=X&docid=…`.
 - **Images**: `<figure><img src="jwpub-media://{Multimedia.FilePath}" alt=… width=… height=…>`.
   The file is inside `contents`.
@@ -149,6 +166,10 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   not confirmed), `data-bid` (looks like `{block}-{element}`) and
   `data-vlid`.
 - `BibleCitation.MarginalClassification`, `SortPosition`.
+- The suffix in publication links like `jwpub://p/X:1001070144/1-1`.
+- `VerseMultimediaMap` (media attached to verses) is not rendered yet.
+- Abbreviated Bible book names: no table holding them was found;
+  cross references use `BibleBook.ChapterDisplayTitle` (e.g. "Psalm").
 - Full list of `Document.Class`/`Type` values across other publication types.
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.
