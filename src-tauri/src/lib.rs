@@ -335,6 +335,11 @@ async fn download_publication(
     .map_err(|e| e.to_string())?
 }
 
+/// Whether serving `path` requires a network fetch (an uncached catalog image).
+fn needs_fetch(app: &AppHandle, path: &str) -> bool {
+    api::catalog_image_path(&app.state::<AppState>().cache, path).is_some_and(|(_, f)| !f.is_file())
+}
+
 /// Catalog images are fetched once (rate limited) and cached; publication
 /// images are read from the library.
 fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
@@ -401,7 +406,11 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(api::MEDIA_SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             let path = request.uri().path().to_owned();
-            std::thread::spawn(move || responder.respond(media_response(&app, &path)));
+            if needs_fetch(&app, &path) {
+                std::thread::spawn(move || responder.respond(media_response(&app, &path)));
+            } else {
+                responder.respond(media_response(&app, &path));
+            }
         })
         .invoke_handler(tauri::generate_handler![
             list_publications,
