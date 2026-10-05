@@ -3,6 +3,10 @@
 
 use std::path::{Path, PathBuf};
 
+use jwlinux::catalog::{
+    Catalog, CatalogItem, DATED_DAILY_TEXT, DATED_MEETING_WORKBOOK, DATED_WATCHTOWER_STUDY,
+    LIST_MEETINGS, LIST_TEACHING_TOOLBOX, category_name, safe_image_path,
+};
 use jwlinux::links::Link;
 use jwlinux::navigate::{self, Page, Target};
 use jwlinux::reader::{BibleBook, TocNode};
@@ -101,6 +105,183 @@ pub fn publication(library: &Library, dir: &str) -> ApiResult<PubDetail> {
 /// Render a page as an HTML fragment with images served via [`MEDIA_SCHEME`].
 pub fn render(library: &Library, target: &Target) -> ApiResult<Page> {
     navigate::render(library, target, false, |e, _| Some(media_base(&e.dir_name))).map_err(err)
+}
+
+pub fn chapter_study(
+    library: &Library,
+    dir: &str,
+    book: i64,
+    chapter: i64,
+) -> ApiResult<jwlinux::render::ChapterStudy> {
+    let (_, publication) = open_entry(library, dir)?;
+    jwlinux::Renderer::new(
+        &publication,
+        jwlinux::RenderOptions {
+            media_base: Some(media_base(dir)),
+            standalone: false,
+        },
+    )
+    .chapter_study(book, chapter)
+    .map_err(err)
+}
+
+/// A catalog publication, with the library directory if it is downloaded.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogEntry {
+    pub item: CatalogItem,
+    /// Category name of the publication type.
+    pub category: Option<&'static str>,
+    /// `jwmedia:` URL of the cover image (fetched and cached on demand).
+    pub image_url: Option<String>,
+    /// Library directory when the publication is already downloaded.
+    pub local: Option<String>,
+}
+
+fn entries(items: Vec<CatalogItem>, library: &Library) -> ApiResult<Vec<CatalogEntry>> {
+    let local: std::collections::HashMap<(String, i64, i64), String> = library
+        .list()
+        .map_err(err)?
+        .into_iter()
+        .map(|e| {
+            (
+                (e.symbol, e.issue_tag.parse().unwrap_or(0), e.meps_language),
+                e.dir_name,
+            )
+        })
+        .collect();
+    Ok(items
+        .into_iter()
+        .map(|item| CatalogEntry {
+            category: category_name(item.publication_type),
+            image_url: item
+                .image
+                .as_ref()
+                .map(|p| format!("{MEDIA_SCHEME}://localhost/{CATALOG_IMAGES}/{p}")),
+            local: local
+                .get(&(item.symbol.clone(), item.issue_tag, item.meps_language))
+                .cloned(),
+            item,
+        })
+        .collect())
+}
+
+pub fn search_entries(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    query: &str,
+) -> ApiResult<Vec<CatalogEntry>> {
+    entries(catalog.search(meps, query, 200).map_err(err)?, library)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeLists {
+    pub teaching_toolbox: Vec<CatalogEntry>,
+    pub whats_new: Vec<CatalogEntry>,
+    /// This year's daily text booklet.
+    pub daily_text: Option<CatalogEntry>,
+}
+
+pub fn home_lists(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    date: &str,
+) -> ApiResult<HomeLists> {
+    let daily = catalog
+        .dated(meps, DATED_DAILY_TEXT, date)
+        .map_err(err)?
+        .into_iter()
+        .map(|(item, _, _)| item)
+        .next();
+    Ok(HomeLists {
+        teaching_toolbox: entries(
+            catalog.curated(meps, LIST_TEACHING_TOOLBOX).map_err(err)?,
+            library,
+        )?,
+        whats_new: entries(catalog.whats_new(meps, 12).map_err(err)?, library)?,
+        daily_text: entries(daily.into_iter().collect(), library)?
+            .into_iter()
+            .next(),
+    })
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Category {
+    pub id: i64,
+    pub name: &'static str,
+    pub count: i64,
+}
+
+pub fn categories(catalog: &Catalog, meps: i64) -> ApiResult<Vec<Category>> {
+    Ok(catalog
+        .categories(meps)
+        .map_err(err)?
+        .into_iter()
+        .filter_map(|(id, count)| category_name(id).map(|name| Category { id, name, count }))
+        .collect())
+}
+
+pub fn category(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    id: i64,
+) -> ApiResult<Vec<CatalogEntry>> {
+    entries(catalog.by_category(meps, id, 500).map_err(err)?, library)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DatedEntry {
+    pub entry: CatalogEntry,
+    pub start: String,
+    pub end: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Meetings {
+    pub workbook: Option<DatedEntry>,
+    pub study: Option<DatedEntry>,
+    pub other: Vec<CatalogEntry>,
+}
+
+pub fn meetings(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    date: &str,
+) -> ApiResult<Meetings> {
+    let dated = |class| -> ApiResult<Option<DatedEntry>> {
+        let Some((item, start, end)) = catalog
+            .dated(meps, class, date)
+            .map_err(err)?
+            .into_iter()
+            .next()
+        else {
+            return Ok(None);
+        };
+        let entry = entries(vec![item], library)?.remove(0);
+        Ok(Some(DatedEntry { entry, start, end }))
+    };
+    Ok(Meetings {
+        workbook: dated(DATED_MEETING_WORKBOOK)?,
+        study: dated(DATED_WATCHTOWER_STUDY)?,
+        other: entries(catalog.curated(meps, LIST_MEETINGS).map_err(err)?, library)?,
+    })
+}
+
+/// First path segment under which catalog images are served.
+pub const CATALOG_IMAGES: &str = "catalog";
+
+/// Cache path for a catalog image request path `/catalog/images/ab/x.jpg`.
+pub fn catalog_image_path(cache: &Path, path: &str) -> Option<(String, PathBuf)> {
+    let rel = path
+        .trim_start_matches('/')
+        .strip_prefix(CATALOG_IMAGES)?
+        .strip_prefix('/')?;
+    safe_image_path(rel).then(|| (rel.to_owned(), cache.join("catalog-images").join(rel)))
 }
 
 /// What the frontend should do with a clicked link.
@@ -233,6 +414,26 @@ mod tests {
             "",
         ] {
             assert_eq!(media_file(&lib, &root, p), None, "{p}");
+        }
+    }
+
+    #[test]
+    fn catalog_image_paths() {
+        let cache = Path::new("/c");
+        assert_eq!(
+            catalog_image_path(cache, "/catalog/images/ab/x_sqr-270x270.jpg"),
+            Some((
+                "images/ab/x_sqr-270x270.jpg".into(),
+                PathBuf::from("/c/catalog-images/images/ab/x_sqr-270x270.jpg")
+            ))
+        );
+        for bad in [
+            "/catalog/images/../x.jpg",
+            "/catalog/../../etc/passwd",
+            "/other/images/a/b.jpg",
+            "/catalog",
+        ] {
+            assert_eq!(catalog_image_path(cache, bad), None, "{bad}");
         }
     }
 
