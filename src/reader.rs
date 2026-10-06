@@ -610,7 +610,7 @@ impl Publication {
     /// abbreviation per book wins. Cached next to the publication files.
     pub fn book_abbreviations(&self) -> Result<std::collections::HashMap<i64, String>> {
         use std::collections::HashMap;
-        let cache = self.dir.join(".jwlinux-abbreviations.json");
+        let cache = self.dir.join(".pergament-abbreviations.json");
         if let Ok(bytes) = std::fs::read(&cache)
             && let Ok(map) = serde_json::from_slice::<HashMap<i64, String>>(&bytes)
         {

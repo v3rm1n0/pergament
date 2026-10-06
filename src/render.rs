@@ -4,9 +4,9 @@
 //! footnote and cross-reference markers) and then passed through an
 //! allow-list sanitizer, as is everything else that ends up in the output.
 //!
-//! Links are rewritten to the `jwlinux:` scheme so a viewer can route them:
-//! - `jwlinux://bible/{book}:{ch}:{v}-{book}:{ch}:{v}` for Bible references,
-//! - `jwlinux://pub/{lang}:{meps_document_id}/…` for publication links.
+//! Links are rewritten to the `pergament:` scheme so a viewer can route them:
+//! - `pergament://bible/{book}:{ch}:{v}-{book}:{ch}:{v}` for Bible references,
+//! - `pergament://pub/{lang}:{meps_document_id}/…` for publication links.
 
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -225,7 +225,7 @@ impl<'a> Renderer<'a> {
         Ok(section("study-notes", "Study notes", &out))
     }
 
-    /// `<a href="jwlinux://bible/…">Ps 23:1-3</a>` for a verse id range.
+    /// `<a href="pergament://bible/…">Ps 23:1-3</a>` for a verse id range.
     fn reference_link(&self, first: i64, last: i64) -> Result<String> {
         let (href, label) = self.reference(first, last)?;
         Ok(format!(
@@ -436,7 +436,7 @@ pub fn rewrite_href(href: &str) -> Option<String> {
             && range
                 .chars()
                 .all(|c| c.is_ascii_digit() || c == ':' || c == '-'))
-        .then(|| format!("jwlinux://bible/{range}"));
+        .then(|| format!("pergament://bible/{range}"));
     }
     if let Some(rest) = href.strip_prefix("jwpub://p/") {
         // `X:1001070005/` or `X:1001070144/1-1`
@@ -444,7 +444,7 @@ pub fn rewrite_href(href: &str) -> Option<String> {
             && rest
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '-')))
-        .then(|| format!("jwlinux://pub/{rest}"));
+        .then(|| format!("pergament://pub/{rest}"));
     }
     if let Some(rest) = href.strip_prefix("jwpub://c/") {
         // `X:1001070105/1:1-1:31` is a verse range in a Bible book document.
@@ -459,7 +459,7 @@ pub fn rewrite_href(href: &str) -> Option<String> {
             && head
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '-')))
-        .then(|| format!("jwlinux://{kind}/{head}"));
+        .then(|| format!("pergament://{kind}/{head}"));
     }
     if href.starts_with("https://") || href.starts_with("http://") {
         return Some(href.to_owned());
@@ -499,7 +499,7 @@ pub fn reference_label(name: &str, end_name: &str, a: VerseRef, b: VerseRef) -> 
 
 fn bible_url(a: VerseRef, b: VerseRef) -> String {
     format!(
-        "jwlinux://bible/{}:{}:{}-{}:{}:{}",
+        "pergament://bible/{}:{}:{}-{}:{}:{}",
         a.book, a.chapter, a.verse, b.book, b.chapter, b.verse
     )
 }
@@ -579,7 +579,7 @@ fn sanitizer() -> ammonia::Builder<'static> {
         "section",
     ])
     .add_generic_attributes(["id", "class"])
-    .add_url_schemes(["jwlinux", "file"]);
+    .add_url_schemes(["pergament", "file"]);
     b
 }
 
@@ -626,19 +626,19 @@ mod tests {
     fn hrefs() {
         assert_eq!(
             rewrite_href("jwpub://b/NWTR/40:1:1-40:1:2").as_deref(),
-            Some("jwlinux://bible/40:1:1-40:1:2")
+            Some("pergament://bible/40:1:1-40:1:2")
         );
         assert_eq!(
             rewrite_href("jwpub://p/X:1001070144/1-1").as_deref(),
-            Some("jwlinux://pub/X:1001070144/1-1")
+            Some("pergament://pub/X:1001070144/1-1")
         );
         assert_eq!(
             rewrite_href("jwpub://c/X:1001070145/8:38$p/X:1001070636/47-47:752").as_deref(),
-            Some("jwlinux://note/X:1001070145/8:38")
+            Some("pergament://note/X:1001070145/8:38")
         );
         assert_eq!(
             rewrite_href("jwpub://c/X:1001070105/1:1-1:31").as_deref(),
-            Some("jwlinux://verse/X:1001070105/1:1-1:31")
+            Some("pergament://verse/X:1001070105/1:1-1:31")
         );
         assert_eq!(
             rewrite_href("#footnotesource1").as_deref(),

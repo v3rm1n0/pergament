@@ -9,5 +9,5 @@ fn main() {
         // SAFETY: called before any other thread is started.
         unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
     }
-    jwlinux_app::run()
+    pergament_app::run()
 }

@@ -36,7 +36,7 @@ describe("bible", () => {
 
 describe("page", () => {
   it("parses verse keys", () => {
-    expect(verseKeyFromHref("jwlinux://bible/40:1:1-40:1:1")).toBe("40:1:1");
+    expect(verseKeyFromHref("pergament://bible/40:1:1-40:1:1")).toBe("40:1:1");
     expect(verseKeyFromHref("https://x")).toBeNull();
     expect(verseKeyFromId("v40-1-2-1")).toBe("40:1:2");
     expect(verseKeyFromId("v19-3-0")).toBe("19:3:0");
@@ -46,8 +46,8 @@ describe("page", () => {
   it("splits sections from the reading text", () => {
     const html = `<article><p><span id="v40-1-1-1" class="v">Text<a class="fn" href="#footnote1">a</a><a class="xr" href="#xref2">b</a></span></p></article>
       <section class="footnotes"><h2>Footnotes</h2><div class="footnote"><a class="fn-back" href="#footnotesource1">a</a><div id="footnote1"><p>Or "x".</p></div></div></section>
-      <section class="xrefs"><h2>Cross references</h2><p class="xref" id="xref2"><a href="#xrefsource2">b</a> <a class="b" href="jwlinux://bible/1:1:1-1:1:1">1. Mose 1:1</a></p></section>
-      <section class="study-notes"><h2>Study notes</h2><div class="study-note" id="note23261"><p><a href="jwlinux://bible/40:1:1-40:1:1"><strong>1:1</strong></a></p><p>Note</p></div></section>`;
+      <section class="xrefs"><h2>Cross references</h2><p class="xref" id="xref2"><a href="#xrefsource2">b</a> <a class="b" href="pergament://bible/1:1:1-1:1:1">1. Mose 1:1</a></p></section>
+      <section class="study-notes"><h2>Study notes</h2><div class="study-note" id="note23261"><p><a href="pergament://bible/40:1:1-40:1:1"><strong>1:1</strong></a></p><p>Note</p></div></section>`;
     const s = splitPage(html);
     expect(s.body).toContain("Text");
     expect(s.body).not.toContain("Footnotes");
@@ -122,11 +122,11 @@ describe("dates", () => {
 
 describe("references", () => {
   it("reads what a link cites", () => {
-    expect(citedBy("jwlinux://bible/58:13:7-58:13:9")).toEqual({ kind: "verses", from: [13, 7], to: [13, 9] });
-    expect(citedBy("jwlinux://bible/19:23:1")).toEqual({ kind: "verses", from: [23, 1], to: [23, 1] });
-    expect(citedBy("jwlinux://verse/X:1001070105/1:1-1:31")).toEqual({ kind: "verses", from: [1, 1], to: [1, 31] });
-    expect(citedBy("jwlinux://pub/X:2024366/7-8")).toEqual({ kind: "paragraphs", from: 7, to: 8 });
-    expect(citedBy("jwlinux://pub/X:2026520/")).toBeNull();
+    expect(citedBy("pergament://bible/58:13:7-58:13:9")).toEqual({ kind: "verses", from: [13, 7], to: [13, 9] });
+    expect(citedBy("pergament://bible/19:23:1")).toEqual({ kind: "verses", from: [23, 1], to: [23, 1] });
+    expect(citedBy("pergament://verse/X:1001070105/1:1-1:31")).toEqual({ kind: "verses", from: [1, 1], to: [1, 31] });
+    expect(citedBy("pergament://pub/X:2024366/7-8")).toEqual({ kind: "paragraphs", from: 7, to: 8 });
+    expect(citedBy("pergament://pub/X:2026520/")).toBeNull();
     expect(citedBy("https://www.jw.org/")).toBeNull();
   });
   it("marks cited verses and paragraphs", () => {
@@ -136,9 +136,9 @@ describe("references", () => {
       "text/html",
     );
     const root = doc.body.firstElementChild!;
-    expect(markCited(root, citedBy("jwlinux://bible/58:13:7-58:13:8"))?.id).toBe("v58-13-7-1");
+    expect(markCited(root, citedBy("pergament://bible/58:13:7-58:13:8"))?.id).toBe("v58-13-7-1");
     expect([...root.querySelectorAll(".cited")].map((e) => e.id)).toEqual(["v58-13-7-1", "v58-13-8-1"]);
-    expect(markCited(root, citedBy("jwlinux://pub/X:1/7-7"))?.id).toBe("p7");
+    expect(markCited(root, citedBy("pergament://pub/X:1/7-7"))?.id).toBe("p7");
   });
   it("extracts the theme scripture", () => {
     const html = `<header><h2>Mittwoch</h2></header><p class="themeScrp"><em>Denkt an die </em><a><em>Heb. 13:7</em></a></p>`;

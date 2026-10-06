@@ -1,6 +1,6 @@
 //! The local library: imported publications plus a SQLite index.
 //!
-//! Layout below the root (default `$XDG_DATA_HOME/jwlinux`):
+//! Layout below the root (default `$XDG_DATA_HOME/pergament`):
 //! `index.sqlite` and `publications/<symbol>_<lang>[_<issue>]/` holding the
 //! unpacked `contents` of each publication.
 
@@ -42,10 +42,22 @@ pub struct Library {
     limits: Limits,
 }
 
+/// The app's folder below `base` (`$XDG_DATA_HOME` or `$XDG_CACHE_HOME`).
+/// A folder from before the rename (`jwlinux`) is moved there once.
+pub fn app_dir(base: &Path) -> PathBuf {
+    let dir = base.join("pergament");
+    let old = base.join("jwlinux");
+    if !dir.exists() && old.is_dir() {
+        // If the move fails the old folder stays and the app starts empty.
+        let _ = fs::rename(&old, &dir);
+    }
+    dir
+}
+
 impl Library {
-    /// Open the library at `$XDG_DATA_HOME/jwlinux`.
+    /// Open the library at `$XDG_DATA_HOME/pergament`.
     pub fn open_default() -> Result<Self> {
-        Self::open(dirs::data_dir().ok_or(Error::NoDataDir)?.join("jwlinux"))
+        Self::open(app_dir(&dirs::data_dir().ok_or(Error::NoDataDir)?))
     }
 
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
@@ -312,6 +324,21 @@ pub fn lang_code_from_name(name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn app_dir_moves_the_old_folder_once() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir(tmp.path().join("jwlinux")).unwrap();
+        fs::write(tmp.path().join("jwlinux").join("index.sqlite"), "x").unwrap();
+        let dir = app_dir(tmp.path());
+        assert_eq!(dir, tmp.path().join("pergament"));
+        assert!(dir.join("index.sqlite").is_file());
+        assert!(!tmp.path().join("jwlinux").exists());
+        // An existing new folder is never replaced.
+        fs::create_dir(tmp.path().join("jwlinux")).unwrap();
+        app_dir(tmp.path());
+        assert!(tmp.path().join("jwlinux").exists());
+    }
 
     #[test]
     fn lang_codes_from_names() {

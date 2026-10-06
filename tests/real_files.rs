@@ -1,11 +1,11 @@
 //! Tests against user-supplied publications. Skipped unless
-//! `JWL_TEST_JWPUB` (study Bible) / `JWL_TEST_JWPUB_WP` (Watchtower) are set.
+//! `PERGAMENT_TEST_JWPUB` (study Bible) / `PERGAMENT_TEST_JWPUB_WP` (Watchtower) are set.
 
 use std::path::PathBuf;
 
-use jwlinux::Library;
-use jwlinux::crypto::ContentKey;
-use jwlinux::jwpub;
+use pergament::Library;
+use pergament::crypto::ContentKey;
+use pergament::jwpub;
 
 fn fixture(var: &str) -> Option<PathBuf> {
     match std::env::var_os(var) {
@@ -18,13 +18,13 @@ fn fixture(var: &str) -> Option<PathBuf> {
 }
 
 /// Import, then decode every Document and compare with ContentLength.
-fn import_and_decode_all(path: PathBuf) -> (jwlinux::Entry, rusqlite::Connection, ContentKey) {
+fn import_and_decode_all(path: PathBuf) -> (pergament::Entry, rusqlite::Connection, ContentKey) {
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path()).unwrap();
     let entry = lib.import(&path).unwrap();
     // Keep the DB outside the temp library so the connection outlives it.
     let db_copy = std::env::temp_dir().join(format!(
-        "jwlinux-test-{}-{}",
+        "pergament-test-{}-{}",
         std::process::id(),
         entry.db_file
     ));
@@ -68,7 +68,7 @@ fn import_and_decode_all(path: PathBuf) -> (jwlinux::Entry, rusqlite::Connection
 
 #[test]
 fn study_bible() {
-    let Some(path) = fixture("JWL_TEST_JWPUB") else {
+    let Some(path) = fixture("PERGAMENT_TEST_JWPUB") else {
         return;
     };
     let (entry, conn, key) = import_and_decode_all(path);
@@ -93,7 +93,7 @@ fn study_bible() {
 
 #[test]
 fn watchtower() {
-    let Some(path) = fixture("JWL_TEST_JWPUB_WP") else {
+    let Some(path) = fixture("PERGAMENT_TEST_JWPUB_WP") else {
         return;
     };
     let (entry, _conn, _key) = import_and_decode_all(path);
@@ -101,7 +101,7 @@ fn watchtower() {
     assert_eq!(entry.issue_tag, "20260900");
 }
 
-fn open_library(var: &str) -> Option<(tempfile::TempDir, Library, jwlinux::Entry)> {
+fn open_library(var: &str) -> Option<(tempfile::TempDir, Library, pergament::Entry)> {
     let path = fixture(var)?;
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path()).unwrap();
@@ -113,10 +113,10 @@ fn open_library(var: &str) -> Option<(tempfile::TempDir, Library, jwlinux::Entry
 /// every decoded verse.
 #[test]
 fn study_bible_verse_refs() {
-    let Some((_tmp, lib, entry)) = open_library("JWL_TEST_JWPUB") else {
+    let Some((_tmp, lib, entry)) = open_library("PERGAMENT_TEST_JWPUB") else {
         return;
     };
-    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+    let p = pergament::Publication::open(&lib, &entry).unwrap();
     let conn = jwpub::open_db(&lib.db_path(&entry)).unwrap();
     let mut stmt = conn
         .prepare("SELECT BibleVerseId, Content FROM BibleVerse")
@@ -138,11 +138,11 @@ fn study_bible_verse_refs() {
 
 #[test]
 fn study_bible_renders_chapters() {
-    let Some((_tmp, lib, entry)) = open_library("JWL_TEST_JWPUB") else {
+    let Some((_tmp, lib, entry)) = open_library("PERGAMENT_TEST_JWPUB") else {
         return;
     };
-    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
-    let r = jwlinux::Renderer::new(&p, jwlinux::RenderOptions::default());
+    let p = pergament::Publication::open(&lib, &entry).unwrap();
+    let r = pergament::Renderer::new(&p, pergament::RenderOptions::default());
     // Genesis 1 has footnotes and cross references, Matthew 1 study notes.
     let gen1 = r.chapter(1, 1).unwrap();
     assert!(gen1.contains("class=\"footnotes\""));
@@ -159,14 +159,14 @@ fn study_bible_renders_chapters() {
 
 #[test]
 fn all_documents_render() {
-    for var in ["JWL_TEST_JWPUB", "JWL_TEST_JWPUB_WP"] {
+    for var in ["PERGAMENT_TEST_JWPUB", "PERGAMENT_TEST_JWPUB_WP"] {
         let Some((_tmp, lib, entry)) = open_library(var) else {
             continue;
         };
-        let p = jwlinux::Publication::open(&lib, &entry).unwrap();
-        let r = jwlinux::Renderer::new(
+        let p = pergament::Publication::open(&lib, &entry).unwrap();
+        let r = pergament::Renderer::new(
             &p,
-            jwlinux::RenderOptions {
+            pergament::RenderOptions {
                 media_base: Some("file:///m/".into()),
                 standalone: true,
             },
@@ -178,22 +178,22 @@ fn all_documents_render() {
     }
 }
 
-/// Live download from jw.org. Opt-in only: set JWL_TEST_NETWORK=1.
+/// Live download from jw.org. Opt-in only: set PERGAMENT_TEST_NETWORK=1.
 #[test]
 fn live_download_matches_fixture() {
-    if std::env::var_os("JWL_TEST_NETWORK").is_none() {
-        eprintln!("skipping: JWL_TEST_NETWORK not set");
+    if std::env::var_os("PERGAMENT_TEST_NETWORK").is_none() {
+        eprintln!("skipping: PERGAMENT_TEST_NETWORK not set");
         return;
     }
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path().join("lib")).unwrap();
-    let client = jwlinux::net::Client::new(jwlinux::net::HttpConfig::default());
-    let req = jwlinux::remote::Request {
+    let client = pergament::net::Client::new(pergament::net::HttpConfig::default());
+    let req = pergament::remote::Request {
         key_symbol: "wp",
         lang_code: "X",
         issue_tag: Some(20260900),
     };
-    let entry = jwlinux::remote::download(
+    let entry = pergament::remote::download(
         &client,
         &mut lib,
         &tmp.path().join("dl"),
@@ -211,9 +211,12 @@ fn live_download_matches_fixture() {
 /// resolve by MEPS document id.
 #[test]
 fn navigation_across_publications() {
-    use jwlinux::links::Link;
-    use jwlinux::navigate::{self, TargetKind};
-    let (Some(bible), Some(wp)) = (fixture("JWL_TEST_JWPUB"), fixture("JWL_TEST_JWPUB_WP")) else {
+    use pergament::links::Link;
+    use pergament::navigate::{self, TargetKind};
+    let (Some(bible), Some(wp)) = (
+        fixture("PERGAMENT_TEST_JWPUB"),
+        fixture("PERGAMENT_TEST_JWPUB_WP"),
+    ) else {
         return;
     };
     let tmp = tempfile::tempdir().unwrap();
@@ -221,7 +224,7 @@ fn navigation_across_publications() {
     let nwtsty = lib.import(&bible).unwrap();
     let wp = lib.import(&wp).unwrap();
 
-    let link = Link::parse("jwlinux://bible/19:23:1-19:23:3").unwrap();
+    let link = Link::parse("pergament://bible/19:23:1-19:23:3").unwrap();
     let t = navigate::resolve(&lib, Some(&wp), &link).unwrap().unwrap();
     assert_eq!(t.publication, nwtsty.dir_name);
     assert_eq!(
@@ -236,14 +239,14 @@ fn navigation_across_publications() {
     assert!(page.html.contains("v19-23-1"));
 
     // MEPS document 2026003 is the article "Kann eine bessere Politik …".
-    let link = Link::parse("jwlinux://pub/X:2026003/").unwrap();
+    let link = Link::parse("pergament://pub/X:2026003/").unwrap();
     let t = navigate::resolve(&lib, Some(&nwtsty), &link)
         .unwrap()
         .unwrap();
     assert_eq!(t.publication, wp.dir_name);
     assert_eq!(t.kind, TargetKind::Document(3));
 
-    let link = Link::parse("jwlinux://pub/X:1/").unwrap();
+    let link = Link::parse("pergament://pub/X:1/").unwrap();
     assert!(navigate::resolve(&lib, Some(&wp), &link).unwrap().is_none());
 
     // Verse > 1 scrolls to the verse span.
@@ -263,13 +266,16 @@ fn navigation_across_publications() {
 
 #[test]
 fn toc_and_covers() {
-    let (Some(bible), Some(wp)) = (fixture("JWL_TEST_JWPUB"), fixture("JWL_TEST_JWPUB_WP")) else {
+    let (Some(bible), Some(wp)) = (
+        fixture("PERGAMENT_TEST_JWPUB"),
+        fixture("PERGAMENT_TEST_JWPUB_WP"),
+    ) else {
         return;
     };
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path()).unwrap();
     let nwtsty_entry = lib.import(&bible).unwrap();
-    let nwtsty = jwlinux::Publication::open(&lib, &nwtsty_entry).unwrap();
+    let nwtsty = pergament::Publication::open(&lib, &nwtsty_entry).unwrap();
     let toc = nwtsty.toc().unwrap();
     // The study Bible's navigation view: EINFÜHRUNG, BÜCHER, INDEX, ANHANG A-C.
     assert_eq!(toc.len(), 6);
@@ -286,7 +292,7 @@ fn toc_and_covers() {
     assert!(nwtsty.cover_image().unwrap().unwrap().ends_with("_cvr.jpg"));
 
     let wp_entry = lib.import(&wp).unwrap();
-    let wp = jwlinux::Publication::open(&lib, &wp_entry).unwrap();
+    let wp = pergament::Publication::open(&lib, &wp_entry).unwrap();
     let toc = wp.toc().unwrap();
     assert_eq!(toc.len(), 1);
     assert_eq!(toc[0].children.len(), 8);
@@ -301,16 +307,16 @@ fn toc_and_covers() {
 /// Study-note links (`jwpub://c/`) and links to Bible book documents.
 #[test]
 fn study_note_and_book_links() {
-    use jwlinux::links::Link;
-    use jwlinux::navigate::{self, TargetKind};
-    let Some(bible) = fixture("JWL_TEST_JWPUB") else {
+    use pergament::links::Link;
+    use pergament::navigate::{self, TargetKind};
+    let Some(bible) = fixture("PERGAMENT_TEST_JWPUB") else {
         return;
     };
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path()).unwrap();
     let nwtsty = lib.import(&bible).unwrap();
 
-    // Rendered study notes link to other notes via jwlinux://note/.
+    // Rendered study notes link to other notes via pergament://note/.
     let html = navigate::page(
         &lib,
         &navigate::Target {
@@ -324,11 +330,11 @@ fn study_note_and_book_links() {
     )
     .unwrap()
     .html;
-    assert!(html.contains("jwlinux://note/X:1001070145/8:38"));
+    assert!(html.contains("pergament://note/X:1001070145/8:38"));
     assert!(!html.contains("jwpub:"));
 
     // MEPS 1001070145 is the book document of Mark (41).
-    let link = Link::parse("jwlinux://note/X:1001070145/8:38").unwrap();
+    let link = Link::parse("pergament://note/X:1001070145/8:38").unwrap();
     let t = navigate::resolve(&lib, Some(&nwtsty), &link)
         .unwrap()
         .unwrap();
@@ -342,7 +348,7 @@ fn study_note_and_book_links() {
     );
 
     // MEPS 1001070144 is Matthew's book document: open chapter 1.
-    let link = Link::parse("jwlinux://pub/X:1001070144/1-1").unwrap();
+    let link = Link::parse("pergament://pub/X:1001070144/1-1").unwrap();
     let t = navigate::resolve(&lib, Some(&nwtsty), &link)
         .unwrap()
         .unwrap();
@@ -359,13 +365,13 @@ fn study_note_and_book_links() {
 /// The study pane for Genesis 12, checked against the original app.
 #[test]
 fn chapter_study_genesis_12() {
-    let Some(bible) = fixture("JWL_TEST_JWPUB") else {
+    let Some(bible) = fixture("PERGAMENT_TEST_JWPUB") else {
         return;
     };
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path()).unwrap();
     let entry = lib.import(&bible).unwrap();
-    let p = jwlinux::Publication::open(&lib, &entry).unwrap();
+    let p = pergament::Publication::open(&lib, &entry).unwrap();
 
     let abbr = p.book_abbreviations().unwrap();
     assert_eq!(abbr.len(), 66);
@@ -373,7 +379,7 @@ fn chapter_study_genesis_12() {
     assert_eq!(abbr[&44], "Apg");
     assert_eq!(abbr[&66], "Off");
 
-    let r = jwlinux::Renderer::new(&p, jwlinux::RenderOptions::default());
+    let r = pergament::Renderer::new(&p, pergament::RenderOptions::default());
     let s = r.chapter_study(1, 12).unwrap();
     assert_eq!(s.outline_title.as_deref(), Some("1. Mose: Übersicht"));
     let lines: Vec<_> = s.outline.iter().map(|o| o.text.as_str()).collect();

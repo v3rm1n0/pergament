@@ -14,9 +14,9 @@ export interface SplitPage {
 
 const SECTIONS = "section.footnotes, section.xrefs, section.study-notes, div.groupFootnote";
 
-/** `jwlinux://bible/40:1:1-40:1:1` -> `40:1:1`. */
+/** `pergament://bible/40:1:1-40:1:1` -> `40:1:1`. */
 export function verseKeyFromHref(href: string): string | null {
-  const m = /^jwlinux:\/\/bible\/(\d+):(\d+):(\d+)/.exec(href);
+  const m = /^pergament:\/\/bible\/(\d+):(\d+):(\d+)/.exec(href);
   return m ? `${m[1]}:${m[2]}:${m[3]}` : null;
 }
 
@@ -44,7 +44,7 @@ export function splitPage(html: string): SplitPage {
     xrefs[el.id] = el.innerHTML;
   });
   root.querySelectorAll<HTMLElement>("div.study-note").forEach((el) => {
-    const href = el.querySelector("a[href^='jwlinux://bible/']")?.getAttribute("href");
+    const href = el.querySelector("a[href^='pergament://bible/']")?.getAttribute("href");
     const key = href ? verseKeyFromHref(href) : null;
     if (!key) return;
     if (!notes[key]) {
@@ -70,18 +70,18 @@ export type Cited =
   | { kind: "paragraphs"; from: number; to: number };
 
 /**
- * `jwlinux://bible/58:13:7-58:13:9` and `jwlinux://verse/X:1/13:7-13:9` cite
- * verses (chapter, verse), `jwlinux://pub/X:2024366/7-8` cites paragraphs.
+ * `pergament://bible/58:13:7-58:13:9` and `pergament://verse/X:1/13:7-13:9` cite
+ * verses (chapter, verse), `pergament://pub/X:2024366/7-8` cites paragraphs.
  */
 export function citedBy(href: string): Cited | null {
-  const bible = /^jwlinux:\/\/bible\/\d+:(\d+):(\d+)(?:-\d+:(\d+):(\d+))?/.exec(href);
-  const verse = /^jwlinux:\/\/(?:verse|note)\/[^/]+\/(\d+):(\d+)(?:-(\d+):(\d+))?/.exec(href);
+  const bible = /^pergament:\/\/bible\/\d+:(\d+):(\d+)(?:-\d+:(\d+):(\d+))?/.exec(href);
+  const verse = /^pergament:\/\/(?:verse|note)\/[^/]+\/(\d+):(\d+)(?:-(\d+):(\d+))?/.exec(href);
   const m = bible ?? verse;
   if (m) {
     const from: [number, number] = [Number(m[1]), Number(m[2])];
     return { kind: "verses", from, to: m[3] ? [Number(m[3]), Number(m[4])] : from };
   }
-  const pub = /^jwlinux:\/\/pub\/[^/]+\/(\d+)(?:-(\d+))?/.exec(href);
+  const pub = /^pergament:\/\/pub\/[^/]+\/(\d+)(?:-(\d+))?/.exec(href);
   if (pub) return { kind: "paragraphs", from: Number(pub[1]), to: Number(pub[2] ?? pub[1]) };
   return null;
 }
