@@ -18,12 +18,12 @@ use ureq::http::Response;
 use crate::{Error, Result};
 
 pub const USER_AGENT: &str = concat!(
-    "jwlinux/",
+    "pergament/",
     env!("CARGO_PKG_VERSION"),
     " (unofficial personal-use reader; no telemetry)"
 );
 
-/// Hosts jwlinux talks to. Download URLs from API responses are untrusted and
+/// Hosts Pergament talks to. Download URLs from API responses are untrusted and
 /// must point at one of these (or a subdomain).
 pub const DEFAULT_HOSTS: &[&str] = &["jw-cdn.org", "jw.org", "download-a.akamaihd.net"];
 

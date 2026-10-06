@@ -1,5 +1,5 @@
 {
-  description = "jwlinux - unofficial native Linux reader for JW publications";
+  description = "Pergament - unofficial Linux reader for .jwpub publications";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -45,37 +45,37 @@
           ];
         };
         meta = {
-          description = "Unofficial native Linux reader for JW publications (.jwpub)";
+          description = "Pergament, an unofficial Linux reader for .jwpub publications";
           platforms = pkgs.lib.platforms.linux;
           license = pkgs.lib.licenses.gpl3Only;
         };
 
-        jwlinux = pkgs.rustPlatform.buildRustPackage {
-          pname = "jwlinux";
+        pergament = pkgs.rustPlatform.buildRustPackage {
+          pname = "pergament";
           inherit version src;
           cargoLock.lockFile = ./Cargo.lock;
           cargoBuildFlags = [
             "-p"
-            "jwlinux"
+            "pergament"
           ];
           cargoTestFlags = [
             "-p"
-            "jwlinux"
+            "pergament"
           ];
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.sqlite ];
           meta = meta // {
-            mainProgram = "jwl";
+            mainProgram = "pergament";
           };
         };
       in
       {
         packages = {
-          default = jwlinux;
-          inherit jwlinux;
+          default = pergament;
+          inherit pergament;
         };
         checks = {
-          inherit jwlinux;
+          inherit pergament;
         };
 
         devShells.default = pkgs.mkShell {
@@ -115,8 +115,8 @@
             # GTK file dialogs need the schemas; TLS in WebKit needs glib-networking.
             export XDG_DATA_DIRS="${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}:${pkgs.gtk3}/share/gsettings-schemas/${pkgs.gtk3.name}:$XDG_DATA_DIRS"
             export GIO_MODULE_DIR="${pkgs.glib-networking}/lib/gio/modules/"
-            echo "jwlinux dev shell: $(rustc --version), node $(node --version)"
-            [ -n "$JWL_TEST_JWPUB" ] || echo "hint: export JWL_TEST_JWPUB=/path/to/nwtsty_X.jwpub for fixture tests"
+            echo "Pergament dev shell: $(rustc --version), node $(node --version)"
+            [ -n "$PERGAMENT_TEST_JWPUB" ] || echo "hint: export PERGAMENT_TEST_JWPUB=/path/to/nwtsty_X.jwpub for fixture tests"
           '';
         };
 

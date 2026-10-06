@@ -4,22 +4,22 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use jwlinux::catalog::Catalog;
-use jwlinux::net::{Client, HttpConfig};
-use jwlinux::remote::{self, Request};
-use jwlinux::render::file_url_for_dir;
-use jwlinux::{Entry, Library, Publication, RenderOptions, Renderer};
+use pergament::catalog::Catalog;
+use pergament::net::{Client, HttpConfig};
+use pergament::remote::{self, Request};
+use pergament::render::file_url_for_dir;
+use pergament::{Entry, Library, Publication, RenderOptions, Renderer};
 
 /// Unofficial reader for JW publications (.jwpub). Personal use only.
 #[derive(Parser)]
-#[command(name = "jwl", version)]
+#[command(name = "pergament", version)]
 struct Cli {
-    /// Library directory (default: $XDG_DATA_HOME/jwlinux)
-    #[arg(long, global = true, env = "JWL_LIBRARY")]
+    /// Library directory (default: $XDG_DATA_HOME/pergament)
+    #[arg(long, global = true, env = "PERGAMENT_LIBRARY")]
     library: Option<PathBuf>,
 
-    /// Cache directory for the catalog and downloads (default: $XDG_CACHE_HOME/jwlinux)
-    #[arg(long, global = true, env = "JWL_CACHE")]
+    /// Cache directory for the catalog and downloads (default: $XDG_CACHE_HOME/pergament)
+    #[arg(long, global = true, env = "PERGAMENT_CACHE")]
     cache: Option<PathBuf>,
 
     #[command(subcommand)]
@@ -88,9 +88,9 @@ fn main() -> Result<()> {
     .context("opening library")?;
     let cache = match cli.cache {
         Some(dir) => dir,
-        None => dirs::cache_dir()
-            .context("no cache directory (set XDG_CACHE_HOME)")?
-            .join("jwlinux"),
+        None => pergament::library::app_dir(
+            &dirs::cache_dir().context("no cache directory (set XDG_CACHE_HOME)")?,
+        ),
     };
 
     match cli.command {
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
                     let item = c.find(&publication, meps, issue)?;
                     if item.is_none() {
                         bail!(
-                            "{publication} ({lang}{}) is not in the catalog, see `jwl search {lang}`",
+                            "{publication} ({lang}{}) is not in the catalog, see `pergament search {lang}`",
                             issue.map(|i| format!(", issue {i}")).unwrap_or_default()
                         );
                     }
@@ -229,7 +229,7 @@ fn resolve(library: &Library, name: &str, lang: Option<i64>) -> Result<Entry> {
     }
     let mut found = library.find(name, lang, None)?;
     match found.len() {
-        0 => bail!("publication `{name}` is not in the library (see `jwl list`)"),
+        0 => bail!("publication `{name}` is not in the library (see `pergament list`)"),
         1 => Ok(found.remove(0)),
         _ => {
             let names: Vec<_> = found.iter().map(|e| e.dir_name.as_str()).collect();

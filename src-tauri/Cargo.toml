@@ -1,16 +1,16 @@
 [package]
-name = "jwlinux-app"
+name = "pergament-app"
 version = "0.1.0"
 edition = "2024"
-description = "Desktop reader for jwlinux (Tauri)"
+description = "Pergament desktop app (Tauri)"
 license = "GPL-3.0-only"
 
 [lib]
-name = "jwlinux_app"
+name = "pergament_app"
 crate-type = ["rlib"]
 
 [[bin]]
-name = "jwlinux-app"
+name = "pergament-app"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -18,7 +18,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 dirs = "7.0.0"
-jwlinux = { path = ".." }
+pergament = { path = ".." }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tauri = { version = "2", features = [] }

@@ -1,7 +1,7 @@
 use std::io;
 use std::path::PathBuf;
 
-/// Errors returned by the jwlinux library.
+/// Errors returned by the Pergament library.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("I/O error: {0}")]

@@ -36,7 +36,7 @@ export interface PubDetail {
   books: BibleBook[];
 }
 
-/** Mirrors jwlinux::navigate::Target (serde external tagging). */
+/** Mirrors pergament::navigate::Target (serde external tagging). */
 export type TargetKind =
   | { document: number }
   | { chapter: { book: number; chapter: number; verse: number } }
@@ -121,7 +121,7 @@ export interface DatedPage {
   image: string | null;
 }
 
-/** A page in user data (see jwlinux::userdata::Loc). */
+/** A page in user data (see pergament::userdata::Loc). */
 export interface Loc {
   keySymbol: string;
   mepsLanguage: number;

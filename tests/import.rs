@@ -3,9 +3,15 @@ mod common;
 use std::path::Path;
 
 use common::Fixture;
-use jwlinux::{Error, Library};
+use pergament::{Error, Library};
 
-fn import(fx: &Fixture) -> (tempfile::TempDir, Library, jwlinux::Result<jwlinux::Entry>) {
+fn import(
+    fx: &Fixture,
+) -> (
+    tempfile::TempDir,
+    Library,
+    pergament::Result<pergament::Entry>,
+) {
     let tmp = tempfile::tempdir().unwrap();
     let file = tmp.path().join("in.jwpub");
     fx.write_to(&file);
@@ -235,7 +241,7 @@ fn rejects_oversize_expansion() {
     let mut lib =
         Library::open(tmp.path().join("lib"))
             .unwrap()
-            .with_limits(jwlinux::jwpub::Limits {
+            .with_limits(pergament::jwpub::Limits {
                 max_expanded_size: 32 * 1024,
                 ..Default::default()
             });

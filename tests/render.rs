@@ -1,7 +1,7 @@
 mod common;
 
 use common::Fixture;
-use jwlinux::{Library, Publication, RenderOptions, Renderer};
+use pergament::{Library, Publication, RenderOptions, Renderer};
 
 fn render(html: &str, options: RenderOptions) -> String {
     let tmp = tempfile::tempdir().unwrap();
@@ -71,8 +71,8 @@ fn rewrites_links_and_footnote_markers() {
     );
     assert!(out.contains(r##"href="#footnote1""##), "{out}");
     assert!(out.contains(r#"id="footnotesource1""#), "{out}");
-    assert!(out.contains("jwlinux://bible/19:23:1-19:23:3"), "{out}");
-    assert!(out.contains("jwlinux://pub/X:123/"), "{out}");
+    assert!(out.contains("pergament://bible/19:23:1-19:23:3"), "{out}");
+    assert!(out.contains("pergament://pub/X:123/"), "{out}");
     assert!(!out.contains("jwpub:"), "{out}");
     assert!(!out.contains("data-"), "{out}");
     // Footnote is inline, so no extra section is appended.
