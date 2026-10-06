@@ -14,7 +14,6 @@ import {
   NotebookTabs,
   ScrollText,
   Sparkles,
-  Tent,
   Users,
 } from "lucide-react";
 import { AppBar, useApp } from "@/app";
@@ -40,7 +39,6 @@ const ICONS: Record<number, LucideIcon> = {
   22: FileText,
   30: Users,
   31: CalendarClock,
-  [-1]: Tent,
   [-2]: GraduationCap,
   [-3]: Mic,
 };
