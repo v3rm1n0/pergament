@@ -81,6 +81,25 @@ body,
   height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+/* iOS zooms into a focused field whose text is smaller than 16px and stays
+   zoomed afterwards; wide content has a similar effect. */
+@media (max-width: 767px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 body {
   margin: 0;
   background: var(--bg);
