@@ -126,6 +126,85 @@ pub fn chapter_study(
     .map_err(err)
 }
 
+/// The Research Guide (`rsg`) in the language of a Bible of the library.
+fn research_guide_publication(
+    library: &Library,
+    bible_dir: &str,
+) -> ApiResult<Option<Publication>> {
+    let (bible, _) = open_entry(library, bible_dir)?;
+    let guides = library
+        .find("rsg", Some(bible.meps_language), None)
+        .map_err(err)?;
+    guides
+        .first()
+        .map(|e| Publication::open(library, e).map_err(err))
+        .transpose()
+}
+
+/// Verse numbers of a chapter the Research Guide has excerpts for; empty if
+/// there is no Research Guide in the Bible's language.
+pub fn research_verses(
+    library: &Library,
+    bible_dir: &str,
+    book: i64,
+    chapter: i64,
+) -> ApiResult<Vec<i64>> {
+    match research_guide_publication(library, bible_dir)? {
+        Some(guide) => guide.guide_verses(book, chapter).map_err(err),
+        None => Ok(Vec::new()),
+    }
+}
+
+/// An excerpt of the Research Guide for a verse.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResearchEntry {
+    /// e.g. "Insight".
+    pub publication: String,
+    /// e.g. "Creation".
+    pub subject: String,
+    /// e.g. `it-1 “Creation” par. 4`.
+    pub location: String,
+    /// `pergament://pub/…` link to the paragraphs in their publication.
+    pub href: String,
+    pub html: String,
+}
+
+pub fn research_guide(
+    library: &Library,
+    bible_dir: &str,
+    book: i64,
+    chapter: i64,
+    verse: i64,
+) -> ApiResult<Vec<ResearchEntry>> {
+    let Some(guide) = research_guide_publication(library, bible_dir)? else {
+        return Ok(Vec::new());
+    };
+    let renderer = pergament::Renderer::new(
+        &guide,
+        pergament::RenderOptions {
+            media_base: None,
+            standalone: false,
+        },
+    );
+    guide
+        .guide_extracts(book, chapter, verse)
+        .map_err(err)?
+        .into_iter()
+        .map(|x| {
+            Ok(ResearchEntry {
+                publication: x.publication,
+                subject: x.subject,
+                location: x.location,
+                href: format!(
+                    "pergament://pub/{}",
+                    x.link.strip_prefix("p/").unwrap_or(&x.link)
+                ),
+                html: renderer.fragment(&x.html).map_err(err)?,
+            })
+        })
+        .collect()
+}
+
 /// A catalog publication, with the library directory if it is downloaded.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

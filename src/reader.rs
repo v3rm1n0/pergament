@@ -649,6 +649,156 @@ impl Publication {
     }
 }
 
+/// One excerpt the Research Guide lists for a verse, e.g. a paragraph of
+/// Insight. `html` is the decoded, not yet rewritten content.
+#[derive(Debug, Clone)]
+pub struct GuideExtract {
+    /// Short title of the publication the excerpt is from, e.g. "Insight".
+    pub publication: String,
+    /// Title of the article, e.g. "Creation".
+    pub subject: String,
+    /// Where it is, e.g. `it-1 “Creation” par. 4`.
+    pub location: String,
+    /// `p/E:1200001061/5-5`, a publication link without scheme.
+    pub link: String,
+    pub html: String,
+}
+
+/// A verse heading in a Research Guide book document.
+struct GuideHeading {
+    ordinal: i64,
+    chapter: i64,
+    first: i64,
+    last: i64,
+}
+
+impl Publication {
+    /// The Research Guide's document for a Bible book. Those documents are
+    /// section 2, one per book in book order (section 1 is the subjects).
+    fn guide_book_document(&self, book: i64) -> Result<Option<i64>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT DocumentId FROM Document WHERE SectionNumber = 2
+                 ORDER BY DocumentId LIMIT 1 OFFSET ?1",
+                [book - 1],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Verse headings of a book document in reading order. A heading links
+    /// `jwpub://b/NWTR/1:1:2-1:1:2`; the excerpts follow it up to the next one.
+    fn guide_headings(&self, document: i64, book: i64) -> Result<Vec<GuideHeading>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT c.ParagraphOrdinal, h.Link FROM BibleCitation c
+             JOIN Hyperlink h ON h.HyperlinkId = c.HyperlinkId
+             WHERE c.DocumentId = ?1 AND h.Link LIKE 'jwpub://b/%'
+             ORDER BY c.ParagraphOrdinal",
+        )?;
+        let rows = stmt.query_map([document], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (ordinal, link) = row?;
+            let Some(range) = link.rsplit('/').next() else {
+                continue;
+            };
+            let (from, to) = range.split_once('-').unwrap_or((range, range));
+            let parse = |s: &str| -> Option<(i64, i64, i64)> {
+                let mut p = s.split(':').map(|n| n.parse::<i64>().ok());
+                Some((p.next()??, p.next()??, p.next()??))
+            };
+            if let (Some((b, chapter, first)), Some((_, c2, last))) = (parse(from), parse(to))
+                && b == book
+                && c2 == chapter
+            {
+                out.push(GuideHeading {
+                    ordinal,
+                    chapter,
+                    first,
+                    last,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Verse numbers of a chapter the Research Guide has excerpts for.
+    pub fn guide_verses(&self, book: i64, chapter: i64) -> Result<Vec<i64>> {
+        let Some(document) = self.guide_book_document(book)? else {
+            return Ok(Vec::new());
+        };
+        let mut verses: Vec<i64> = self
+            .guide_headings(document, book)?
+            .iter()
+            .filter(|h| h.chapter == chapter)
+            .flat_map(|h| h.first..=h.last)
+            .collect();
+        verses.sort_unstable();
+        verses.dedup();
+        Ok(verses)
+    }
+
+    /// The excerpts listed for one verse.
+    pub fn guide_extracts(&self, book: i64, chapter: i64, verse: i64) -> Result<Vec<GuideExtract>> {
+        let Some(document) = self.guide_book_document(book)? else {
+            return Ok(Vec::new());
+        };
+        let headings = self.guide_headings(document, book)?;
+        let Some(at) = headings
+            .iter()
+            .position(|h| h.chapter == chapter && (h.first..=h.last).contains(&verse))
+        else {
+            return Ok(Vec::new());
+        };
+        let end = headings.get(at + 1).map_or(i64::MAX, |h| h.ordinal);
+        let mut stmt = self.conn.prepare(
+            "SELECT e.Caption, e.Link, e.Content, IFNULL(r.ShortTitle, r.Title)
+             FROM DocumentExtract de
+             JOIN Extract e ON e.ExtractId = de.ExtractId
+             LEFT JOIN RefPublication r ON r.RefPublicationId = e.RefPublicationId
+             WHERE de.DocumentId = ?1 AND de.BeginParagraphOrdinal > ?2 AND de.BeginParagraphOrdinal < ?3
+             ORDER BY de.SortPosition, de.DocumentExtractId",
+        )?;
+        let rows = stmt.query_map(params![document, headings[at].ordinal, end], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, Option<Vec<u8>>>(2)?,
+                r.get::<_, Option<String>>(3)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (caption, link, content, publication) = row?;
+            let (Some(link), Some(content)) = (link, content) else {
+                continue;
+            };
+            let caption = caption.unwrap_or_default();
+            out.push(GuideExtract {
+                publication: publication.unwrap_or_default(),
+                subject: span_text(&caption, "etitle"),
+                location: span_text(&caption, "eloc"),
+                link,
+                html: self.decode(&content)?,
+            });
+        }
+        Ok(out)
+    }
+}
+
+/// Text of the first `<span class="NAME">` in an extract caption.
+fn span_text(caption: &str, class: &str) -> String {
+    let marker = format!("class=\"{class}\">");
+    caption
+        .split_once(&marker)
+        .and_then(|(_, rest)| rest.split_once("</span>"))
+        .map(|(text, _)| strip_tags(text).trim().to_owned())
+        .unwrap_or_default()
+}
+
 /// An outline line, e.g. "Abram zieht von Haran nach Kanaan" for 12:1-9.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct OutlineEntry {
@@ -775,5 +925,13 @@ mod tests {
         let html = r#"<ul class="outline"><li class="L1 chapterNo"><ul><li class="L2"><p id="p53" data-pid="53">Abram zieht von Haran nach Kanaan <span class="altsize">(</span><a class="it" href="jwpub://c/X:1/12:1-12:9"><span class="altsize">1-9</span></a><span class="altsize">)</span></p></li></ul></li></ul>"#;
         assert_eq!(outline_text(html), "Abram zieht von Haran nach Kanaan");
         assert_eq!(strip_tags("a&nbsp;<b>b</b> &amp; c"), "a\u{a0}b & c");
+    }
+
+    #[test]
+    fn extract_captions() {
+        let c = r#"<span class="eloc">it-1 “Creation” par. 4</span> <span class="etitle">Creation</span>"#;
+        assert_eq!(span_text(c, "eloc"), "it-1 “Creation” par. 4");
+        assert_eq!(span_text(c, "etitle"), "Creation");
+        assert_eq!(span_text("", "etitle"), "");
     }
 }
