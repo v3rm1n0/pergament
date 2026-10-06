@@ -579,7 +579,8 @@ fn sanitizer() -> ammonia::Builder<'static> {
         "section",
     ])
     .add_generic_attributes(["id", "class"])
-    .add_url_schemes(["pergament", "file"]);
+    // `jwmedia` is the app's image scheme (MEDIA_SCHEME in src-tauri).
+    .add_url_schemes(["pergament", "file", "jwmedia"]);
     b
 }
 
@@ -709,7 +710,7 @@ mod tests {
     fn sanitizer_strips_active_content() {
         let s = sanitizer();
         let out = s
-            .clean(r#"<p onclick="x()">a<script>alert(1)</script><a href="javascript:x">l</a><img src="file:///a.jpg" onerror="x"><iframe src="https://x"></iframe><style>p{}</style></p>"#)
+            .clean(r#"<p onclick="x()">a<script>alert(1)</script><a href="javascript:x">l</a><img src="file:///a.jpg" onerror="x"><img src="jwmedia://localhost/d/b.jpg"><iframe src="https://x"></iframe><style>p{}</style></p>"#)
             .to_string();
         for bad in [
             "onclick",
@@ -722,5 +723,6 @@ mod tests {
             assert!(!out.contains(bad), "{bad} in {out}");
         }
         assert!(out.contains(r#"src="file:///a.jpg""#));
+        assert!(out.contains(r#"src="jwmedia://localhost/d/b.jpg""#));
     }
 }
