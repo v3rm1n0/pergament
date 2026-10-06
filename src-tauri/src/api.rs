@@ -3,16 +3,16 @@
 
 use std::path::{Path, PathBuf};
 
-use jwlinux::catalog::{
+use pergament::catalog::{
     Catalog, CatalogItem, DATED_DAILY_TEXT, DATED_MEETING_WORKBOOK, DATED_WATCHTOWER_STUDY,
     LIST_MEETINGS, LIST_TEACHING_TOOLBOX, category_name, safe_image_path,
 };
-use jwlinux::links::Link;
-use jwlinux::navigate::{self, Page, Target, TargetKind};
-use jwlinux::reader::{BibleBook, TocNode};
-use jwlinux::render::media_name;
-use jwlinux::userdata::{Loc, Mark, Note, UserData};
-use jwlinux::{Entry, Library, Publication};
+use pergament::links::Link;
+use pergament::navigate::{self, Page, Target, TargetKind};
+use pergament::reader::{BibleBook, TocNode};
+use pergament::render::media_name;
+use pergament::userdata::{Loc, Mark, Note, UserData};
+use pergament::{Entry, Library, Publication};
 use serde::Serialize;
 
 pub type ApiResult<T> = Result<T, String>;
@@ -113,11 +113,11 @@ pub fn chapter_study(
     dir: &str,
     book: i64,
     chapter: i64,
-) -> ApiResult<jwlinux::render::ChapterStudy> {
+) -> ApiResult<pergament::render::ChapterStudy> {
     let (_, publication) = open_entry(library, dir)?;
-    jwlinux::Renderer::new(
+    pergament::Renderer::new(
         &publication,
-        jwlinux::RenderOptions {
+        pergament::RenderOptions {
             media_base: Some(media_base(dir)),
             standalone: false,
         },
@@ -328,11 +328,14 @@ fn attr_values<'h>(html: &'h str, attr: &str) -> Vec<&'h str> {
 
 /// The document a dated entry stands for. A study edition's entry is a line of
 /// its table of contents (class 68) that links to the week's article.
-fn dated_document(publication: &Publication, dated: &jwlinux::reader::DatedText) -> ApiResult<i64> {
+fn dated_document(
+    publication: &Publication,
+    dated: &pergament::reader::DatedText,
+) -> ApiResult<i64> {
     let (info, _) = publication.document(dated.document_id).map_err(err)?;
     if info.class == "68" {
         for href in attr_values(&dated.content, "href") {
-            let link = jwlinux::render::rewrite_href(href).and_then(|h| Link::parse(&h));
+            let link = pergament::render::rewrite_href(href).and_then(|h| Link::parse(&h));
             if let Some(Link::Document {
                 meps_document_id, ..
             }) = link
@@ -373,9 +376,9 @@ pub fn dated_page(
             continue;
         };
         let base = media_base(&entry.dir_name);
-        let html = jwlinux::Renderer::new(
+        let html = pergament::Renderer::new(
             &publication,
-            jwlinux::RenderOptions {
+            pergament::RenderOptions {
                 media_base: Some(base.clone()),
                 standalone: false,
             },
@@ -647,13 +650,13 @@ mod tests {
             }
         );
         assert_eq!(
-            link_action(&lib, None, "jwlinux://pub/X:2026003/").unwrap(),
+            link_action(&lib, None, "pergament://pub/X:2026003/").unwrap(),
             LinkAction::Missing {
                 url: Some("https://www.jw.org/finder?wtlocale=X&docid=2026003".into())
             }
         );
         assert_eq!(
-            link_action(&lib, None, "jwlinux://bible/19:23:1").unwrap(),
+            link_action(&lib, None, "pergament://bible/19:23:1").unwrap(),
             LinkAction::Missing { url: None }
         );
         assert_eq!(

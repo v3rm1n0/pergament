@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use jwlinux::Error;
-use jwlinux::net::{Client, Expected, HttpConfig, part_path};
 use md5::{Digest, Md5};
+use pergament::Error;
+use pergament::net::{Client, Expected, HttpConfig, part_path};
 
 #[derive(Clone, Copy, PartialEq)]
 enum Fault {

@@ -2,7 +2,7 @@
 members = [".", "src-tauri"]
 
 [package]
-name = "jwlinux"
+name = "pergament"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
@@ -30,7 +30,7 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 
 [[bin]]
-name = "jwl"
+name = "pergament"
 path = "src/main.rs"
 
 [dev-dependencies]

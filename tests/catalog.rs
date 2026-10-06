@@ -1,7 +1,7 @@
-use jwlinux::catalog::Catalog;
+use pergament::catalog::Catalog;
 use rusqlite::{Connection, params};
 
-/// A tiny catalog with the tables and columns jwlinux reads.
+/// A tiny catalog with the tables and columns Pergament reads.
 fn build(path: &std::path::Path) {
     let c = Connection::open(path).unwrap();
     c.execute_batch(
@@ -194,7 +194,7 @@ fn search_matches_every_word_anywhere() {
 
 #[test]
 fn categories_curated_new_and_dated() {
-    use jwlinux::catalog::{CONVENTION, DATED_MEETING_WORKBOOK, LIST_TEACHING_TOOLBOX};
+    use pergament::catalog::{CONVENTION, DATED_MEETING_WORKBOOK, LIST_TEACHING_TOOLBOX};
     let (_t, c) = open();
     assert_eq!(c.categories(2).unwrap(), vec![(14, 3), (CONVENTION, 1)]);
     assert_eq!(c.by_category(2, CONVENTION, 10).unwrap()[0].symbol, "wp25");
@@ -228,7 +228,7 @@ fn categories_curated_new_and_dated() {
 
 #[test]
 fn image_paths() {
-    use jwlinux::catalog::safe_image_path;
+    use pergament::catalog::safe_image_path;
     assert!(safe_image_path("images/33/1102021352_univ_sqr-120x120.jpg"));
     for bad in [
         "images/../x.jpg",
@@ -243,12 +243,12 @@ fn image_paths() {
 }
 
 /// Against the real catalog (values checked against the original app on
-/// 2026-10-05). Set JWL_TEST_CATALOG to a catalog.db.
+/// 2026-10-05). Set PERGAMENT_TEST_CATALOG to a catalog.db.
 #[test]
 fn real_catalog() {
-    use jwlinux::catalog::*;
-    let Some(path) = std::env::var_os("JWL_TEST_CATALOG") else {
-        eprintln!("skipping: JWL_TEST_CATALOG not set");
+    use pergament::catalog::*;
+    let Some(path) = std::env::var_os("PERGAMENT_TEST_CATALOG") else {
+        eprintln!("skipping: PERGAMENT_TEST_CATALOG not set");
         return;
     };
     let c = Catalog::open(std::path::Path::new(&path), "test".into()).unwrap();

@@ -2253,46 +2253,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwlinux"
-version = "0.1.0"
-dependencies = [
- "aes",
- "ammonia",
- "anyhow",
- "cbc",
- "clap",
- "dirs",
- "flate2",
- "hex",
- "lol_html",
- "md-5",
- "rusqlite",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.11.0",
- "tempfile",
- "thiserror 2.0.21",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "jwlinux-app"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "jwlinux",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tempfile",
-]
-
-[[package]]
 name = "keyboard-types"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2907,6 +2867,46 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "pergament"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "ammonia",
+ "anyhow",
+ "cbc",
+ "clap",
+ "dirs",
+ "flate2",
+ "hex",
+ "lol_html",
+ "md-5",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "pergament-app"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "pergament",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tempfile",
+]
 
 [[package]]
 name = "phf"

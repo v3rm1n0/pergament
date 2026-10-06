@@ -1,5 +1,5 @@
 //! Tauri shell: managed state, commands and the `jwmedia:` image protocol.
-//! Logic lives in [`api`] and the `jwlinux` crate.
+//! Logic lives in [`api`] and the `pergament` crate.
 
 pub mod api;
 
@@ -7,14 +7,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use jwlinux::Library;
-use jwlinux::catalog::{Catalog, CatalogItem};
-use jwlinux::languages::Language;
-use jwlinux::links::Link;
-use jwlinux::navigate::{Page, Target};
-use jwlinux::net::{Client, HttpConfig};
-use jwlinux::remote::{self, Request};
-use jwlinux::userdata::{self, Loc, NoteInput, Range, UserData};
+use pergament::Library;
+use pergament::catalog::{Catalog, CatalogItem};
+use pergament::languages::Language;
+use pergament::links::Link;
+use pergament::navigate::{Page, Target};
+use pergament::net::{Client, HttpConfig};
+use pergament::remote::{self, Request};
+use pergament::userdata::{self, Loc, NoteInput, Range, UserData};
 use serde::Serialize;
 use tauri::http::{Response, StatusCode};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -213,7 +213,7 @@ fn chapter_study(
     dir: String,
     book: i64,
     chapter: i64,
-) -> ApiResult<jwlinux::render::ChapterStudy> {
+) -> ApiResult<pergament::render::ChapterStudy> {
     api::chapter_study(&*state.lib()?, &dir, book, chapter)
 }
 
@@ -373,22 +373,22 @@ fn delete_note(state: State<'_, AppState>, guid: String) -> ApiResult<()> {
 fn all_notes(
     state: State<'_, AppState>,
     tag: Option<i64>,
-) -> ApiResult<Vec<jwlinux::userdata::Note>> {
+) -> ApiResult<Vec<pergament::userdata::Note>> {
     state.user()?.all_notes(tag).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn tags(state: State<'_, AppState>) -> ApiResult<Vec<jwlinux::userdata::TagInfo>> {
+fn tags(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::TagInfo>> {
     state.user()?.tags().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn bookmarks(state: State<'_, AppState>) -> ApiResult<Vec<jwlinux::userdata::Bookmark>> {
+fn bookmarks(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::Bookmark>> {
     state.user()?.bookmarks().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn user_data_summary(state: State<'_, AppState>) -> ApiResult<jwlinux::userdata::Summary> {
+fn user_data_summary(state: State<'_, AppState>) -> ApiResult<pergament::userdata::Summary> {
     state.user()?.summary().map_err(|e| e.to_string())
 }
 
@@ -411,7 +411,7 @@ async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
 
 /// Replace all user data with a `.jwlibrary` backup.
 #[tauri::command]
-async fn restore_backup(app: AppHandle, path: String) -> ApiResult<jwlinux::userdata::Summary> {
+async fn restore_backup(app: AppHandle, path: String) -> ApiResult<pergament::userdata::Summary> {
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<AppState>()
             .user()?
@@ -428,7 +428,7 @@ async fn languages(app: AppHandle) -> ApiResult<Vec<Language>> {
     tauri::async_runtime::spawn_blocking(move || {
         let cache = app.state::<AppState>().cache.clone();
         let client = Client::new(HttpConfig::default());
-        jwlinux::languages::load(&client, &cache, Duration::from_secs(7 * 24 * 3600))
+        pergament::languages::load(&client, &cache, Duration::from_secs(7 * 24 * 3600))
             .map_err(|e| e.to_string())
     })
     .await
@@ -498,14 +498,14 @@ fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
         Some((rel, cached)) => {
             if !cached.is_file() {
                 let fetched = state.image_client.lock().ok().and_then(|client| {
-                    let url = format!("{}{rel}", jwlinux::catalog::IMAGE_BASE);
+                    let url = format!("{}{rel}", pergament::catalog::IMAGE_BASE);
                     let mut ignore = |_: u64, _: Option<u64>| {};
                     client
                         .download(&url, &cached, &Default::default(), &mut ignore)
                         .ok()
                 });
                 if fetched.is_none() {
-                    let _ = std::fs::remove_file(jwlinux::net::part_path(&cached));
+                    let _ = std::fs::remove_file(pergament::net::part_path(&cached));
                 }
             }
             cached.is_file().then_some(cached)
@@ -529,14 +529,14 @@ fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
 }
 
 pub fn run() {
-    let root = std::env::var_os("JWL_LIBRARY")
+    let root = std::env::var_os("PERGAMENT_LIBRARY")
         .map(PathBuf::from)
-        .or_else(|| dirs::data_dir().map(|d| d.join("jwlinux")))
-        .expect("no data directory (set XDG_DATA_HOME or JWL_LIBRARY)");
-    let cache = std::env::var_os("JWL_CACHE")
+        .or_else(|| dirs::data_dir().map(|d| pergament::library::app_dir(&d)))
+        .expect("no data directory (set XDG_DATA_HOME or PERGAMENT_LIBRARY)");
+    let cache = std::env::var_os("PERGAMENT_CACHE")
         .map(PathBuf::from)
-        .or_else(|| dirs::cache_dir().map(|d| d.join("jwlinux")))
-        .expect("no cache directory (set XDG_CACHE_HOME or JWL_CACHE)");
+        .or_else(|| dirs::cache_dir().map(|d| pergament::library::app_dir(&d)))
+        .expect("no cache directory (set XDG_CACHE_HOME or PERGAMENT_CACHE)");
     let library = Library::open(&root).expect("cannot open library");
     let user = UserData::open(root.join(userdata::DB_NAME)).expect("cannot open user data");
 
@@ -599,5 +599,5 @@ pub fn run() {
             restore_backup,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running jwlinux");
+        .expect("error while running Pergament");
 }

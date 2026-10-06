@@ -4,7 +4,7 @@
 use std::io::{Cursor, Write};
 use std::path::Path;
 
-use jwlinux::crypto::ContentKey;
+use pergament::crypto::ContentKey;
 use rusqlite::Connection;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};

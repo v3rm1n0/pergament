@@ -1,6 +1,6 @@
 # The .jwpub format
 
-What jwlinux knows about `.jwpub` files, where each fact comes from, and how
+What Pergament knows about `.jwpub` files, where each fact comes from, and how
 sure we are. Everything under "Verified" was checked against real files;
 everything under "Unknown" is explicitly not relied upon.
 
@@ -150,7 +150,7 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   where `X` is the MEPS language code. Some carry a suffix after the slash,
   e.g. `jwpub://p/X:1001070144/1-1` in study notes (meaning unknown). Some
   point at a Bible **book** document (e.g. 1001070144 = Matthew), which has no
-  content; jwlinux opens chapter 1 of that book.
+  content; Pergament opens chapter 1 of that book.
 - **Verse links in book documents**: `jwpub://c/X:{book MepsDocumentId}/{ch}:{v}[-{ch}:{v}]`
   (12,604 in nwtsty). Outlines use them plainly (`…/1:1-1:31`, 5,733 links);
   study notes add `$`-separated alternatives that name the target study
@@ -185,9 +185,9 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
 
 Endpoints come from [jwapi] (`notes.txt`, `libjw/jwhttp/*.go`) and [msp]
 (`test/e2e/*.test.js`). All were checked with live requests on 2026-10-05,
-sent with jwlinux's own User-Agent and no app tokens. jwapi's notes impersonate
+sent with Pergament's own User-Agent and no app tokens. jwapi's notes impersonate
 the official app (`User-Agent: jwlibrary-android`, bearer tokens from
-`tokens/jwl-public.jwt`); jwlinux does **not** do that and does not use any
+`tokens/jwl-public.jwt`); Pergament does **not** do that and does not use any
 endpoint that needs such credentials.
 
 ### Publication catalog
@@ -218,7 +218,7 @@ Series (ijw…), 30 Meeting Workbooks (mwb), 31 Programs (CA-…, CO-…).
 "What's New" in the original app is the newest `PublicationAsset.CatalogedOn`
 (sjj, es27, rsg, gwt, mwb 2027-01 on 2026-10-05).
 
-The catalog has **no language table**. jwlinux derives MEPS-id →
+The catalog has **no language table**. Pergament derives MEPS-id →
 language-code pairs from language-specific image names
 (`…_{CODE}_cvr.jpg` etc.), taking the most frequent code per
 `MepsLanguageId`. This covers 313 of 875 language ids (0 `E`, 1 `S`, 2 `X`,
@@ -322,5 +322,5 @@ Checked against one backup made by JW Library on iOS (schema version 16,
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.
 - Whether `GETPUBMEDIALINKS` ever returns more than one JWPUB file per
-  language; jwlinux takes the first.
+  language; Pergament takes the first.
 - Rate limits on the jw.org side (none hit at one request per second).
