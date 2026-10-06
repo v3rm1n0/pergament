@@ -23,6 +23,7 @@ export function EntryImage({ entry, className }: { entry: CatalogEntry; classNam
     <img
       src={entry.imageUrl}
       alt=""
+      loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
       className={cn("object-cover", className)}

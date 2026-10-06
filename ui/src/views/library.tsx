@@ -23,7 +23,7 @@ import { inLanguage } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { CatalogPrompt, GridCard } from "@/components/catalog";
 import { HomeLibraryGrid } from "./downloaded";
-import { importedOnly, mergeCategories } from "@/lib/types";
+import { importedOnly, mergeCategories, sectionsFor } from "@/lib/types";
 
 /** Icons per category id (see CATEGORIES in src/catalog.rs). */
 const ICONS: Record<number, LucideIcon> = {
@@ -150,11 +150,21 @@ export function CategoryView({ id, title }: { id: number; title: string }) {
               placeholder="Filter"
               className="mb-5 h-9 w-72 bg-tile px-3 text-sm outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
             />
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3 gap-y-5">
-              {shown.map((e) => (
-                <GridCard key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
-              ))}
-            </div>
+            {sectionsFor(id, shown).map((s) => (
+              <section key={s.title ?? ""} className="mb-8">
+                {s.title && <h2 className="mb-3 text-[1.35rem] font-semibold">{s.title}</h2>}
+                {s.parts.map((part) => (
+                  <div key={part.title ?? ""} className="mb-6">
+                    {part.title && <h3 className="mb-3 text-[1rem] font-medium text-muted">{part.title}</h3>}
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3 gap-y-5">
+                      {part.entries.map((e) => (
+                        <GridCard key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </section>
+            ))}
           </>
         )}
       </div>
