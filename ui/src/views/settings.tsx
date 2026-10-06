@@ -71,7 +71,7 @@ export function SettingsView() {
               />
               <span className="w-12 text-sm text-muted">{Math.round(fontScale * 100)} %</span>
             </div>
-            <p className="reader mt-4 max-w-xl text-fg">Am Anfang erschuf Gott Himmel und Erde.</p>
+            <p className="reader mt-4 max-w-xl text-fg">{t("In the beginning God created the heavens and the earth.")}</p>
           </section>
           <section>
             <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Backup")}</h2>
