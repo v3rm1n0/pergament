@@ -70,6 +70,18 @@ pub struct TocNode {
     pub children: Vec<TocNode>,
 }
 
+/// One `DatedText` row with its decoded content.
+#[derive(Debug, Clone)]
+pub struct DatedText {
+    /// Document the entry belongs to (the month of a daily text, the week of a
+    /// workbook, the table of contents of a study edition).
+    pub document_id: i64,
+    /// First and last date covered, `YYYYMMDD`.
+    pub first: i64,
+    pub last: i64,
+    pub content: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct StudyNote {
     pub verse_id: i64,
@@ -176,6 +188,68 @@ impl Publication {
                 |r| r.get(0),
             )
             .optional()?)
+    }
+
+    /// The symbol user data refers to: the undated one for issues (`w` for
+    /// `w26` 2026-08), the symbol itself otherwise (`es26`, `nwtsty`).
+    pub fn key_symbol(&self) -> Result<String> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT CASE WHEN IssueTagNumber > 0 THEN UndatedSymbol ELSE Symbol END
+                 FROM Publication LIMIT 1",
+                [],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten()
+            .unwrap_or_else(|| self.entry.symbol.clone()))
+    }
+
+    /// The `DatedText` entry covering `date` (`YYYYMMDD`): a day of the daily
+    /// text, or a week of a workbook or study edition.
+    pub fn dated_text(&self, date: i64) -> Result<Option<DatedText>> {
+        if !self.has_table("DatedText")? {
+            return Ok(None);
+        }
+        let row = self
+            .conn
+            .query_row(
+                "SELECT DocumentId, FirstDateOffset, LastDateOffset, Content FROM DatedText
+                 WHERE ?1 BETWEEN FirstDateOffset AND LastDateOffset AND Content IS NOT NULL
+                 ORDER BY FirstDateOffset DESC LIMIT 1",
+                [date],
+                |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, i64>(2)?,
+                        r.get::<_, Vec<u8>>(3)?,
+                    ))
+                },
+            )
+            .optional()?;
+        row.map(|(document_id, first, last, blob)| {
+            Ok(DatedText {
+                document_id,
+                first,
+                last,
+                content: self.decode(&blob)?,
+            })
+        })
+        .transpose()
+    }
+
+    fn has_table(&self, name: &str) -> Result<bool> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                [name],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
     }
 
     fn require_bible(&self) -> Result<()> {

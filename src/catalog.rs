@@ -314,6 +314,23 @@ impl Catalog {
         )
     }
 
+    /// The newest publication containing the document with this MEPS id.
+    pub fn by_document(
+        &self,
+        meps_language: i64,
+        meps_document_id: i64,
+    ) -> Result<Option<CatalogItem>> {
+        Ok(self
+            .items(
+                "JOIN PublicationDocument d ON d.PublicationId = p.Id
+                 WHERE p.MepsLanguageId = ?1 AND d.DocumentId = ?2
+                 ORDER BY p.Year DESC, p.IssueTagNumber DESC LIMIT 1",
+                params![meps_language, meps_document_id],
+            )?
+            .into_iter()
+            .next())
+    }
+
     /// Publications whose dated range of `class` (see [`DATED_MEETING_WORKBOOK`]
     /// etc.) contains `date` (`YYYY-MM-DD`): `(item, start, end)`.
     pub fn dated(

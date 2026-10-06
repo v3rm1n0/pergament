@@ -120,6 +120,17 @@ impl<'a> Renderer<'a> {
         Ok(self.finish(&info.title, &body))
     }
 
+    /// Render the `DatedText` entry covering `date` (`YYYYMMDD`), e.g. one day
+    /// of the daily text.
+    pub fn dated_text(&self, date: i64) -> Result<String> {
+        let dated = self
+            .publication
+            .dated_text(date)?
+            .ok_or_else(|| Error::NotFound(format!("no dated text for {date}")))?;
+        let (body, _) = self.rewrite(&dated.content)?;
+        Ok(self.finish("", &body))
+    }
+
     /// Render one Bible chapter with footnotes, cross references and study notes.
     pub fn chapter(&self, book: i64, chapter: i64) -> Result<String> {
         let ch = self.publication.chapter(book, chapter)?;
