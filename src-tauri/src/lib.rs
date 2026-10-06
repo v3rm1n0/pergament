@@ -14,6 +14,7 @@ use jwlinux::links::Link;
 use jwlinux::navigate::{Page, Target};
 use jwlinux::net::{Client, HttpConfig};
 use jwlinux::remote::{self, Request};
+use jwlinux::userdata::{self, Loc, NoteInput, Range, UserData};
 use serde::Serialize;
 use tauri::http::{Response, StatusCode};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -23,6 +24,8 @@ use api::{ApiResult, LinkAction, PubCard, PubDetail};
 
 pub struct AppState {
     library: Mutex<Library>,
+    /// Highlights, notes and tags (`userData.db` in the library root).
+    user: Mutex<UserData>,
     root: PathBuf,
     cache: PathBuf,
     catalog: Mutex<Option<Arc<Mutex<Catalog>>>>,
@@ -35,6 +38,12 @@ impl AppState {
         self.library
             .lock()
             .map_err(|_| "library lock poisoned".to_owned())
+    }
+
+    fn user(&self) -> ApiResult<std::sync::MutexGuard<'_, UserData>> {
+        self.user
+            .lock()
+            .map_err(|_| "user data lock poisoned".to_owned())
     }
 }
 
@@ -272,6 +281,147 @@ async fn meetings(app: AppHandle, lang: String, date: String) -> ApiResult<Optio
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+async fn dated_page(
+    app: AppHandle,
+    lang: String,
+    kind: String,
+    date: String,
+) -> ApiResult<Option<api::DatedPage>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        api::dated_page(&*app.state::<AppState>().lib()?, &lang, &kind, &date)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn missing_entry(
+    app: AppHandle,
+    lang: String,
+    href: String,
+) -> ApiResult<Option<api::CatalogEntry>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, lib| {
+            api::missing_entry(c, meps, lib, &href)
+        })
+        .map(Option::flatten)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn page_user_data(state: State<'_, AppState>, target: Target) -> ApiResult<api::PageUserData> {
+    api::page_user_data(&*state.lib()?, &*state.user()?, &target)
+}
+
+#[tauri::command]
+fn add_mark(
+    state: State<'_, AppState>,
+    target: Target,
+    color: i64,
+    ranges: Vec<Range>,
+) -> ApiResult<String> {
+    let (loc, title) = api::page_location(&*state.lib()?, &target)?;
+    state
+        .user()?
+        .add_mark(&loc, Some(&title), color, &ranges)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_mark_color(state: State<'_, AppState>, guid: String, color: i64) -> ApiResult<()> {
+    state
+        .user()?
+        .set_mark_color(&guid, color)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_mark(state: State<'_, AppState>, guid: String) -> ApiResult<()> {
+    state.user()?.delete_mark(&guid).map_err(|e| e.to_string())
+}
+
+/// Create (with `target`) or update a note; returns its guid.
+#[tauri::command]
+fn save_note(
+    state: State<'_, AppState>,
+    target: Option<Target>,
+    note: NoteInput,
+) -> ApiResult<String> {
+    let location = match &target {
+        Some(t) => Some(api::page_location(&*state.lib()?, t)?),
+        None => None,
+    };
+    state
+        .user()?
+        .save_note(
+            location.as_ref().map(|(l, _)| l),
+            location.as_ref().map(|(_, t)| t.as_str()),
+            &note,
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_note(state: State<'_, AppState>, guid: String) -> ApiResult<()> {
+    state.user()?.delete_note(&guid).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn all_notes(
+    state: State<'_, AppState>,
+    tag: Option<i64>,
+) -> ApiResult<Vec<jwlinux::userdata::Note>> {
+    state.user()?.all_notes(tag).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn tags(state: State<'_, AppState>) -> ApiResult<Vec<jwlinux::userdata::TagInfo>> {
+    state.user()?.tags().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn bookmarks(state: State<'_, AppState>) -> ApiResult<Vec<jwlinux::userdata::Bookmark>> {
+    state.user()?.bookmarks().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn user_data_summary(state: State<'_, AppState>) -> ApiResult<jwlinux::userdata::Summary> {
+    state.user()?.summary().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_location(state: State<'_, AppState>, loc: Loc) -> ApiResult<Option<Target>> {
+    api::open_location(&*state.lib()?, &loc)
+}
+
+#[tauri::command]
+async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AppState>()
+            .user()?
+            .export_backup(std::path::Path::new(&path))
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Replace all user data with a `.jwlibrary` backup.
+#[tauri::command]
+async fn restore_backup(app: AppHandle, path: String) -> ApiResult<jwlinux::userdata::Summary> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AppState>()
+            .user()?
+            .restore_backup(std::path::Path::new(&path))
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Language list (code, names), cached for a week.
 #[tauri::command]
 async fn languages(app: AppHandle) -> ApiResult<Vec<Language>> {
@@ -388,12 +538,14 @@ pub fn run() {
         .or_else(|| dirs::cache_dir().map(|d| d.join("jwlinux")))
         .expect("no cache directory (set XDG_CACHE_HOME or JWL_CACHE)");
     let library = Library::open(&root).expect("cannot open library");
+    let user = UserData::open(root.join(userdata::DB_NAME)).expect("cannot open user data");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             library: Mutex::new(library),
+            user: Mutex::new(user),
             root,
             cache,
             catalog: Mutex::new(None),
@@ -430,6 +582,21 @@ pub fn run() {
             category,
             meetings,
             download_publication,
+            dated_page,
+            missing_entry,
+            page_user_data,
+            add_mark,
+            set_mark_color,
+            delete_mark,
+            save_note,
+            delete_note,
+            all_notes,
+            tags,
+            bookmarks,
+            user_data_summary,
+            open_location,
+            export_backup,
+            restore_backup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running jwlinux");

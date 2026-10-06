@@ -74,3 +74,13 @@ export function toggleFavorite(dir: string): string[] {
   write("favorites", JSON.stringify(next));
   return next;
 }
+
+/** Highlight color used for a note on a new selection. */
+export function loadLastColor(): number {
+  const n = Number(read("highlightColor"));
+  return n >= 1 && n <= 6 ? n : 1;
+}
+
+export function saveLastColor(color: number) {
+  write("highlightColor", String(color));
+}

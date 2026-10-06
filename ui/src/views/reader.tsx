@@ -2,10 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
-import { api, chapterTarget, type ChapterStudy, type Page, type Target, type VerseStudy } from "@/lib/api";
+import {
+  api,
+  chapterTarget,
+  type ChapterStudy,
+  type Mark,
+  type MarkRange,
+  type Note,
+  type NoteInput,
+  type Page,
+  type PageUserData,
+  type Target,
+  type VerseStudy,
+} from "@/lib/api";
+import { applyMarks, blockElements, selectionRanges } from "@/lib/marks";
+import { loadLastColor, saveLastColor } from "@/lib/settings";
+import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
+import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
+import { ReferencePane, type PaneRef } from "@/components/reference-pane";
 import { usePublication } from "./publication";
+
+/** How a followed link changes the pane: new stack, deeper, or retry in place. */
+type RefMode = "root" | "push" | "replace";
 
 function flash(el: Element | null, block: ScrollLogicalPosition = "center") {
   if (!el) return;
@@ -34,7 +54,8 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
-  const { openTarget, replace, toast } = useApp();
+  const { push, replace, toast, lang, userVersion } = useApp();
+  const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -43,12 +64,14 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   const paneRef = useRef<HTMLElement>(null);
   const detail = usePublication(target.publication);
   const chapter = "chapter" in target.kind ? target.kind.chapter : null;
+  const dated = "dated" in target.kind ? target.kind.dated.date : null;
 
   useEffect(() => {
     let live = true;
     setPage(null);
     setStudy(null);
     setSelected(null);
+    setRefs([]);
     api
       .renderPage(target)
       .then((p) => live && setPage(p))
@@ -88,22 +111,52 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     );
   }, []);
 
-  // Mark verses with study notes and jump to the requested verse.
+  // Highlights and notes of this page from user data.
+  const [user, setUser] = useState<PageUserData>({ marks: [], notes: [] });
+  const reloadUser = useCallback(() => {
+    api
+      .pageUserData(target)
+      .then(setUser)
+      .catch(() => setUser({ marks: [], notes: [] }));
+    // userVersion: reload after a backup was restored.
+  }, [target, userVersion]);
+  useEffect(reloadUser, [reloadUser]);
+
+  // Redraw the text with verse markers, highlights and note markers.
   useEffect(() => {
     const root = articleRef.current;
     if (!root || !split) return;
+    root.innerHTML = split.body;
     root.querySelectorAll<HTMLElement>("span.v[id]").forEach((el) => {
       const key = verseKeyOfSpan(el.id);
       if (key && owners.noted.has(key)) el.classList.add("has-notes");
     });
+    applyMarks(root, user.marks);
+    for (const n of user.notes) {
+      if (n.blockIdentifier == null) continue;
+      blockElements(root, n.blockType, n.blockIdentifier)[0]?.classList.add("has-user-note");
+    }
+  }, [split, owners, user]);
+
+  // Jump to the requested verse.
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root || !split) return;
     if (page?.fragment) flash(root.querySelector(`[id="${CSS.escape(page.fragment)}"]`));
     else root.closest(".overflow-y-auto")?.scrollTo({ top: 0 });
     if (note && chapter && study) selectVerse(`${chapter.chapter}:${chapter.verse}`);
     // Runs once per loaded page and study data, not on every selection.
   }, [split, page, owners, study]);
 
+  /** Show a reference in the pane: replace the pane stack, push onto it, or replace its top. */
+  const showRef = useCallback((ref: PaneRef, mode: RefMode) => {
+    setRefs((r) => (mode === "root" ? [ref] : mode === "push" ? [...r, ref] : [...r.slice(0, -1), ref]));
+    setPaneOpen(true);
+  }, []);
+
+  // Links open in the pane; only the pane's publication bar opens them in the reader.
   const follow = useCallback(
-    async (href: string) => {
+    async (href: string, mode: RefMode = "root") => {
       try {
         const action = await api.linkAction(target.publication, href);
         switch (action.kind) {
@@ -111,6 +164,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             const t = action.target;
             const k = t.kind;
             if (
+              mode === "root" &&
               chapter &&
               "chapter" in k &&
               t.publication === target.publication &&
@@ -121,19 +175,19 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
               flash(articleRef.current?.querySelector(`[id="v${book}-${c}-${verse}-1"]`) ?? null);
               if (action.studyNote) selectVerse(`${c}:${verse}`);
             } else {
-              openTarget(t, action.studyNote);
+              const p = await api.renderPage(t);
+              showRef({ kind: "page", href, target: t, page: p, studyNote: action.studyNote }, mode);
             }
             break;
           }
           case "external":
             await api.openExternal(action.url);
             break;
-          case "missing":
-            toast(
-              action.url ? "This publication is not in your library" : "No Bible in your library",
-              action.url ? { label: "Open on jw.org", run: () => void api.openExternal(action.url!) } : undefined,
-            );
+          case "missing": {
+            const entry = await api.missingEntry(lang, href).catch(() => null);
+            showRef({ kind: "missing", href, entry, url: action.url }, mode);
             break;
+          }
           case "ignore":
             break;
         }
@@ -141,10 +195,81 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         toast(`Cannot follow link: ${e}`);
       }
     },
-    [chapter, openTarget, selectVerse, target.publication, toast],
+    [chapter, lang, selectVerse, showRef, target.publication, toast],
   );
 
+  // Highlighting: a selection or a click on a highlight shows the toolbar.
+  const [toolbar, setToolbar] = useState<Toolbar | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const closeToolbar = useCallback(() => setToolbar(null), []);
+
+  const onArticleMouseUp = () => {
+    const root = articleRef.current;
+    const sel = window.getSelection();
+    if (!root || !sel || sel.isCollapsed || !root.contains(sel.anchorNode)) return;
+    const range = sel.getRangeAt(0);
+    const ranges = selectionRanges(root, range);
+    if (ranges.length === 0) return;
+    const rect = range.getBoundingClientRect();
+    setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, ranges });
+  };
+
+  const userAction = async (run: () => Promise<unknown>) => {
+    try {
+      await run();
+    } catch (e) {
+      toast(String(e));
+    }
+    window.getSelection()?.removeAllRanges();
+    setToolbar(null);
+    reloadUser();
+  };
+
+  const colorChosen = (color: number) => {
+    const t = toolbar;
+    if (!t) return;
+    saveLastColor(color);
+    void userAction(() => (t.mark ? api.setMarkColor(t.mark.guid, color) : api.addMark(target, color, t.ranges ?? [])));
+  };
+
+  /** Note on the toolbar's highlight, highlighting the selection first if needed. */
+  const noteChosen = async () => {
+    const t = toolbar;
+    if (!t) return;
+    setToolbar(null);
+    try {
+      const markGuid = t.mark ? t.mark.guid : await api.addMark(target, loadLastColor(), t.ranges ?? []);
+      const block = (t.mark?.ranges ?? t.ranges ?? [])[0];
+      const existing = user.notes.find((n) => n.markGuid === markGuid);
+      window.getSelection()?.removeAllRanges();
+      reloadUser();
+      setEditing(
+        existing
+          ? { note: existing }
+          : { note: {}, markGuid, blockType: block?.blockType, blockIdentifier: block?.identifier },
+      );
+    } catch (e) {
+      toast(String(e));
+    }
+  };
+
+  const saveNote = (input: Omit<NoteInput, "guid" | "blockType" | "blockIdentifier" | "markGuid">) => {
+    const ed = editing;
+    if (!ed) return;
+    setEditing(null);
+    void userAction(() =>
+      api.saveNote(ed.note.guid ? null : target, {
+        ...input,
+        guid: ed.note.guid,
+        blockType: ed.blockType ?? 0,
+        blockIdentifier: ed.blockIdentifier ?? null,
+        markGuid: ed.markGuid ?? null,
+      }),
+    );
+  };
+
   const onArticleClick = (e: ReactMouseEvent) => {
+    if (!window.getSelection()?.isCollapsed) return;
     const el = e.target as HTMLElement;
     const a = el.closest("a");
     if (a) {
@@ -162,6 +287,13 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       } else {
         void follow(href);
       }
+      return;
+    }
+    const hl = el.closest<HTMLElement>("mark.hl");
+    const mark = hl && user.marks.find((m) => m.guid === hl.dataset.guid);
+    if (mark) {
+      const rect = hl.getBoundingClientRect();
+      setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, mark });
       return;
     }
     const verse = el.closest(".vl, .cl")?.closest<HTMLElement>("span.v[id]");
@@ -183,6 +315,17 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
 
   const books = detail?.books;
   const go = (delta: number) => {
+    if (dated !== null) {
+      // The next day may be in another year's booklet.
+      const day = addDays(fromDateNumber(dated), delta);
+      api
+        .datedPage(lang, "dailyText", isoDate(day))
+        .then((p) =>
+          p ? replace({ name: "reader", target: p.target }) : toast(`No daily text for ${longDate(day)} in your library`),
+        )
+        .catch((e) => toast(String(e)));
+      return;
+    }
     if (!chapter || !books) return;
     const book = books.find((b) => b.number === chapter.book);
     if (!book) return;
@@ -199,7 +342,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   };
 
   useEffect(() => {
-    if (!chapter) return;
+    if (!chapter && dated === null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       if (e.key === "ArrowLeft" && !e.altKey) go(-1);
@@ -210,14 +353,15 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   });
 
   const docFootnotes = !chapter && split ? Object.keys(split.footnotes) : [];
-  const hasPane = chapter ? study !== null : docFootnotes.length > 0;
+  const hasPane =
+    (chapter ? study !== null : docFootnotes.length > 0) || refs.length > 0 || user.notes.length > 0;
   const subtitle = detail?.card.title ?? "";
   const edge =
     "absolute top-1/2 z-10 flex h-10 w-7 -translate-y-1/2 items-center justify-center bg-bar/80 hover:bg-bar";
 
   return (
     <>
-      <AppBar title={page?.title ?? ""} subtitle={subtitle}>
+      <AppBar title={dated !== null ? "Daily Text" : (page?.title ?? "")} subtitle={subtitle}>
         {hasPane && (
           <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
             {paneOpen ? (
@@ -230,12 +374,20 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       </AppBar>
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
-          {chapter && (
+          {(chapter || dated !== null) && (
             <>
-              <button aria-label="Previous chapter" className={cn(edge, "left-1")} onClick={() => go(-1)}>
+              <button
+                aria-label={dated !== null ? "Previous day" : "Previous chapter"}
+                className={cn(edge, "left-1")}
+                onClick={() => go(-1)}
+              >
                 <ChevronLeft size={18} />
               </button>
-              <button aria-label="Next chapter" className={cn(edge, "right-1")} onClick={() => go(1)}>
+              <button
+                aria-label={dated !== null ? "Next day" : "Next chapter"}
+                className={cn(edge, "right-1")}
+                onClick={() => go(1)}
+              >
                 <ChevronRight size={18} />
               </button>
             </>
@@ -247,18 +399,45 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
                   ref={articleRef}
                   className={cn("reader", chapter && "bible")}
                   onClick={onArticleClick}
+                  onMouseUp={onArticleMouseUp}
                   dangerouslySetInnerHTML={{ __html: split.body }}
                 />
+              )}
+              {split && dated !== null && detail && (
+                <button
+                  className="mt-6 text-[1.4rem] text-link hover:underline"
+                  onClick={() => push({ name: "publication", dir: target.publication })}
+                >
+                  {detail.card.title}
+                </button>
               )}
             </div>
           </div>
         </div>
-        {hasPane && paneOpen && (
+        {hasPane && paneOpen && refs.length > 0 && (
+          <aside className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
+            <ReferencePane
+              pref={refs[refs.length - 1]}
+              onBack={() => setRefs((r) => r.slice(0, -1))}
+              onFollow={(href) => void follow(href, "push")}
+              onRetry={() => void follow(refs[refs.length - 1].href, "replace")}
+            />
+          </aside>
+        )}
+        {hasPane && paneOpen && refs.length === 0 && (
           <aside
             ref={paneRef}
             onClick={onPaneClick}
             className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
           >
+            {user.notes.length > 0 && (
+              <section className="mb-6 flex flex-col gap-2">
+                <h3 className="text-[1.05rem] font-semibold">My notes</h3>
+                {user.notes.map((n) => (
+                  <NoteCard key={n.guid} note={n} onClick={() => setEditing({ note: n })} />
+                ))}
+              </section>
+            )}
             {chapter && study ? (
               <StudyPane book={chapter.book} study={study} selected={selected} />
             ) : (
@@ -273,8 +452,51 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           </aside>
         )}
       </div>
+      {toolbar && (
+        <MarkToolbar
+          x={toolbar.x}
+          y={toolbar.y}
+          current={toolbar.mark?.color}
+          onColor={colorChosen}
+          onNote={() => void noteChosen()}
+          onDelete={toolbar.mark ? () => void userAction(() => api.deleteMark(toolbar.mark!.guid)) : undefined}
+          onClose={closeToolbar}
+        />
+      )}
+      {editing && (
+        <NoteEditor
+          note={editing.note}
+          onSave={saveNote}
+          onDelete={
+            editing.note.guid
+              ? () => {
+                  const guid = editing.note.guid!;
+                  setEditing(null);
+                  void userAction(() => api.deleteNote(guid));
+                }
+              : undefined
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
     </>
   );
+}
+
+/** Where the highlight toolbar is and what it acts on: a new selection or a highlight. */
+interface Toolbar {
+  x: number;
+  y: number;
+  ranges?: MarkRange[];
+  mark?: Mark;
+}
+
+/** The note being written, and where a new one attaches. */
+interface Editing {
+  note: Partial<Note>;
+  markGuid?: string;
+  blockType?: number;
+  blockIdentifier?: number;
 }
 
 function VerseSection({ v, selected }: { v: VerseStudy; selected: boolean }) {
