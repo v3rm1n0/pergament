@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "jwlinux",
+  "productName": "Pergament",
   "version": "0.1.0",
-  "identifier": "io.github.jwlinux.reader",
+  "identifier": "io.github.v3rm1n.pergament",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "jwlinux",
+        "title": "Pergament",
         "width": 1320,
         "height": 860,
         "minWidth": 760,
