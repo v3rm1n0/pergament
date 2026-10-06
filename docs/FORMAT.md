@@ -217,6 +217,7 @@ CO-inv), 13 Awake! (g), 14 Watchtower (w, wp), 17 Guidelines (S-38), 22 Article
 Series (ijw…), 30 Meeting Workbooks (mwb), 31 Programs (CA-…, CO-…).
 "What's New" in the original app is the newest `PublicationAsset.CatalogedOn`
 (sjj, es27, rsg, gwt, mwb 2027-01 on 2026-10-05).
+Type 12 is the 2017 branch circuit assembly program (`CA-brpgm17`) in other languages and is listed with Programs. Attributes split the types further: `Archive` (older publications), `Yearbook`, `Examining the Scriptures`, `Kingdom News`, `Convention`, `Circuit Assembly`, and `Study`/`Public` for the Watchtower from 2008.
 
 The catalog has **no language table**. Pergament derives MEPS-id →
 language-code pairs from language-specific image names
