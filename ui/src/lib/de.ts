@@ -102,6 +102,8 @@ export const de: Record<string, string> = {
   "Open on jw.org": "Auf jw.org öffnen",
   "Parallel Translations": "Parallele Übersetzungen",
   Customize: "Anpassen",
+  "Move up": "Nach oben",
+  "Move down": "Nach unten",
   "Not Included": "Nicht enthalten",
   Done: "Fertig",
   "Import or download more Bibles to add translations.":
