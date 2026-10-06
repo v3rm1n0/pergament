@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
 import { ParallelPane } from "@/components/parallel-pane";
+import { ResearchPane } from "@/components/research-pane";
 import type { BibleRange } from "@/lib/parallel";
 import { t } from "@/lib/i18n";
 
@@ -17,6 +18,7 @@ import { t } from "@/lib/i18n";
 export type PaneRef =
   | { kind: "page"; href: string; target: Target; page: Page; studyNote: boolean }
   | { kind: "bible"; href: string; range: BibleRange }
+  | { kind: "research"; href: string; dir: string; book: number; chapter: number; verse: number }
   | { kind: "missing"; href: string; entry: CatalogEntry | null; url: string | null };
 
 /**
@@ -37,6 +39,18 @@ export function ReferencePane({
   onRetry: () => void;
 }) {
   if (pref.kind === "bible") return <ParallelPane href={pref.href} range={pref.range} onBack={onBack} />;
+  if (pref.kind === "research") {
+    return (
+      <ResearchPane
+        dir={pref.dir}
+        book={pref.book}
+        chapter={pref.chapter}
+        verse={pref.verse}
+        onBack={onBack}
+        onFollow={onFollow}
+      />
+    );
+  }
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-line">

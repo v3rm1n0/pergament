@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Newspaper, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
 import {
   api,
@@ -61,6 +61,8 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
+  /** Verses of the chapter the Research Guide has excerpts for. */
+  const [research, setResearch] = useState<number[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [paneOpen, setPaneOpen] = useState(true);
   const articleRef = useRef<HTMLDivElement>(null);
@@ -73,6 +75,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     let live = true;
     setPage(null);
     setStudy(null);
+    setResearch([]);
     setSelected(null);
     setRefs([]);
     api
@@ -85,6 +88,10 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         .chapterStudy(target.publication, book, c)
         .then((s) => live && setStudy(s))
         .catch((e) => toast(t("Cannot load study notes: {error}", { error: String(e) })));
+      api
+        .researchVerses(target.publication, book, c)
+        .then((v) => live && setResearch(v))
+        .catch(() => undefined);
     }
     return () => {
       live = false;
@@ -456,7 +463,26 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
               </section>
             )}
             {chapter && study ? (
-              <StudyPane book={chapter.book} study={study} selected={selected} />
+              <StudyPane
+                book={chapter.book}
+                chapter={chapter.chapter}
+                study={study}
+                selected={selected}
+                research={research}
+                onResearch={(verse) =>
+                  showRef(
+                    {
+                      kind: "research",
+                      href: `research:${target.publication}:${chapter.book}:${chapter.chapter}:${verse}`,
+                      dir: target.publication,
+                      book: chapter.book,
+                      chapter: chapter.chapter,
+                      verse,
+                    },
+                    "root",
+                  )
+                }
+              />
             ) : (
               docFootnotes.map((id) => (
                 <div
@@ -516,7 +542,17 @@ interface Editing {
   blockIdentifier?: number;
 }
 
-function VerseSection({ v, selected }: { v: VerseStudy; selected: boolean }) {
+function VerseSection({
+  v,
+  selected,
+  research,
+  onResearch,
+}: {
+  v: VerseStudy;
+  selected: boolean;
+  research: boolean;
+  onResearch: () => void;
+}) {
   return (
     <section data-verse={verseKey(v)} className={cn("mb-5 scroll-mt-2 px-1", selected && "selected")}>
       <h3 className="mb-2 text-[1.05rem] font-semibold">{verseKey(v)}</h3>
@@ -540,11 +576,36 @@ function VerseSection({ v, selected }: { v: VerseStudy; selected: boolean }) {
       {v.notes.map((n, i) => (
         <div key={`n${i}`} className="pane-content mb-2" dangerouslySetInnerHTML={{ __html: n }} />
       ))}
+      {research && (
+        <button onClick={onResearch} className="mb-2 flex items-center gap-2 text-link hover:underline">
+          <Newspaper size={17} strokeWidth={1.5} /> {t("Research Guide")}
+        </button>
+      )}
     </section>
   );
 }
 
-function StudyPane({ book, study, selected }: { book: number; study: ChapterStudy; selected: string | null }) {
+function StudyPane({
+  book,
+  chapter,
+  study,
+  selected,
+  research,
+  onResearch,
+}: {
+  book: number;
+  chapter: number;
+  study: ChapterStudy;
+  selected: string | null;
+  research: number[];
+  onResearch: (verse: number) => void;
+}) {
+  // Verses that only have Research Guide excerpts get a section of their own.
+  const verses = [...study.verses];
+  for (const verse of research) {
+    if (!verses.some((v) => v.verse === verse)) verses.push({ chapter, verse, footnotes: [], xrefs: [], notes: [] });
+  }
+  verses.sort((a, b) => a.chapter - b.chapter || a.verse - b.verse);
   return (
     <>
       {study.outline.length > 0 && (
@@ -560,8 +621,14 @@ function StudyPane({ book, study, selected }: { book: number; study: ChapterStud
           ))}
         </section>
       )}
-      {study.verses.map((v) => (
-        <VerseSection key={verseKey(v)} v={v} selected={selected === verseKey(v)} />
+      {verses.map((v) => (
+        <VerseSection
+          key={verseKey(v)}
+          v={v}
+          selected={selected === verseKey(v)}
+          research={research.includes(v.verse)}
+          onResearch={() => onResearch(v.verse)}
+        />
       ))}
     </>
   );
