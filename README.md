@@ -12,8 +12,8 @@ follows JW Library on other platforms, with its own name, colours and icons.
 | ![Daily text with a Bible reference open in the side pane](docs/screenshots/02-daily-text-reference-dark.png) | ![Hebrews 10 with highlights, a note and the study pane](docs/screenshots/03-bible-study-pane-dark.png) |
 | ![Workbook week with highlights in all six colours](docs/screenshots/06-workbook-highlights-light.png) | ![Personal Study with notes and tags](docs/screenshots/08-personal-study-light.png) |
 
-Every view is in [docs/screenshots](docs/screenshots), in both themes. The
-notes and highlights in them are sample data.
+Every view is in [docs/screenshots](docs/screenshots), in both themes. They
+show English publications; the notes and highlights are sample data.
 
 ## Before you use it
 
@@ -50,14 +50,21 @@ unpacked with path and size checks, and rendered HTML is sanitized.
 - The Bible has tabs from the publication's own navigation, book tiles and a
   chapter grid. The reader has a study pane with the outline, footnotes,
   cross references and study notes per verse.
-- The Library lists the catalog's categories and your downloaded
-  publications.
+- The Library lists the catalog's categories. Each category is split the way
+  JW Library does it: newer and older publications, yearbooks, editions,
+  Watchtower and Awake! by year. Downloaded publications are grouped by the
+  type in their manifest, so types the catalog doesn't list, such as
+  Curriculum and Outlines, show up once you import one.
 - Meetings shows the selected week's workbook program and Watchtower study
   article from downloaded issues, with links to download the rest.
-- Links in a text open in a side pane with the cited verses or paragraphs
-  marked. The publication bar at the top of the pane opens the reference in
+- A Bible link opens "Parallel Translations" in a side pane: the cited verses
+  in every Bible of your library. "Customize" chooses which Bibles show and
+  in what order. Other links open the reference in the pane with the cited
+  paragraphs tinted. The publication bar at the top of the pane opens it in
   the main reader. If the publication isn't downloaded, the pane offers to
   download it.
+- Answer fields in workbooks and study articles are text boxes. What you type
+  is kept on this computer.
 - Select text to highlight it in one of six colours or attach a note. Click
   a highlight to change its colour, add a note or remove it.
 - Personal Study lists your notes with their tags, and your bookmarks.
@@ -66,8 +73,9 @@ unpacked with path and size checks, and rendered HTML is sanitized.
   Restoring replaces the current data; the previous database is kept as
   `userData.db.before-restore` in the library folder.
 
-The language menu sits in the top right corner. There is a light and a dark
-theme.
+The publication language menu sits in the top right corner. The interface
+is available in English and German (Settings, by default it follows the
+system language), and there is a light and a dark theme.
 
 Home lists, categories and meetings come from jw.org's public catalog, about
 58 MB. It is downloaded only when you ask for it and checked for updates at
