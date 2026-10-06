@@ -78,7 +78,7 @@ export function LanguageMenu({
           {l.vernacular}
         </span>
         <span className="block truncate text-xs text-muted">
-          {l.name} · {l.code}
+          {l.name}
         </span>
       </span>
       {l.code === value && <Check size={16} />}
