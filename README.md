@@ -42,6 +42,38 @@ public catalog and download services, and only when you search or download.
 Imported files are treated as untrusted: hashes are verified, archives are
 unpacked with path and size checks, and rendered HTML is sanitized.
 
+## Install
+
+Pergament is built from source on your machine. There are two ways.
+
+**With Nix** (flakes enabled), straight from GitHub:
+
+```sh
+nix profile install github:v3rm1n0/pergament   # installs pergament-app and pergament
+nix run github:v3rm1n0/pergament               # or just try the app once
+```
+
+**With the install script**, which uses Nix if you have it and otherwise
+builds with cargo and bun and installs below `~/.local`:
+
+```sh
+git clone https://github.com/v3rm1n0/pergament.git
+cd pergament
+scripts/install.sh              # --prefix DIR, --no-nix, --dry-run and --uninstall also work
+```
+
+Without Nix it needs cargo, bun, pkg-config and the development files for
+WebKitGTK 4.1, GTK 3, libsoup 3, OpenSSL and SQLite; the script lists what is
+missing for Debian, Fedora and Arch. It also runs straight from the web
+(`curl -fsSL https://raw.githubusercontent.com/v3rm1n0/pergament/main/scripts/install.sh | bash`).
+
+> **Always check scripts you copy from the internet.** Piping a download into
+> `bash` runs whatever it contains, with your permissions. Read
+> [scripts/install.sh](scripts/install.sh) first, or clone the repository as
+> above and run it from the checkout. The script is short, builds from source
+> and only writes below the prefix (`~/.local` by default) or into your Nix
+> profile. `--dry-run` prints every step without doing it.
+
 ## Desktop app
 
 - Home shows today's date and theme scripture when the daily text booklet is
@@ -84,7 +116,7 @@ most once a day. Cover images are fetched once and cached.
 On Linux the app sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` (unless it is
 already set) because WebKitGTK draws garbage on some GPUs without it.
 
-To run it from the source tree:
+To run it from the source tree without installing:
 
 ```sh
 nix develop
@@ -187,6 +219,6 @@ downloading from jw.org.
 
 The project is published as uncompiled source code only. There are no
 official builds, packages or installers. To use it, build it yourself as
-described under [Desktop app](#desktop-app) and
+described under [Install](#install), [Desktop app](#desktop-app) and
 [Command line](#command-line). Compiled versions from anyone else do not
 come from this project and are not supported.
