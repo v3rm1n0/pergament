@@ -24,15 +24,18 @@ import {
   inLanguage,
   loadFontScale,
   loadLang,
+  loadUiLang,
   loadTheme,
   prefersDark,
   saveFontScale,
   saveLang,
+  saveUiLang,
   saveTheme,
   type Theme,
 } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { isoDate } from "@/lib/dates";
+import { resolveUiLang, setUiLang, t, type UiLangSetting } from "@/lib/i18n";
 import { LanguageMenu } from "@/components/language-menu";
 
 interface Toast {
@@ -61,6 +64,9 @@ interface AppContextValue {
   /** Selected language code, e.g. `X`. */
   lang: string;
   setLang: (code: string) => void;
+  /** Interface language setting; the publication language is `lang`. */
+  uiLang: UiLangSetting;
+  setUiLang: (l: UiLangSetting) => void;
   /** Name of a language in itself, e.g. "Deutsch" for `X`. */
   languageName: (code: string) => string;
   /** Running downloads by `taskKey`. */
@@ -106,12 +112,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [fontScale, setFontScaleState] = useState(loadFontScale);
   const [lang, setLangState] = useState(loadLang);
+  const [uiLang, setUiLangState] = useState<UiLangSetting>(loadUiLang);
   const [languages, setLanguages] = useState<Language[]>([]);
   const [downloads, setDownloads] = useState<Record<string, Progress>>({});
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [userVersion, setUserVersion] = useState(0);
   const systemDark = useSystemDark();
   const dark = prefersDark(theme, systemDark);
+  // Set while rendering so every `t()` below already uses the new language.
+  const resolvedUi = resolveUiLang(uiLang, navigator.language);
+  setUiLang(resolvedUi);
+
+  useEffect(() => {
+    document.documentElement.lang = resolvedUi;
+  }, [resolvedUi]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -144,7 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       setPublications(await api.listPublications());
     } catch (e) {
-      toast(`Cannot read library: ${e}`);
+      toast(t("Cannot read library: {error}", { error: String(e) }));
     }
   }, [toast]);
 
@@ -160,13 +174,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     const paths = picked == null ? [] : Array.isArray(picked) ? picked : [picked];
     if (paths.length === 0) return;
-    toast(`Importing ${paths.length} file(s)…`);
+    toast(t("Importing {count} file(s)…", { count: paths.length }));
     try {
       for (const r of await api.importFiles(paths)) {
-        toast(r.error ? `Import failed: ${r.error}` : `Imported ${r.title}`);
+        toast(r.error ? t("Import failed: {error}", { error: r.error }) : t("Imported {title}", { title: r.title ?? "" }));
       }
     } catch (e) {
-      toast(`Import failed: ${e}`);
+      toast(t("Import failed: {error}", { error: String(e) }));
     }
     await refreshPublications();
     setCatalogVersion((v) => v + 1);
@@ -180,12 +194,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setDownloads((d) => ({ ...d, [key]: { task: key, done: 0, total: entry.item.size } }));
       try {
         const dir = await api.downloadPublication(entry.item, langRef.current);
-        toast(`Imported ${entry.item.issue_title || entry.item.title}`);
+        toast(t("Imported {title}", { title: entry.item.issue_title || entry.item.title }));
         await refreshPublications();
         setCatalogVersion((v) => v + 1);
         return dir;
       } catch (e) {
-        toast(`Download failed: ${e}`);
+        toast(t("Download failed: {error}", { error: String(e) }));
         return null;
       } finally {
         setDownloads((d) => {
@@ -202,7 +216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await api.loadCatalog();
       setCatalogVersion((v) => v + 1);
     } catch (e) {
-      toast(`Catalog: ${e}`);
+      toast(t("Catalog: {error}", { error: String(e) }));
     }
   }, [toast]);
 
@@ -214,9 +228,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!path) return;
     try {
       await api.exportBackup(path);
-      toast("Backup created");
+      toast(t("Backup created"));
     } catch (e) {
-      toast(`Backup failed: ${e}`);
+      toast(t("Backup failed: {error}", { error: String(e) }));
     }
   }, [toast]);
 
@@ -224,18 +238,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const picked = await openDialog({ multiple: false, filters: [{ name: "Backup", extensions: ["jwlibrary"] }] });
     const path = Array.isArray(picked) ? picked[0] : picked;
     if (!path) return;
-    const ok = await ask("Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.", {
-      title: "Restore backup?",
+    const ok = await ask(t("Restoring replaces all highlights, notes, tags and bookmarks with those in the backup."), {
+      title: t("Restore backup?"),
       kind: "warning",
-      okLabel: "Restore",
+      okLabel: t("Restore"),
     });
     if (!ok) return;
     try {
       const s = await api.restoreBackup(path);
-      toast(`Restored ${s.marks} highlights and ${s.notes} notes${s.device ? ` from ${s.device}` : ""}`);
+      toast(
+        t("Restored {marks} highlights and {notes} notes", { marks: s.marks, notes: s.notes }) +
+          (s.device ? t(" from {device}", { device: s.device }) : ""),
+      );
       setUserVersion((v) => v + 1);
     } catch (e) {
-      toast(`Restore failed: ${e}`);
+      toast(t("Restore failed: {error}", { error: String(e) }));
     }
   }, [toast]);
 
@@ -270,6 +287,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         saveLang(code);
         setLangState(code);
       },
+      uiLang,
+      setUiLang: (l) => {
+        saveUiLang(l);
+        setUiLangState(l);
+      },
       languageName: (code) => names.get(code) ?? code,
       downloads,
       download,
@@ -289,6 +311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fontScale,
       importFiles,
       lang,
+      uiLang,
       names,
       downloads,
       download,
@@ -304,21 +327,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={value}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2">
-        {toasts.map((t) => (
+        {toasts.map((item) => (
           <div
-            key={t.id}
+            key={item.id}
             className="pointer-events-auto flex max-w-xl items-center gap-3 bg-[#2b2b2b] px-4 py-2.5 text-sm text-white shadow-lg"
           >
-            <span>{t.text}</span>
-            {t.action && (
-              <button className="font-semibold text-[#e0b24f] hover:underline" onClick={t.action.run}>
-                {t.action.label}
+            <span>{item.text}</span>
+            {item.action && (
+              <button className="font-semibold text-[#e0b24f] hover:underline" onClick={item.action.run}>
+                {item.action.label}
               </button>
             )}
             <button
-              aria-label="Dismiss"
+              aria-label={t("Dismiss")}
               className="opacity-60 hover:opacity-100"
-              onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))}
+              onClick={() => setToasts((all) => all.filter((x) => x.id !== item.id))}
             >
               <X size={14} />
             </button>
@@ -335,7 +358,7 @@ export function TitleStrip() {
   return (
     <div data-tauri-drag-region className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg">
       <button
-        aria-label="Back"
+        aria-label={t("Back")}
         disabled={!canGoBack}
         onClick={back}
         className="flex h-6 w-6 items-center justify-center disabled:opacity-40"
@@ -362,8 +385,8 @@ function RailButton({
 }) {
   return (
     <button
-      title={label}
-      aria-label={label}
+      title={t(label)}
+      aria-label={t(label)}
       onClick={onClick}
       className={cn(
         "relative flex h-14 w-full items-center gap-4 px-[13px] text-fg/75 hover:bg-white/5 hover:text-fg",
@@ -372,7 +395,7 @@ function RailButton({
     >
       {active && <span className="absolute inset-y-3 left-0 w-[3px] bg-accent" />}
       <span className="flex w-6 justify-center">{children}</span>
-      {expanded && <span className="text-sm">{label}</span>}
+      {expanded && <span className="text-sm">{t(label)}</span>}
     </button>
   );
 }
@@ -403,7 +426,7 @@ export function Rail() {
         active={inBible || (view.name === "reader" && "chapter" in view.target.kind)}
         expanded={expanded}
         onClick={() =>
-          bible ? go({ name: "publication", dir: bible.dir }) : toast("No Bible in this language in your library yet")
+          bible ? go({ name: "publication", dir: bible.dir }) : toast(t("No Bible in this language in your library yet"))
         }
       >
         <BookOpen {...icon} />
@@ -456,8 +479,8 @@ export function BarButton({
 }) {
   return (
     <button
-      title={label}
-      aria-label={label}
+      title={t(label)}
+      aria-label={t(label)}
       onClick={onClick}
       className="flex h-10 w-11 items-center justify-center text-fg/85 hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
     >
@@ -488,7 +511,7 @@ function MoreMenu() {
       }}
     >
       {icon}
-      {label}
+      {t(label)}
     </button>
   );
   return (
@@ -541,7 +564,7 @@ export function AppBar({
 export function SectionTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-3 mt-8 flex items-baseline justify-between">
-      <h2 className="text-[1.35rem] font-semibold">{children}</h2>
+      <h2 className="text-[1.35rem] font-semibold">{typeof children === "string" ? t(children) : children}</h2>
       {aside && <span className="text-sm text-accent">{aside}</span>}
     </div>
   );

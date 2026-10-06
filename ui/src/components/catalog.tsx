@@ -6,6 +6,7 @@ import type { CatalogEntry } from "@/lib/api";
 import { ago } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { t } from "@/lib/i18n";
 
 export const mb = (n: number) => `${Math.max(1, Math.round(n / 1e6))} MB`;
 
@@ -92,7 +93,7 @@ export function EntryCard({ entry, language, footer }: { entry: CatalogEntry; la
     >
       <EntryImage entry={entry} className="h-[88px] w-[88px] shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col px-3 py-2">
-        <div className="truncate text-xs text-fg/70">{entry.category}</div>
+        <div className="truncate text-xs text-fg/70">{entry.category && t(entry.category)}</div>
         <div className="line-clamp-2 text-[0.9rem] leading-snug">{entry.item.issue_title || entry.item.title}</div>
         <div className="mt-auto flex items-end justify-between text-xs text-fg/70">
           <span>{footer ?? `${language} · ${ago(entry.item.cataloged_on)}`}</span>
@@ -138,8 +139,9 @@ export function CatalogPrompt() {
   return (
     <div className="max-w-xl bg-tile px-5 py-4 text-sm">
       <p className="mb-3 text-fg/85">
-        New publications, categories and meeting materials come from the public jw.org catalog (about 58 MB, checked
-        for updates once a day). Nothing is downloaded until you ask.
+        {t(
+          "New publications, categories and meeting materials come from the public jw.org catalog (about 58 MB, checked for updates once a day). Nothing is downloaded until you ask.",
+        )}
       </p>
       <button
         disabled={loading}
@@ -150,7 +152,7 @@ export function CatalogPrompt() {
         }}
         className="bg-brand px-4 py-2 text-brand-fg hover:brightness-110 disabled:opacity-50"
       >
-        {loading ? "Loading catalog…" : "Load catalog"}
+        {loading ? t("Loading catalog…") : t("Load catalog")}
       </button>
     </div>
   );

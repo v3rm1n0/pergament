@@ -4,6 +4,7 @@ import { useApp } from "@/app";
 import { api, type PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { groupByCategory } from "@/lib/types";
+import { t } from "@/lib/i18n";
 
 function Cover({ pub }: { pub: PubCard }) {
   const [failed, setFailed] = useState(false);
@@ -49,17 +50,17 @@ function PubTile({ pub }: { pub: PubCard }) {
               onClick={async () => {
                 try {
                   await api.removePublication(pub.dir);
-                  toast(`Removed ${pub.shortTitle ?? pub.title}`);
+                  toast(t("Removed {title}", { title: pub.shortTitle ?? pub.title }));
                 } catch (e) {
-                  toast(`Remove failed: ${e}`);
+                  toast(t("Remove failed: {error}", { error: String(e) }));
                 }
                 await refreshPublications();
               }}
             >
-              Remove
+              {t("Remove")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
           </div>
         ) : (
@@ -67,7 +68,7 @@ function PubTile({ pub }: { pub: PubCard }) {
             size="icon"
             variant="outline"
             className="h-8 w-8"
-            title="Remove from library"
+            title={t("Remove from library")}
             onClick={() => setConfirming(true)}
           >
             <Trash2 size={15} />
@@ -102,14 +103,14 @@ export function HomeLibraryGrid({ pubs }: { pubs: PubCard[] }) {
     return (
       <div className="mx-auto mt-20 max-w-md text-center">
         <BookOpen className="mx-auto mb-4 text-muted" size={56} strokeWidth={1.1} />
-        <h2 className="mb-2 text-xl font-semibold">Nothing downloaded in this language</h2>
-        <p className="mb-6 text-muted">Import .jwpub files, browse the publications, or pick another language.</p>
+        <h2 className="mb-2 text-xl font-semibold">{t("Nothing downloaded in this language")}</h2>
+        <p className="mb-6 text-muted">{t("Import .jwpub files, browse the publications, or pick another language.")}</p>
         <div className="flex justify-center gap-3">
           <Button onClick={() => void importFiles()}>
-            <FolderInput size={18} /> Import
+            <FolderInput size={18} /> {t("Import")}
           </Button>
           <Button variant="outline" onClick={() => push({ name: "library" })}>
-            <CloudDownload size={18} /> Publications
+            <CloudDownload size={18} /> {t("Publications")}
           </Button>
         </div>
       </div>
@@ -118,7 +119,7 @@ export function HomeLibraryGrid({ pubs }: { pubs: PubCard[] }) {
   return (
     <>
       {groups.map((g) => (
-        <Section key={g.id} title={g.name} pubs={g.pubs} />
+        <Section key={g.id} title={t(g.name)} pubs={g.pubs} />
       ))}
     </>
   );

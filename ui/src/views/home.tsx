@@ -5,6 +5,7 @@ import { api, type DatedPage, type HomeLists, type PubCard } from "@/lib/api";
 import { isoDate, longDate } from "@/lib/dates";
 import { themeScripture } from "@/lib/page";
 import { inLanguage, loadFavorites } from "@/lib/settings";
+import { t } from "@/lib/i18n";
 import { CatalogPrompt, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
 
 function FavoriteTile({ pub }: { pub: PubCard }) {
@@ -64,7 +65,7 @@ export function HomeView() {
   const daily = lists?.dailyText;
   return (
     <>
-      <AppBar title="Home" />
+      <AppBar title={t("Home")} />
       <div className="flex-1 overflow-y-auto">
         {today ? (
           <div className="bg-surface px-6 py-10 text-center">
@@ -80,10 +81,10 @@ export function HomeView() {
           </div>
         ) : (
           <div className="bg-bar/60 px-6 py-8 text-center">
-            <h2 className="text-[1.55rem] font-semibold text-accent">Welcome to Pergament</h2>
+            <h2 className="text-[1.55rem] font-semibold text-accent">{t("Welcome to Pergament")}</h2>
             {daily && (
               <button className="mt-3 text-[1.05rem] text-link hover:underline" onClick={() => void activate(daily)}>
-                {daily.local ? "Open" : "Download"} {daily.item.title}
+                {t(daily.local ? "Open {title}" : "Download {title}", { title: daily.item.title })}
               </button>
             )}
           </div>
@@ -98,7 +99,7 @@ export function HomeView() {
             </div>
           ) : (
             <div className="flex h-[88px] w-[264px] items-center justify-center gap-2 px-6 text-center text-sm text-fg/80 ring-1 ring-line">
-              <Star size={16} className="shrink-0" /> Add favorites with the star in a publication
+              <Star size={16} className="shrink-0" /> {t("Add favorites with the star in a publication")}
             </div>
           )}
 

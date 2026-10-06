@@ -1,4 +1,5 @@
 import type { CatalogEntry, Category, PubCard } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 /**
  * Library category of a manifest `publicationType`. Ids 1–31 are the catalog's
@@ -119,7 +120,7 @@ function byAttribute(entries: CatalogEntry[], rules: [attr: string, title: strin
     const i = rules.findIndex(([attr]) => e.item.attributes.includes(attr));
     buckets[i + 1].push(e);
   }
-  const titles = [null, ...rules.map(([, title]) => title)];
+  const titles = [null, ...rules.map(([, title]) => t(title))];
   return buckets
     .map((b, i): Section => ({ title: titles[i], parts: [{ title: null, entries: b }] }))
     .filter((s) => s.parts[0].entries.length > 0);
@@ -164,7 +165,7 @@ export function sectionsFor(category: number, all: CatalogEntry[]): Section[] {
             attr ? e.item.attributes.includes(attr) : !e.item.attributes.some((a) => a === "Public" || a === "Study"),
           ),
         });
-        const parts = [part("Public Edition", "Public"), part("Study Edition", "Study"), part(null, null)];
+        const parts = [part(t("Public Edition"), "Public"), part(t("Study Edition"), "Study"), part(null, null)];
         return { title: String(year), parts: parts.filter((p) => p.entries.length > 0) };
       });
     }

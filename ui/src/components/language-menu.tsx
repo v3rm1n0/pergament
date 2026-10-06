@@ -3,6 +3,7 @@ import { Check, Languages } from "lucide-react";
 import { api, type Language } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { t } from "@/lib/i18n";
 
 // The list is the same for the whole session; load it once.
 let cache: Promise<Language[]> | null = null;
@@ -87,8 +88,8 @@ export function LanguageMenu({
   return (
     <div ref={ref} className="relative">
       <button
-        title={`Language: ${current?.vernacular ?? value}`}
-        aria-label="Language"
+        title={t("Language: {name}", { name: current?.vernacular ?? value })}
+        aria-label={t("Language")}
         onClick={() => setOpen((o) => !o)}
         className="flex h-10 items-center gap-1.5 rounded px-2.5 hover:bg-black/5 dark:hover:bg-white/10"
       >
@@ -100,7 +101,7 @@ export function LanguageMenu({
           <div className="border-b border-line p-3">
             <Input
               autoFocus
-              placeholder="Search languages"
+              placeholder={t("Search languages")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full"
@@ -110,16 +111,16 @@ export function LanguageMenu({
             {inLibrary.filter(matches).length > 0 && (
               <>
                 <div className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted">
-                  In your library
+                  {t("In your library")}
                 </div>
                 {inLibrary.filter(matches).map(row)}
               </>
             )}
             <div className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-muted">
-              All languages
+              {t("All languages")}
             </div>
-            {error && <p className="px-4 py-2 text-sm text-muted">Language list unavailable: {error}</p>}
-            {!languages && !error && <p className="px-4 py-2 text-sm text-muted">Loading…</p>}
+            {error && <p className="px-4 py-2 text-sm text-muted">{t("Language list unavailable: {error}", { error })}</p>}
+            {!languages && !error && <p className="px-4 py-2 text-sm text-muted">{t("Loading…")}</p>}
             {all.filter(matches).map(row)}
           </div>
         </div>

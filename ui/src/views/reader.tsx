@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
 import { ReferencePane, type PaneRef } from "@/components/reference-pane";
 import { usePublication } from "./publication";
+import { t } from "@/lib/i18n";
 
 /** How a followed link changes the pane: new stack, deeper, or retry in place. */
 type RefMode = "root" | "push" | "replace";
@@ -75,13 +76,13 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     api
       .renderPage(target)
       .then((p) => live && setPage(p))
-      .catch((e) => toast(`Cannot show page: ${e}`));
+      .catch((e) => toast(t("Cannot show page: {error}", { error: String(e) })));
     if ("chapter" in target.kind) {
       const { book, chapter: c } = target.kind.chapter;
       api
         .chapterStudy(target.publication, book, c)
         .then((s) => live && setStudy(s))
-        .catch((e) => toast(`Cannot load study notes: ${e}`));
+        .catch((e) => toast(t("Cannot load study notes: {error}", { error: String(e) })));
     }
     return () => {
       live = false;
@@ -192,7 +193,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             break;
         }
       } catch (e) {
-        toast(`Cannot follow link: ${e}`);
+        toast(t("Cannot follow link: {error}", { error: String(e) }));
       }
     },
     [chapter, lang, selectVerse, showRef, target.publication, toast],
@@ -321,7 +322,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       api
         .datedPage(lang, "dailyText", isoDate(day))
         .then((p) =>
-          p ? replace({ name: "reader", target: p.target }) : toast(`No daily text for ${longDate(day)} in your library`),
+          p ? replace({ name: "reader", target: p.target }) : toast(t("No daily text for {date} in your library", { date: longDate(day) })),
         )
         .catch((e) => toast(String(e)));
       return;
@@ -361,7 +362,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
 
   return (
     <>
-      <AppBar title={dated !== null ? "Daily Text" : (page?.title ?? "")} subtitle={subtitle}>
+      <AppBar title={dated !== null ? t("Daily Text") : (page?.title ?? "")} subtitle={subtitle}>
         {hasPane && (
           <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
             {paneOpen ? (
@@ -377,14 +378,14 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           {(chapter || dated !== null) && (
             <>
               <button
-                aria-label={dated !== null ? "Previous day" : "Previous chapter"}
+                aria-label={dated !== null ? t("Previous day") : t("Previous chapter")}
                 className={cn(edge, "left-1")}
                 onClick={() => go(-1)}
               >
                 <ChevronLeft size={18} />
               </button>
               <button
-                aria-label={dated !== null ? "Next day" : "Next chapter"}
+                aria-label={dated !== null ? t("Next day") : t("Next chapter")}
                 className={cn(edge, "right-1")}
                 onClick={() => go(1)}
               >
@@ -432,7 +433,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           >
             {user.notes.length > 0 && (
               <section className="mb-6 flex flex-col gap-2">
-                <h3 className="text-[1.05rem] font-semibold">My notes</h3>
+                <h3 className="text-[1.05rem] font-semibold">{t("My notes")}</h3>
                 {user.notes.map((n) => (
                   <NoteCard key={n.guid} note={n} onClick={() => setEditing({ note: n })} />
                 ))}
@@ -532,7 +533,7 @@ function StudyPane({ book, study, selected }: { book: number; study: ChapterStud
     <>
       {study.outline.length > 0 && (
         <section className="mb-5">
-          <h3 className="mb-2 text-[1.05rem] font-semibold">{study.outlineTitle ?? "Outline"}</h3>
+          <h3 className="mb-2 text-[1.05rem] font-semibold">{study.outlineTitle ?? t("Outline")}</h3>
           {study.outline.map((o, i) => (
             <div key={i} style={{ paddingLeft: `${Math.max(0, o.level - 2) * 1.3}rem` }}>
               {o.text}{" "}
