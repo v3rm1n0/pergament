@@ -40,6 +40,8 @@ jobs:
           name: pergament-android-debug
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
 
+  # An unsigned IPA for sideloading: SideStore, AltStore or Sideloadly sign it
+  # with your own Apple ID when you install it.
   ios:
     runs-on: macos-latest
     steps:
@@ -54,9 +56,37 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: brew install xcodegen
-      # Simulator build: it needs no signing identity.
-      - run: scripts/mobile.sh ios --debug --target aarch64-sim
+      - run: |
+          rustup target add aarch64-apple-ios
+          pnpm install --frozen-lockfile
+          pnpm tauri ios init --ci
+      - name: Turn code signing off in the Xcode project
+        working-directory: src-tauri/gen/apple
+        run: |
+          python3 - <<'PY'
+          import re
+          text = open("project.yml").read()
+          text, n = re.subn(
+              r"^(\s*)base:[ \t]*$",
+              r'\1base:\n\1  CODE_SIGNING_ALLOWED: "NO"\n\1  CODE_SIGNING_REQUIRED: "NO"\n\1  CODE_SIGN_IDENTITY: ""',
+              text,
+              flags=re.M,
+          )
+          assert n, "no settings.base block in project.yml"
+          open("project.yml", "w").write(text)
+          PY
+          xcodegen generate
+      # The export step needs a signing identity and is expected to fail; the
+      # archive it leaves behind is what gets packaged.
+      - run: pnpm tauri ios build --debug --target aarch64 --ci || true
+      - name: Package the IPA
+        run: |
+          app=$(find src-tauri/gen/apple -path '*.xcarchive/Products/Applications/*.app' -maxdepth 8 | head -n1)
+          [[ -n $app ]] || { echo "no archive was produced" >&2; exit 1; }
+          mkdir -p ipa/Payload
+          cp -R "$app" ipa/Payload/
+          (cd ipa && zip -qry ../Pergament-unsigned.ipa Payload)
       - uses: actions/upload-artifact@v4
         with:
-          name: pergament-ios-simulator
-          path: src-tauri/gen/apple/build/**/*.app
+          name: pergament-ios-unsigned-ipa
+          path: Pergament-unsigned.ipa

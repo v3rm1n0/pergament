@@ -115,8 +115,8 @@ APPLE_DEVELOPMENT_TEAM=XXXXXXXXXX scripts/mobile.sh ios --export-method debuggin
 `pnpm tauri android dev` and `pnpm tauri ios dev` run the app on a device or
 emulator against the Vite dev server. The Android project is in
 `src-tauri/gen/android`; the Xcode project is generated on first iOS build and
-not committed. The `Mobile` workflow builds an unsigned Android APK and an iOS
-simulator app on demand and keeps them as workflow artifacts, nothing more.
+not committed. The `Mobile` workflow builds an unsigned Android APK and an unsigned iOS
+IPA (for SideStore, AltStore or Sideloadly) and keeps them as workflow artifacts, nothing more.
 
 Known limits: writing a backup (`Create backup`) needs a save dialog, which
 the platforms may not offer; restoring one works. The mobile builds have not
