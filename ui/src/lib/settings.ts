@@ -109,3 +109,17 @@ export function saveAnswer(key: string, text: string) {
     // Storage unavailable: the answer is not kept.
   }
 }
+
+/** Library directories of the Bibles shown as parallel translations, in order; `null` is the default (all). */
+export function loadParallel(): string[] | null {
+  try {
+    const v: unknown = JSON.parse(read("parallelBibles") ?? "null");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveParallel(dirs: string[]) {
+  write("parallelBibles", JSON.stringify(dirs));
+}

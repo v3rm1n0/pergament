@@ -9,11 +9,14 @@ import { hydrateMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
+import { ParallelPane } from "@/components/parallel-pane";
+import type { BibleRange } from "@/lib/parallel";
 import { t } from "@/lib/i18n";
 
 /** A link opened in the side pane instead of the main view. */
 export type PaneRef =
   | { kind: "page"; href: string; target: Target; page: Page; studyNote: boolean }
+  | { kind: "bible"; href: string; range: BibleRange }
   | { kind: "missing"; href: string; entry: CatalogEntry | null; url: string | null };
 
 /**
@@ -33,6 +36,7 @@ export function ReferencePane({
   /** The missing publication was downloaded; resolve the link again. */
   onRetry: () => void;
 }) {
+  if (pref.kind === "bible") return <ParallelPane href={pref.href} range={pref.range} onBack={onBack} />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-line">

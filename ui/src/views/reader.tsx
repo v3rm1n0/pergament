@@ -18,6 +18,7 @@ import {
 import { applyMarks, blockElements, selectionRanges } from "@/lib/marks";
 import { loadAnswer, loadLastColor, saveAnswer, saveLastColor } from "@/lib/settings";
 import { hydrateMedia } from "@/lib/media";
+import { parseBibleRange } from "@/lib/parallel";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,7 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
-  const { push, replace, toast, lang, userVersion } = useApp();
+  const { push, replace, toast, lang, userVersion, publications } = useApp();
   const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
@@ -188,6 +189,8 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
               const { book, chapter: c, verse } = k.chapter;
               flash(articleRef.current?.querySelector(`[id="v${book}-${c}-${verse}-1"]`) ?? null);
               if (action.studyNote) selectVerse(`${c}:${verse}`);
+            } else if (parseBibleRange(href) && publications.some((p) => p.isBible)) {
+              showRef({ kind: "bible", href, range: parseBibleRange(href)! }, mode);
             } else {
               const p = await api.renderPage(t);
               showRef({ kind: "page", href, target: t, page: p, studyNote: action.studyNote }, mode);
@@ -209,7 +212,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         toast(t("Cannot follow link: {error}", { error: String(e) }));
       }
     },
-    [chapter, lang, selectVerse, showRef, target.publication, toast],
+    [chapter, lang, publications, selectVerse, showRef, target.publication, toast],
   );
 
   // Highlighting: a selection or a click on a highlight shows the toolbar.

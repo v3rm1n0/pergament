@@ -100,6 +100,12 @@ export const de: Record<string, string> = {
   "This publication is not in your library": "Diese Publikation ist nicht in deiner Bibliothek",
   "Download ({size})": "Herunterladen ({size})",
   "Open on jw.org": "Auf jw.org öffnen",
+  "Parallel Translations": "Parallele Übersetzungen",
+  Customize: "Anpassen",
+  "Not Included": "Nicht enthalten",
+  Done: "Fertig",
+  "Import or download more Bibles to add translations.":
+    "Importiere oder lade weitere Bibeln herunter, um Übersetzungen hinzuzufügen.",
 
   // Highlights and notes
   Yellow: "Gelb",
