@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Pergament: a parchment scroll with an amber bookmark, on charcoal. -->
+  <circle cx="256" cy="256" r="244" fill="#2b2b33"/>
+  <!-- Sheet -->
+  <rect x="140" y="120" width="232" height="272" fill="#f3ead6"/>
+  <!-- Lines of text -->
+  <g stroke="#9a8a6a" stroke-width="14" stroke-linecap="round">
+    <line x1="176" y1="188" x2="304" y2="188"/>
+    <line x1="176" y1="232" x2="304" y2="232"/>
+    <line x1="176" y1="276" x2="278" y2="276"/>
+    <line x1="176" y1="320" x2="294" y2="320"/>
+  </g>
+  <!-- Bottom roll -->
+  <rect x="114" y="368" width="284" height="48" rx="24" fill="#e6d8b8" stroke="#c9b48a" stroke-width="6"/>
+  <circle cx="138" cy="392" r="10" fill="#c9b48a"/>
+  <circle cx="374" cy="392" r="10" fill="#c9b48a"/>
+  <!-- Bookmark: comes out from under the top roll and hangs over the bottom one -->
+  <path d="M322 120 H358 V460 L340 438 L322 460 Z" fill="#e0b24f"/>
+  <!-- Top roll -->
+  <rect x="114" y="96" width="284" height="48" rx="24" fill="#e6d8b8" stroke="#c9b48a" stroke-width="6"/>
+  <circle cx="138" cy="120" r="10" fill="#c9b48a"/>
+  <circle cx="374" cy="120" r="10" fill="#c9b48a"/>
+</svg>
