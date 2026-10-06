@@ -18,7 +18,15 @@ pub struct Target {
 #[serde(rename_all = "camelCase")]
 pub enum TargetKind {
     Document(i64),
-    Chapter { book: i64, chapter: i64, verse: i64 },
+    Chapter {
+        book: i64,
+        chapter: i64,
+        verse: i64,
+    },
+    /// The `DatedText` entry covering `date` (`YYYYMMDD`), e.g. a daily text.
+    Dated {
+        date: i64,
+    },
 }
 
 /// A rendered page.
@@ -192,6 +200,12 @@ pub fn render(
             html: renderer.chapter(book, chapter)?,
             fragment: (verse > 1).then(|| format!("v{book}-{chapter}-{verse}-1")),
             name: format!("{}-b{book}-{chapter}", entry.dir_name),
+        },
+        TargetKind::Dated { date } => Page {
+            title: publication.entry().title.clone(),
+            html: renderer.dated_text(date)?,
+            fragment: None,
+            name: format!("{}-t{date}", entry.dir_name),
         },
     })
 }
