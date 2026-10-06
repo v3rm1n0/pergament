@@ -47,6 +47,8 @@ pub struct CatalogItem {
     pub cataloged_on: Option<String>,
     /// Square cover image as a path below [`IMAGE_BASE`].
     pub image: Option<String>,
+    /// `PublicationAttribute` names such as `Archive` or `Study`.
+    pub attributes: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -252,9 +254,12 @@ impl Catalog {
             "SELECT PublicationTypeId, count(*) FROM Publication
              WHERE MepsLanguageId = ?1 GROUP BY PublicationTypeId",
         )?;
-        let counts: HashMap<i64, i64> = stmt
+        let mut counts: HashMap<i64, i64> = stmt
             .query_map([meps_language], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
+        if let Some(n) = counts.remove(&PROGRAMS_OLD) {
+            *counts.entry(PROGRAMS).or_default() += n;
+        }
         let convention: i64 = self.conn.query_row(
             "SELECT count(*) FROM PublicationAttributeMap m
              JOIN PublicationAttribute a ON a.Id = m.PublicationAttributeId
@@ -289,10 +294,16 @@ impl Catalog {
                 params![meps_language, limit as i64],
             );
         }
+        // Older circuit assembly programs have their own type id.
+        let second = if category == PROGRAMS {
+            PROGRAMS_OLD
+        } else {
+            category
+        };
         self.items(
-            "WHERE p.MepsLanguageId = ?1 AND p.PublicationTypeId = ?2
-             ORDER BY p.Year DESC, p.IssueTagNumber DESC, p.Title LIMIT ?3",
-            params![meps_language, category, limit as i64],
+            "WHERE p.MepsLanguageId = ?1 AND p.PublicationTypeId IN (?2, ?3)
+             ORDER BY p.Year DESC, p.IssueTagNumber DESC, p.Title LIMIT ?4",
+            params![meps_language, category, second, limit as i64],
         )
     }
 
@@ -351,8 +362,8 @@ impl Catalog {
         let rows = stmt.query_map(params![meps_language, class, date], |r| {
             Ok((
                 item_from_row(r)?,
-                r.get::<_, String>(13)?,
                 r.get::<_, String>(14)?,
+                r.get::<_, String>(15)?,
             ))
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -378,6 +389,10 @@ pub fn safe_image_path(path: &str) -> bool {
 /// Pseudo category id for convention releases (an attribute, not a type).
 pub const CONVENTION: i64 = -1;
 
+const PROGRAMS: i64 = 31;
+/// Type id of the 2017 circuit assembly programs in some languages; shown with [`PROGRAMS`].
+const PROGRAMS_OLD: i64 = 12;
+
 /// `PublicationTypeId` → category name, in display order. Derived from the
 /// symbols in each type (docs/FORMAT.md, "Publication catalog").
 pub const CATEGORIES: &[(i64, &str)] = &[
@@ -397,6 +412,7 @@ pub const CATEGORIES: &[(i64, &str)] = &[
 ];
 
 pub fn category_name(id: i64) -> Option<&'static str> {
+    let id = if id == PROGRAMS_OLD { PROGRAMS } else { id };
     CATEGORIES.iter().find(|(i, _)| *i == id).map(|(_, n)| *n)
 }
 
@@ -416,7 +432,10 @@ const ITEM_SELECT: &str =
         (SELECT i.NameFragment FROM PublicationAssetImageMap m
            JOIN ImageAsset i ON i.Id = m.ImageAssetId
          WHERE m.PublicationAssetId = a.Id
-         ORDER BY i.NameFragment LIKE '%\\_sqr%' ESCAPE '\\' DESC, abs(i.Width - 270) LIMIT 1)
+         ORDER BY i.NameFragment LIKE '%\\_sqr%' ESCAPE '\\' DESC, abs(i.Width - 270) LIMIT 1),
+        (SELECT group_concat(t.Name, '|') FROM PublicationAttributeMap m2
+           JOIN PublicationAttribute t ON t.Id = m2.PublicationAttributeId
+         WHERE m2.PublicationId = p.Id)
      FROM Publication p JOIN PublicationAsset a ON a.PublicationId = p.Id";
 
 fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
@@ -436,6 +455,10 @@ fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
         image: r
             .get::<_, Option<String>>(12)?
             .filter(|p| safe_image_path(p)),
+        attributes: r
+            .get::<_, Option<String>>(13)?
+            .map(|a| a.split('|').map(str::to_owned).collect())
+            .unwrap_or_default(),
     })
 }
 

@@ -197,7 +197,9 @@ fn categories_curated_new_and_dated() {
     use pergament::catalog::{CONVENTION, DATED_MEETING_WORKBOOK, LIST_TEACHING_TOOLBOX};
     let (_t, c) = open();
     assert_eq!(c.categories(2).unwrap(), vec![(14, 3), (CONVENTION, 1)]);
-    assert_eq!(c.by_category(2, CONVENTION, 10).unwrap()[0].symbol, "wp25");
+    let convention = c.by_category(2, CONVENTION, 10).unwrap();
+    assert_eq!(convention[0].symbol, "wp25");
+    assert_eq!(convention[0].attributes, ["Convention"]);
     let toolbox: Vec<_> = c
         .curated(2, LIST_TEACHING_TOOLBOX)
         .unwrap()

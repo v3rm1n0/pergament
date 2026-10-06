@@ -231,7 +231,7 @@ pub fn category(
     library: &Library,
     id: i64,
 ) -> ApiResult<Vec<CatalogEntry>> {
-    entries(catalog.by_category(meps, id, 500).map_err(err)?, library)
+    entries(catalog.by_category(meps, id, 5000).map_err(err)?, library)
 }
 
 #[derive(Debug, Clone, Serialize)]
