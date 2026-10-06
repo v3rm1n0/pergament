@@ -63,7 +63,7 @@ export const de: Record<string, string> = {
   "Meeting Workbooks": "Arbeitshefte",
   "Kingdom Ministry": "Königreichsdienst",
   Programs: "Programme",
-  Index: "Verzeichnisse",
+  Index: "Index",
   Guidelines: "Richtlinien",
   "Convention Releases": "Kongress-Neuerscheinungen",
   Curriculum: "Lehrplan",
