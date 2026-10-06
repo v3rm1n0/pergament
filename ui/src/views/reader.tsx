@@ -372,7 +372,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           </BarButton>
         )}
       </AppBar>
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           {(chapter || dated !== null) && (
             <>
@@ -393,7 +393,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             </>
           )}
           <div className="h-full overflow-y-auto bg-surface">
-            <div className={cn("mx-auto px-12 py-6", chapter ? "max-w-[46rem]" : "max-w-3xl")}>
+            <div className={cn("mx-auto px-12 py-6 max-md:px-5", chapter ? "max-w-[46rem]" : "max-w-3xl")}>
               {split && (
                 <div
                   ref={articleRef}
@@ -415,7 +415,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           </div>
         </div>
         {hasPane && paneOpen && refs.length > 0 && (
-          <aside className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
+          <aside className="study-pane w-[min(44%,640px)] shrink-0 max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full border-l border-line bg-surface text-[0.93rem] leading-relaxed">
             <ReferencePane
               pref={refs[refs.length - 1]}
               onBack={() => setRefs((r) => r.slice(0, -1))}
@@ -428,7 +428,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           <aside
             ref={paneRef}
             onClick={onPaneClick}
-            className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
+            className="study-pane w-[min(44%,640px)] shrink-0 max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
           >
             {user.notes.length > 0 && (
               <section className="mb-6 flex flex-col gap-2">

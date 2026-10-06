@@ -3,5 +3,6 @@
   "identifier": "default",
   "description": "Main window: core events and the open and save file dialogs",
   "windows": ["main"],
+  "platforms": ["linux", "macOS", "windows", "android", "iOS"],
   "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "dialog:allow-ask"]
 }

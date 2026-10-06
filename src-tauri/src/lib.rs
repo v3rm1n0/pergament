@@ -3,7 +3,9 @@
 
 pub mod api;
 
-use std::path::PathBuf;
+use std::fs::File;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -131,25 +133,87 @@ struct ImportResult {
     error: Option<String>,
 }
 
+/// Phones: the pickers there return URIs rather than plain paths.
+const MOBILE: bool = cfg!(any(target_os = "android", target_os = "ios"));
+
+/// A file chosen in a picker. Android returns `content://` URIs and iOS
+/// security-scoped `file://` URLs, which `std::fs` cannot always open, so those
+/// are copied into the cache first. The copy goes away on drop.
+enum Picked {
+    Path(PathBuf),
+    Copy(tempfile::NamedTempFile),
+}
+
+impl Picked {
+    fn path(&self) -> &Path {
+        match self {
+            Picked::Path(p) => p,
+            Picked::Copy(f) => f.path(),
+        }
+    }
+}
+
+fn is_uri(location: &str) -> bool {
+    MOBILE && location.contains("://")
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn open_uri(app: &AppHandle, uri: &str, write: bool) -> io::Result<File> {
+    use std::str::FromStr;
+    use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
+
+    let path = FilePath::from_str(uri).map_err(|e| io::Error::other(e.to_string()))?;
+    let mut options = OpenOptions::new();
+    if write {
+        options.write(true).create(true).truncate(true);
+    } else {
+        options.read(true);
+    }
+    app.fs().open(path, options)
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn open_uri(_app: &AppHandle, _uri: &str, _write: bool) -> io::Result<File> {
+    Err(io::Error::other("URIs are only used on mobile"))
+}
+
+fn pick(app: &AppHandle, location: &str, cache: &Path) -> io::Result<Picked> {
+    if !is_uri(location) {
+        return Ok(Picked::Path(PathBuf::from(location)));
+    }
+    std::fs::create_dir_all(cache)?;
+    let mut copy = tempfile::NamedTempFile::new_in(cache)?;
+    io::copy(&mut open_uri(app, location, false)?, copy.as_file_mut())?;
+    Ok(Picked::Copy(copy))
+}
+
 /// Import files on a worker thread with its own library handle.
 #[tauri::command]
 async fn import_files(app: AppHandle, paths: Vec<String>) -> ApiResult<Vec<ImportResult>> {
-    let root = app.state::<AppState>().root.clone();
+    let (root, cache) = {
+        let state = app.state::<AppState>();
+        (state.root.clone(), state.cache.clone())
+    };
     tauri::async_runtime::spawn_blocking(move || {
         let mut lib = Library::open(&root).map_err(|e| e.to_string())?;
         Ok(paths
             .into_iter()
-            .map(|path| match lib.import(&path) {
-                Ok(e) => ImportResult {
-                    path,
-                    title: Some(e.title),
-                    error: None,
-                },
-                Err(e) => ImportResult {
-                    path,
-                    title: None,
-                    error: Some(e.to_string()),
-                },
+            .map(|path| {
+                let imported = pick(&app, &path, &cache)
+                    .map_err(|e| e.to_string())
+                    .and_then(|file| lib.import(file.path()).map_err(|e| e.to_string()));
+                match imported {
+                    Ok(e) => ImportResult {
+                        path,
+                        title: Some(e.title),
+                        error: None,
+                    },
+                    Err(error) => ImportResult {
+                        path,
+                        title: None,
+                        error: Some(error),
+                    },
+                }
             })
             .collect())
     })
@@ -400,10 +464,24 @@ fn open_location(state: State<'_, AppState>, loc: Loc) -> ApiResult<Option<Targe
 #[tauri::command]
 async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AppState>()
+        let state = app.state::<AppState>();
+        if !is_uri(&path) {
+            return state
+                .user()?
+                .export_backup(Path::new(&path))
+                .map_err(|e| e.to_string());
+        }
+        // The destination is a URI: write the backup to the cache, then copy it.
+        std::fs::create_dir_all(&state.cache).map_err(|e| e.to_string())?;
+        let staged = tempfile::NamedTempFile::new_in(&state.cache).map_err(|e| e.to_string())?;
+        state
             .user()?
-            .export_backup(std::path::Path::new(&path))
-            .map_err(|e| e.to_string())
+            .export_backup(staged.path())
+            .map_err(|e| e.to_string())?;
+        let mut src = File::open(staged.path()).map_err(|e| e.to_string())?;
+        let mut dest = open_uri(&app, &path, true).map_err(|e| e.to_string())?;
+        io::copy(&mut src, &mut dest).map_err(|e| e.to_string())?;
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -413,9 +491,11 @@ async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
 #[tauri::command]
 async fn restore_backup(app: AppHandle, path: String) -> ApiResult<pergament::userdata::Summary> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AppState>()
+        let state = app.state::<AppState>();
+        let file = pick(&app, &path, &state.cache).map_err(|e| e.to_string())?;
+        state
             .user()?
-            .restore_backup(std::path::Path::new(&path))
+            .restore_backup(file.path())
             .map_err(|e| e.to_string())
     })
     .await
@@ -528,32 +608,55 @@ fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
     }
 }
 
-pub fn run() {
-    let root = std::env::var_os("PERGAMENT_LIBRARY")
-        .map(PathBuf::from)
-        .or_else(|| dirs::data_dir().map(|d| pergament::library::app_dir(&d)))
-        .expect("no data directory (set XDG_DATA_HOME or PERGAMENT_LIBRARY)");
-    let cache = std::env::var_os("PERGAMENT_CACHE")
-        .map(PathBuf::from)
-        .or_else(|| dirs::cache_dir().map(|d| pergament::library::app_dir(&d)))
-        .expect("no cache directory (set XDG_CACHE_HOME or PERGAMENT_CACHE)");
-    let library = Library::open(&root).expect("cannot open library");
-    let user = UserData::open(root.join(userdata::DB_NAME)).expect("cannot open user data");
+/// The library and cache folders. Desktop keeps the XDG locations; phones use
+/// the app's private folders.
+fn data_dirs(app: &tauri::App) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    let root = match std::env::var_os("PERGAMENT_LIBRARY") {
+        Some(dir) => PathBuf::from(dir),
+        None if MOBILE => app.path().app_data_dir()?,
+        None => dirs::data_dir()
+            .map(|d| pergament::library::app_dir(&d))
+            .ok_or("no data directory (set XDG_DATA_HOME or PERGAMENT_LIBRARY)")?,
+    };
+    let cache = match std::env::var_os("PERGAMENT_CACHE") {
+        Some(dir) => PathBuf::from(dir),
+        None if MOBILE => app.path().app_cache_dir()?,
+        None => dirs::cache_dir()
+            .map(|d| pergament::library::app_dir(&d))
+            .ok_or("no cache directory (set XDG_CACHE_HOME or PERGAMENT_CACHE)")?,
+    };
+    Ok((root, cache))
+}
 
-    tauri::Builder::default()
+#[cfg_attr(
+    any(target_os = "android", target_os = "ios"),
+    tauri::mobile_entry_point
+)]
+pub fn run() {
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .manage(AppState {
-            library: Mutex::new(library),
-            user: Mutex::new(user),
-            root,
-            cache,
-            catalog: Mutex::new(None),
-            image_client: Mutex::new(Client::new(HttpConfig {
-                min_interval: Duration::from_millis(100),
-                max_retries: 2,
-                ..HttpConfig::default()
-            })),
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let builder = builder.plugin(tauri_plugin_fs::init());
+
+    builder
+        .setup(|app| {
+            let (root, cache) = data_dirs(app)?;
+            let library = Library::open(&root)?;
+            let user = UserData::open(root.join(userdata::DB_NAME))?;
+            app.manage(AppState {
+                library: Mutex::new(library),
+                user: Mutex::new(user),
+                root,
+                cache,
+                catalog: Mutex::new(None),
+                image_client: Mutex::new(Client::new(HttpConfig {
+                    min_interval: Duration::from_millis(100),
+                    max_retries: 2,
+                    ..HttpConfig::default()
+                })),
+            });
+            Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(api::MEDIA_SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();

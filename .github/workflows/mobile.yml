@@ -1,0 +1,62 @@
+# Builds the Android and iOS apps on demand and keeps them as workflow
+# artifacts. Nothing is published: the apps are unsigned debug builds for your
+# own testing (see README, "Mobile apps").
+name: Mobile
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/mobile.yml"
+      - "scripts/mobile.sh"
+      - "src-tauri/**"
+      - "Cargo.*"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install the NDK
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - run: scripts/mobile.sh android --apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pergament-android-debug
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: brew install xcodegen
+      # Simulator build: it needs no signing identity.
+      - run: scripts/mobile.sh ios --debug --target aarch64-sim
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pergament-ios-simulator
+          path: src-tauri/gen/apple/build/**/*.app

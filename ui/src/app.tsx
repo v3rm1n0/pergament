@@ -303,7 +303,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] flex flex-col items-center gap-2">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -333,12 +333,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 export function TitleStrip() {
   const { canGoBack, back } = useApp();
   return (
-    <div data-tauri-drag-region className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg">
+    <div
+      data-tauri-drag-region
+      className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg box-content max-md:h-9 max-md:pt-[env(safe-area-inset-top)]"
+    >
       <button
         aria-label="Back"
         disabled={!canGoBack}
         onClick={back}
-        className="flex h-6 w-6 items-center justify-center disabled:opacity-40"
+        className="flex h-6 w-6 items-center justify-center disabled:opacity-40 max-md:h-9 max-md:w-9"
       >
         <ArrowLeft size={14} />
       </button>
@@ -367,10 +370,13 @@ function RailButton({
       onClick={onClick}
       className={cn(
         "relative flex h-14 w-full items-center gap-4 px-[13px] text-fg/75 hover:bg-white/5 hover:text-fg",
+        "max-md:h-14 max-md:flex-1 max-md:justify-center max-md:px-0",
         active && "text-accent",
       )}
     >
-      {active && <span className="absolute inset-y-3 left-0 w-[3px] bg-accent" />}
+      {active && (
+        <span className="absolute inset-y-3 left-0 w-[3px] bg-accent max-md:inset-x-4 max-md:inset-y-auto max-md:top-0 max-md:h-[3px] max-md:w-auto" />
+      )}
       <span className="flex w-6 justify-center">{children}</span>
       {expanded && <span className="text-sm">{label}</span>}
     </button>
@@ -391,10 +397,18 @@ export function Rail() {
   };
   const icon = { size: 22, strokeWidth: 1.4 };
   return (
-    <nav className={cn("flex shrink-0 flex-col bg-rail transition-[width]", expanded ? "w-52" : "w-[50px]")}>
-      <RailButton label="Menu" active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
-        <Menu {...icon} />
-      </RailButton>
+    <nav
+      className={cn(
+        "flex shrink-0 flex-col bg-rail transition-[width]",
+        "max-md:w-full max-md:flex-row max-md:pb-[env(safe-area-inset-bottom)]",
+        expanded ? "w-52" : "w-[50px]",
+      )}
+    >
+      <div className="max-md:hidden">
+        <RailButton label="Menu" active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
+          <Menu {...icon} />
+        </RailButton>
+      </div>
       <RailButton label="Home" active={view.name === "home"} expanded={expanded} onClick={() => go({ name: "home" })}>
         <Home {...icon} />
       </RailButton>
@@ -432,7 +446,7 @@ export function Rail() {
       >
         <Gem {...icon} />
       </RailButton>
-      <div className="flex-1" />
+      <div className="flex-1 max-md:hidden" />
       <RailButton
         label="Settings"
         active={view.name === "settings"}

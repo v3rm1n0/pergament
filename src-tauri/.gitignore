@@ -1,1 +1,3 @@
-/gen/
+/gen/schemas/
+# Generated on a Mac by `tauri ios init` (scripts/mobile.sh).
+/gen/apple/

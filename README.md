@@ -1,7 +1,8 @@
 # Pergament
 
 Pergament is an unofficial Linux reader for publications in the `.jwpub`
-format. It has a desktop app (Tauri, with a React frontend), a command line
+format. It has a desktop app (Tauri, with a React frontend) that also builds for
+Android and iOS, a command line
 tool called `pergament`, and a Rust library underneath both. The app's layout
 follows JW Library on other platforms, with its own name, colours and icons.
 
@@ -86,6 +87,40 @@ pnpm tauri dev
 
 `pnpm tauri build --debug --no-bundle` builds `target/debug/pergament-app`
 with the frontend embedded.
+
+## Mobile apps
+
+The desktop app also builds for Android and iOS from the same code (Tauri 2
+mobile, Rust backend and React frontend). On a narrow screen the rail becomes a
+tab bar at the bottom and the study pane covers the reader. The library lives
+in the app's private folder. Pick `.jwpub` files and `.jwlibrary` backups with
+the system file picker; they are copied in, so nothing else needs access to
+your files.
+
+Build with the Rust toolchain from rustup (the Nix shell's cargo has no mobile
+targets) and `scripts/mobile.sh`, which adds the Rust targets and calls the
+Tauri CLI:
+
+```sh
+# Android: JDK 17, Android SDK and NDK (r27 or newer)
+export ANDROID_HOME=~/Android/Sdk NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018
+scripts/mobile.sh android --apk --debug      # unsigned debug APK
+scripts/mobile.sh android --aab              # release bundle, needs your own signing setup
+
+# iOS: macOS with Xcode and xcodegen (brew install xcodegen)
+scripts/mobile.sh ios --debug --target aarch64-sim    # simulator
+APPLE_DEVELOPMENT_TEAM=XXXXXXXXXX scripts/mobile.sh ios --export-method debugging
+```
+
+`pnpm tauri android dev` and `pnpm tauri ios dev` run the app on a device or
+emulator against the Vite dev server. The Android project is in
+`src-tauri/gen/android`; the Xcode project is generated on first iOS build and
+not committed. The `Mobile` workflow builds an unsigned Android APK and an iOS
+simulator app on demand and keeps them as workflow artifacts, nothing more.
+
+Known limits: writing a backup (`Create backup`) needs a save dialog, which
+the platforms may not offer; restoring one works. The mobile builds have not
+been run on a device yet.
 
 ## Command line
 
