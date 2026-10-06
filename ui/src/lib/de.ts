@@ -191,6 +191,7 @@ export const de: Record<string, string> = {
   Light: "Hell",
   Dark: "Dunkel",
   "Text size": "Textgröße",
+  "In the beginning God created the heavens and the earth.": "Am Anfang erschuf Gott Himmel und Erde.",
   "Highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; the previous data is kept as userData.db.before-restore in the library folder.":
     "Markierungen, Notizen, Tags und Lesezeichen als .jwlibrary-Datei. Beim Wiederherstellen werden die aktuellen Daten ersetzt; die bisherigen Daten bleiben als userData.db.before-restore im Bibliotheksordner erhalten.",
   About: "Info",
