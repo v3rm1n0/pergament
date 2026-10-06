@@ -107,3 +107,17 @@ export function markCited(root: Element, cited: Cited | null): Element | null {
   marked.forEach((el) => el.classList.add("cited"));
   return marked[0] ?? null;
 }
+
+/**
+ * Only the cited paragraphs of a page, or `null` when none of them is found
+ * (the whole page is shown then).
+ */
+export function extractParagraphs(html: string, cited: Extract<Cited, { kind: "paragraphs" }>): string | null {
+  const doc = new DOMParser().parseFromString(`<div id="root">${html}</div>`, "text/html");
+  const found: Element[] = [];
+  for (let n = cited.from; n <= cited.to; n++) {
+    const el = doc.querySelector(`[id="p${n}"]`);
+    if (el && !found.some((f) => f.contains(el))) found.push(el);
+  }
+  return found.length > 0 ? found.map((el) => el.outerHTML).join("") : null;
+}
