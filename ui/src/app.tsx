@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { ask, open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import {
   ArrowLeft,
@@ -32,6 +32,7 @@ import {
   type Theme,
 } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { isoDate } from "@/lib/dates";
 import { LanguageMenu } from "@/components/language-menu";
 
 interface Toast {
@@ -69,6 +70,10 @@ interface AppContextValue {
   /** Bumped whenever the catalog was (re)loaded or the library changed. */
   catalogVersion: number;
   loadCatalog: () => Promise<void>;
+  /** Bumped when user data was replaced by a restored backup. */
+  userVersion: number;
+  createBackup: () => Promise<void>;
+  restoreBackup: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -104,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [downloads, setDownloads] = useState<Record<string, Progress>>({});
   const [catalogVersion, setCatalogVersion] = useState(0);
+  const [userVersion, setUserVersion] = useState(0);
   const systemDark = useSystemDark();
   const dark = prefersDark(theme, systemDark);
 
@@ -200,6 +206,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
+  const createBackup = useCallback(async () => {
+    const path = await saveDialog({
+      defaultPath: `UserdataBackup_${isoDate(new Date())}_Pergament.jwlibrary`,
+      filters: [{ name: "Backup", extensions: ["jwlibrary"] }],
+    });
+    if (!path) return;
+    try {
+      await api.exportBackup(path);
+      toast("Backup created");
+    } catch (e) {
+      toast(`Backup failed: ${e}`);
+    }
+  }, [toast]);
+
+  const restoreBackup = useCallback(async () => {
+    const picked = await openDialog({ multiple: false, filters: [{ name: "Backup", extensions: ["jwlibrary"] }] });
+    const path = Array.isArray(picked) ? picked[0] : picked;
+    if (!path) return;
+    const ok = await ask("Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.", {
+      title: "Restore backup?",
+      kind: "warning",
+      okLabel: "Restore",
+    });
+    if (!ok) return;
+    try {
+      const s = await api.restoreBackup(path);
+      toast(`Restored ${s.marks} highlights and ${s.notes} notes${s.device ? ` from ${s.device}` : ""}`);
+      setUserVersion((v) => v + 1);
+    } catch (e) {
+      toast(`Restore failed: ${e}`);
+    }
+  }, [toast]);
+
   const names = useMemo(() => new Map(languages.map((l) => [l.code, l.vernacular])), [languages]);
 
   const value = useMemo<AppContextValue>(
@@ -236,6 +275,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       download,
       catalogVersion,
       loadCatalog,
+      userVersion,
+      createBackup,
+      restoreBackup,
     }),
     [
       nav,
@@ -252,6 +294,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       download,
       catalogVersion,
       loadCatalog,
+      userVersion,
+      createBackup,
+      restoreBackup,
     ],
   );
 
@@ -355,7 +400,7 @@ export function Rail() {
       </RailButton>
       <RailButton
         label="Bible"
-        active={inBible || view.name === "reader"}
+        active={inBible || (view.name === "reader" && "chapter" in view.target.kind)}
         expanded={expanded}
         onClick={() =>
           bible ? go({ name: "publication", dir: bible.dir }) : toast("No Bible in this language in your library yet")

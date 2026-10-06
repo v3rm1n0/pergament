@@ -22,6 +22,12 @@
   --tile-2: #56565f;
   --tile-fg: #f3ead6;
   --mark: #fde9b0;
+  --hl-1: #ffe27a;
+  --hl-2: #b9e38f;
+  --hl-3: #a6d4f7;
+  --hl-4: #f6b0cc;
+  --hl-5: #ffc68a;
+  --hl-6: #cdb6f2;
 }
 
 /* Dark: black content, dark grey bars, brighter amber. */
@@ -42,6 +48,12 @@
   --tile-1: #3a3a44;
   --tile-2: #4f4f59;
   --mark: #3d3416;
+  --hl-1: #6b5a12;
+  --hl-2: #36571f;
+  --hl-3: #1f4a6b;
+  --hl-4: #6b2a45;
+  --hl-5: #6e4114;
+  --hl-6: #4a3470;
 }
 
 @theme inline {
@@ -256,4 +268,45 @@ body {
 .study-pane .pane-content {
   font-size: inherit;
   line-height: inherit;
+}
+
+/* ---------- Reference pane ---------- */
+
+.reader.pane-reader {
+  font-size: calc(1rem * var(--font-scale, 1));
+}
+.reader.pane-reader.bible {
+  font-size: calc(1.05rem * var(--font-scale, 1));
+}
+/* Verses or paragraphs a link points at stay marked. */
+.reader .cited {
+  background: var(--mark);
+  border-radius: 2px;
+}
+.reader .themeScrp {
+  font-style: italic;
+}
+
+/* ---------- Highlights and notes ---------- */
+
+.reader mark.hl {
+  color: inherit;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.reader mark.hl[data-color="1"] { background: var(--hl-1); }
+.reader mark.hl[data-color="2"] { background: var(--hl-2); }
+.reader mark.hl[data-color="3"] { background: var(--hl-3); }
+.reader mark.hl[data-color="4"] { background: var(--hl-4); }
+.reader mark.hl[data-color="5"] { background: var(--hl-5); }
+.reader mark.hl[data-color="6"] { background: var(--hl-6); }
+.hl-dot-1 { background: var(--hl-1); }
+.hl-dot-2 { background: var(--hl-2); }
+.hl-dot-3 { background: var(--hl-3); }
+.hl-dot-4 { background: var(--hl-4); }
+.hl-dot-5 { background: var(--hl-5); }
+.hl-dot-6 { background: var(--hl-6); }
+/* Blocks with a note get a marker in the margin. */
+.reader .has-user-note {
+  box-shadow: -10px 0 0 -7px var(--accent);
 }

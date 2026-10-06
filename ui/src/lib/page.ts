@@ -57,3 +57,53 @@ export function splitPage(html: string): SplitPage {
   root.querySelectorAll(SECTIONS).forEach((el) => el.remove());
   return { body: root.innerHTML, footnotes, xrefs, notes, noteOrder };
 }
+
+/** Plain text of the theme scripture of a daily text. */
+export function themeScripture(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.querySelector(".themeScrp")?.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+/** What a link cites inside the page it opens. */
+export type Cited =
+  | { kind: "verses"; from: [number, number]; to: [number, number] }
+  | { kind: "paragraphs"; from: number; to: number };
+
+/**
+ * `jwlinux://bible/58:13:7-58:13:9` and `jwlinux://verse/X:1/13:7-13:9` cite
+ * verses (chapter, verse), `jwlinux://pub/X:2024366/7-8` cites paragraphs.
+ */
+export function citedBy(href: string): Cited | null {
+  const bible = /^jwlinux:\/\/bible\/\d+:(\d+):(\d+)(?:-\d+:(\d+):(\d+))?/.exec(href);
+  const verse = /^jwlinux:\/\/(?:verse|note)\/[^/]+\/(\d+):(\d+)(?:-(\d+):(\d+))?/.exec(href);
+  const m = bible ?? verse;
+  if (m) {
+    const from: [number, number] = [Number(m[1]), Number(m[2])];
+    return { kind: "verses", from, to: m[3] ? [Number(m[3]), Number(m[4])] : from };
+  }
+  const pub = /^jwlinux:\/\/pub\/[^/]+\/(\d+)(?:-(\d+))?/.exec(href);
+  if (pub) return { kind: "paragraphs", from: Number(pub[1]), to: Number(pub[2] ?? pub[1]) };
+  return null;
+}
+
+/** Mark the cited verses or paragraphs under `root`; returns the first one. */
+export function markCited(root: Element, cited: Cited | null): Element | null {
+  if (!cited) return null;
+  const marked: Element[] = [];
+  if (cited.kind === "verses") {
+    const key = (c: number, v: number) => c * 1000 + v;
+    const [lo, hi] = [key(...cited.from), key(...cited.to)];
+    root.querySelectorAll("span.v[id]").forEach((el) => {
+      const m = /^v\d+-(\d+)-(\d+)/.exec(el.id);
+      const k = m ? key(Number(m[1]), Number(m[2])) : -1;
+      if (k >= lo && k <= hi) marked.push(el);
+    });
+  } else {
+    for (let n = cited.from; n <= cited.to; n++) {
+      const el = root.querySelector(`[id="p${n}"]`);
+      if (el) marked.push(el);
+    }
+  }
+  marked.forEach((el) => el.classList.add("cited"));
+  return marked[0] ?? null;
+}

@@ -9,7 +9,7 @@ const themes: { value: Theme; label: string }[] = [
 ];
 
 export function SettingsView() {
-  const { theme, setTheme, fontScale, setFontScale } = useApp();
+  const { theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup } = useApp();
   return (
     <>
       <AppBar title="Settings" />
@@ -47,6 +47,24 @@ export function SettingsView() {
               <span className="w-12 text-sm text-muted">{Math.round(fontScale * 100)} %</span>
             </div>
             <p className="reader mt-4 max-w-xl text-fg">Am Anfang erschuf Gott Himmel und Erde.</p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">Backup</h2>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => void createBackup()}
+                className="bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
+              >
+                Create backup
+              </button>
+              <button onClick={() => void restoreBackup()} className="bg-tile px-4 py-2 text-sm hover:brightness-110">
+                Restore backup…
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-muted">
+              Highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; the
+              previous data is kept as userData.db.before-restore in the library folder.
+            </p>
           </section>
           <section className="text-sm text-muted">
             <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-fg">About</h2>

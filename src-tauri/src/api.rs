@@ -8,9 +8,10 @@ use jwlinux::catalog::{
     LIST_MEETINGS, LIST_TEACHING_TOOLBOX, category_name, safe_image_path,
 };
 use jwlinux::links::Link;
-use jwlinux::navigate::{self, Page, Target};
+use jwlinux::navigate::{self, Page, Target, TargetKind};
 use jwlinux::reader::{BibleBook, TocNode};
 use jwlinux::render::media_name;
+use jwlinux::userdata::{Loc, Mark, Note, UserData};
 use jwlinux::{Entry, Library, Publication};
 use serde::Serialize;
 
@@ -272,6 +273,268 @@ pub fn meetings(
     })
 }
 
+/// The material for one date from a downloaded dated publication.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatedPage {
+    /// What to open: the day itself for a daily text, the week's program of a
+    /// workbook, the study article of a study edition.
+    pub target: Target,
+    /// Title of the opened document (empty for a daily text).
+    pub title: String,
+    /// Dates covered, `YYYY-MM-DD`.
+    pub start: String,
+    pub end: String,
+    /// The rendered dated entry (for a daily text: date, theme scripture, comment).
+    pub html: String,
+    /// First image of the opened document.
+    pub image: Option<String>,
+}
+
+/// Key symbols of the dated publications, by the `kind` the frontend asks for.
+fn dated_symbol(kind: &str) -> ApiResult<&'static str> {
+    match kind {
+        "dailyText" => Ok("es"),
+        "workbook" => Ok("mwb"),
+        "study" => Ok("w"),
+        _ => Err(format!("unknown dated kind {kind:?}")),
+    }
+}
+
+/// `2026-10-07` -> `20261007`.
+fn date_number(date: &str) -> ApiResult<i64> {
+    let digits: String = date.chars().filter(char::is_ascii_digit).collect();
+    match (digits.len(), digits.parse()) {
+        (8, Ok(n)) => Ok(n),
+        _ => Err(format!("bad date {date:?}")),
+    }
+}
+
+/// `20261007` -> `2026-10-07`.
+fn date_string(n: i64) -> String {
+    format!("{:04}-{:02}-{:02}", n / 10000, n / 100 % 100, n % 100)
+}
+
+/// Values of `attr="…"` in raw publication HTML, in order.
+fn attr_values<'h>(html: &'h str, attr: &str) -> Vec<&'h str> {
+    let needle = format!("{attr}=\"");
+    html.match_indices(&needle)
+        .filter_map(|(i, _)| {
+            let rest = &html[i + needle.len()..];
+            rest.find('"').map(|end| &rest[..end])
+        })
+        .collect()
+}
+
+/// The document a dated entry stands for. A study edition's entry is a line of
+/// its table of contents (class 68) that links to the week's article.
+fn dated_document(publication: &Publication, dated: &jwlinux::reader::DatedText) -> ApiResult<i64> {
+    let (info, _) = publication.document(dated.document_id).map_err(err)?;
+    if info.class == "68" {
+        for href in attr_values(&dated.content, "href") {
+            let link = jwlinux::render::rewrite_href(href).and_then(|h| Link::parse(&h));
+            if let Some(Link::Document {
+                meps_document_id, ..
+            }) = link
+                && let Some(id) = publication
+                    .document_by_meps_id(meps_document_id)
+                    .map_err(err)?
+            {
+                return Ok(id);
+            }
+        }
+    }
+    Ok(dated.document_id)
+}
+
+/// The daily text, workbook week or study article for `date` (`YYYY-MM-DD`)
+/// from downloaded publications in language `lang`, newest issue first.
+pub fn dated_page(
+    library: &Library,
+    lang: &str,
+    kind: &str,
+    date: &str,
+) -> ApiResult<Option<DatedPage>> {
+    let symbol = dated_symbol(kind)?;
+    let day = date_number(date)?;
+    let mut candidates: Vec<Entry> = library
+        .list()
+        .map_err(err)?
+        .into_iter()
+        .filter(|e| {
+            e.lang_code.as_deref() == Some(lang)
+                && e.symbol.trim_end_matches(|c: char| c.is_ascii_digit()) == symbol
+        })
+        .collect();
+    candidates.sort_by(|a, b| (b.year, &b.issue_tag).cmp(&(a.year, &a.issue_tag)));
+    for entry in candidates {
+        let publication = Publication::open(library, &entry).map_err(err)?;
+        let Some(dated) = publication.dated_text(day).map_err(err)? else {
+            continue;
+        };
+        let base = media_base(&entry.dir_name);
+        let html = jwlinux::Renderer::new(
+            &publication,
+            jwlinux::RenderOptions {
+                media_base: Some(base.clone()),
+                standalone: false,
+            },
+        )
+        .dated_text(day)
+        .map_err(err)?;
+        let (kind, title, image) = if symbol == "es" {
+            (TargetKind::Dated { date: day }, String::new(), None)
+        } else {
+            let id = dated_document(&publication, &dated)?;
+            let (info, content) = publication.document(id).map_err(err)?;
+            let image = content.as_deref().and_then(|c| {
+                attr_values(c, "src")
+                    .into_iter()
+                    .find_map(media_name)
+                    .map(|name| format!("{base}{name}"))
+            });
+            (TargetKind::Document(id), info.title, image)
+        };
+        return Ok(Some(DatedPage {
+            target: Target {
+                publication: entry.dir_name,
+                kind,
+            },
+            title,
+            start: date_string(dated.first),
+            end: date_string(dated.last),
+            html,
+            image,
+        }));
+    }
+    Ok(None)
+}
+
+/// The catalog publication a link points into, so it can be downloaded. Bible
+/// links without a book document fall back to the study Bible in `meps`.
+pub fn missing_entry(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    href: &str,
+) -> ApiResult<Option<CatalogEntry>> {
+    let in_language = |code: &str| catalog.meps_language(code).unwrap_or(meps);
+    let item = match Link::parse(href) {
+        Some(Link::Document {
+            lang_code,
+            meps_document_id,
+        }) => catalog
+            .by_document(in_language(&lang_code), meps_document_id)
+            .map_err(err)?,
+        Some(Link::BookVerse {
+            lang_code,
+            book_document,
+            ..
+        }) => catalog
+            .by_document(in_language(&lang_code), book_document)
+            .map_err(err)?,
+        Some(Link::Bible { .. }) => catalog.find("nwtsty", meps, None).map_err(err)?,
+        _ => None,
+    };
+    Ok(entries(item.into_iter().collect(), library)?.pop())
+}
+
+/// The user data location of a page, and a title to store with it.
+pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, String)> {
+    let (entry, publication) = open_entry(library, &target.publication)?;
+    let mut loc = Loc {
+        key_symbol: publication.key_symbol().map_err(err)?,
+        meps_language: entry.meps_language,
+        issue_tag: entry.issue_tag.parse().unwrap_or(0),
+        document_id: None,
+        book: None,
+        chapter: None,
+    };
+    let document = |id: i64| -> ApiResult<(i64, String)> {
+        let (info, _) = publication.document(id).map_err(err)?;
+        Ok((info.meps_document_id, info.title))
+    };
+    let title = match target.kind {
+        TargetKind::Document(id) => {
+            let (meps, title) = document(id)?;
+            loc.document_id = Some(meps);
+            title
+        }
+        TargetKind::Chapter { book, chapter, .. } => {
+            loc.book = Some(book);
+            loc.chapter = Some(chapter);
+            format!(
+                "{} {chapter}",
+                publication.bible_book(book).map_err(err)?.chapter_title
+            )
+        }
+        TargetKind::Dated { date } => {
+            let dated = publication
+                .dated_text(date)
+                .map_err(err)?
+                .ok_or_else(|| format!("no dated text for {date}"))?;
+            let (meps, title) = document(dated.document_id)?;
+            loc.document_id = Some(meps);
+            title
+        }
+    };
+    Ok((loc, title))
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PageUserData {
+    pub marks: Vec<Mark>,
+    pub notes: Vec<Note>,
+}
+
+pub fn page_user_data(
+    library: &Library,
+    user: &UserData,
+    target: &Target,
+) -> ApiResult<PageUserData> {
+    let (loc, _) = page_location(library, target)?;
+    Ok(PageUserData {
+        marks: user.marks(&loc).map_err(err)?,
+        notes: user.notes(&loc).map_err(err)?,
+    })
+}
+
+/// Where to open a note's or bookmark's page, if its publication is downloaded.
+pub fn open_location(library: &Library, loc: &Loc) -> ApiResult<Option<Target>> {
+    for entry in library.list().map_err(err)? {
+        if entry.meps_language != loc.meps_language {
+            continue;
+        }
+        let publication = Publication::open(library, &entry).map_err(err)?;
+        if publication.key_symbol().map_err(err)? != loc.key_symbol
+            || entry.issue_tag.parse::<i64>().unwrap_or(0) != loc.issue_tag
+        {
+            continue;
+        }
+        if let (Some(book), Some(chapter)) = (loc.book, loc.chapter)
+            && publication.is_bible()
+        {
+            return Ok(Some(Target {
+                publication: entry.dir_name,
+                kind: TargetKind::Chapter {
+                    book,
+                    chapter,
+                    verse: 1,
+                },
+            }));
+        }
+        if let Some(meps) = loc.document_id
+            && let Some(id) = publication.document_by_meps_id(meps).map_err(err)?
+        {
+            return Ok(Some(Target {
+                publication: entry.dir_name,
+                kind: TargetKind::Document(id),
+            }));
+        }
+    }
+    Ok(None)
+}
+
 /// First path segment under which catalog images are served.
 pub const CATALOG_IMAGES: &str = "catalog";
 
@@ -435,6 +698,33 @@ mod tests {
         ] {
             assert_eq!(catalog_image_path(cache, bad), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn dates_and_attributes() {
+        assert_eq!(date_number("2026-10-07").unwrap(), 20261007);
+        assert!(date_number("2026-10").is_err());
+        assert_eq!(date_string(20261007), "2026-10-07");
+        assert!(dated_symbol("other").is_err());
+        assert_eq!(
+            attr_values(
+                r##"<a href="jwpub://p/X:1/">a</a><img src="x.jpg"><a href="#f">"##,
+                "href"
+            ),
+            ["jwpub://p/X:1/", "#f"]
+        );
+    }
+
+    #[test]
+    fn dated_pages_need_a_downloaded_publication() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lib = Library::open(tmp.path()).unwrap();
+        assert!(
+            dated_page(&lib, "X", "dailyText", "2026-10-07")
+                .unwrap()
+                .is_none()
+        );
+        assert!(dated_page(&lib, "X", "nope", "2026-10-07").is_err());
     }
 
     #[test]
