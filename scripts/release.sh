@@ -28,6 +28,7 @@ cargo clippy --workspace --all-targets -q -- -D warnings
 cargo test --workspace -q
 pnpm lint
 pnpm test --run
+nix build --no-link .#pergament
 
 echo "release: setting version $version"
 sed -i "0,/^version = \".*\"$/s//version = \"$version\"/" Cargo.toml src-tauri/Cargo.toml
