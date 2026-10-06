@@ -92,6 +92,15 @@ export interface HomeLists {
   dailyText: CatalogEntry | null;
 }
 
+/** An excerpt the Research Guide lists for a verse. */
+export interface ResearchEntry {
+  publication: string;
+  subject: string;
+  location: string;
+  href: string;
+  html: string;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -282,6 +291,10 @@ export const api = {
   exportBackup: (path: string) => invoke<void>("export_backup", { path }),
   restoreBackup: (path: string) => invoke<UserDataSummary>("restore_backup", { path }),
   media: (url: string) => invoke<ArrayBuffer>("media", { url }),
+  researchVerses: (dir: string, book: number, chapter: number) =>
+    invoke<number[]>("research_verses", { dir, book, chapter }),
+  researchGuide: (dir: string, book: number, chapter: number, verse: number) =>
+    invoke<ResearchEntry[]>("research_guide", { dir, book, chapter, verse }),
 };
 
 export function chapterTarget(publication: string, book: number, chapter: number, verse = 1): Target {
