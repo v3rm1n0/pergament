@@ -125,7 +125,7 @@ export function GridCard({ entry }: { entry: CatalogEntry }) {
       <div className="mt-1.5 line-clamp-2 text-[0.8rem] leading-snug group-hover:underline">
         {entry.item.issue_title || entry.item.short_title || entry.item.title}
       </div>
-      <div className="text-[0.7rem] text-muted">{mb(entry.item.size)}</div>
+      {entry.item.size > 0 && <div className="text-[0.7rem] text-muted">{mb(entry.item.size)}</div>}
     </button>
   );
 }

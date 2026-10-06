@@ -3,6 +3,7 @@ import { BookOpen, CloudDownload, FolderInput, Trash2 } from "lucide-react";
 import { useApp } from "@/app";
 import { api, type PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { groupByCategory } from "@/lib/types";
 
 function Cover({ pub }: { pub: PubCard }) {
   const [failed, setFailed] = useState(false);
@@ -91,13 +92,12 @@ function Section({ title, pubs }: { title: string; pubs: PubCard[] }) {
   );
 }
 
-/** Downloaded publications: Bibles first, then the rest, newest first. */
+/** Downloaded publications grouped by their manifest publication type, newest first. */
 export function HomeLibraryGrid({ pubs }: { pubs: PubCard[] }) {
   const { importFiles, push } = useApp();
-  const bibles = pubs.filter((p) => p.isBible);
-  const others = pubs
-    .filter((p) => !p.isBible)
-    .sort((a, b) => b.year - a.year || b.issueTag.localeCompare(a.issueTag));
+  const groups = groupByCategory(
+    [...pubs].sort((a, b) => b.year - a.year || b.issueTag.localeCompare(a.issueTag)),
+  );
   if (pubs.length === 0) {
     return (
       <div className="mx-auto mt-20 max-w-md text-center">
@@ -117,8 +117,9 @@ export function HomeLibraryGrid({ pubs }: { pubs: PubCard[] }) {
   }
   return (
     <>
-      <Section title="Bible" pubs={bibles} />
-      <Section title="Publications" pubs={others} />
+      {groups.map((g) => (
+        <Section key={g.id} title={g.name} pubs={g.pubs} />
+      ))}
     </>
   );
 }
