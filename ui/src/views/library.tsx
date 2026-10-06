@@ -105,7 +105,7 @@ export function LibraryView({ tab = "publications" }: { tab?: "publications" | "
                   className="flex h-[86px] items-center gap-5 bg-tile px-6 text-left text-[0.95rem] hover:brightness-125"
                 >
                   <Icon size={36} strokeWidth={1.1} className="shrink-0" />
-                  {t(c.name)}
+                  <span className="min-w-0 hyphens-auto break-words">{t(c.name)}</span>
                 </button>
               );
             })}
