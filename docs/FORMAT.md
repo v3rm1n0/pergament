@@ -247,6 +247,66 @@ They support `Range` requests (`206` with `content-range`, checked byte for
 byte). An unknown publication returns HTTP `400` with
 `[{"id": …, "title": "Bad Request", "status": 400}]`. [own]
 
+## Dated texts inside publications
+
+Publications carry their own `DatedText` table: `DocumentId`, `Link`,
+`FirstDateOffset`/`LastDateOffset` (`YYYYMMDD` integers),
+`BeginParagraphOrdinal`/`EndParagraphOrdinal`, `Caption` and an encrypted
+`Content` (same encoding as `Document.Content`). [own]
+
+- Daily text (`es26`): one row per day; `DocumentId` is the month,
+  `Content` is the day (date heading, `p.themeScrp`, comment).
+- Workbook (`mwb`): one row per week; `DocumentId` is the week's program.
+- Study edition (`w`): one row per week; `DocumentId` is the table of
+  contents (`Document.Class` 68) and `Content` is its line for the week, with
+  a `jwpub://p/{lang}:{MepsDocumentId}/` link to the study article.
+
+The catalog's `PublicationDocument` (`DocumentId` = MEPS document id,
+`PublicationId`) says which publication contains a document; it is used to
+offer downloads for links into missing publications. [own]
+
+## User data (.jwlibrary backups)
+
+Checked against one backup made by JW Library on iOS (schema version 16,
+2026-10). The backup itself is personal and not committed. [own]
+
+- A ZIP with `manifest.json`, `userData.db` and `default_thumbnail.png`.
+- `manifest.json`: `creationDate`, `version` (1), `name`, `type` (0) and
+  `userDataBackup` {`lastModifiedDate`, `hash`, `databaseName`,
+  `deviceName`, `schemaVersion`}. `PRAGMA user_version` of the database
+  equals `schemaVersion`.
+- The `hash` is not the SHA-256, SHA-1 or MD5 of `userData.db` in the iOS
+  backup, so it is not verified on restore. Backups written here use the
+  SHA-256 of the database.
+- `Location`: the page. Bible chapters have `KeySymbol` (e.g. `nwtsty`),
+  `MepsLanguage`, `BookNumber`, `ChapterNumber`; publication documents have
+  `KeySymbol`, `IssueTagNumber`, `MepsLanguage` and `DocumentId` = MEPS
+  document id. `KeySymbol` is the publication's `UndatedSymbol` when it has
+  an issue tag (`w`, `mwb`) and its `Symbol` otherwise (`es26`, `nwtsty`).
+  `Type` 0 is text; 1 a whole Bible; 2/3 audio/video.
+- `UserMark`: a highlight with `ColorIndex` 1-6, `StyleIndex` (0 in all
+  data seen), `UserMarkGuid` (uppercase UUID v4) and `LocationId`.
+- `BlockRange`: what a highlight covers. `BlockType` 1 = paragraph
+  (`Identifier` = paragraph id, `p{n}` in the HTML), 2 = Bible verse
+  (`Identifier` = verse number). `StartToken`/`EndToken` are inclusive token
+  indices within the block.
+- Tokens: every run of letters, digits and combining marks is one token,
+  every other non-space character is one token; verse numbers and footnote
+  and cross-reference markers do not count. Checked by hand against
+  highlights in Psalms 8 and 23, Joshua 1, Ruth 1 and a workbook week; e.g.
+  "1. Die richtige Ansicht …" highlighted from token 2 starts at "Die".
+  Whether runs of punctuation such as `.“` are one token or two is not
+  settled (both readings fit the data).
+- `Note`: `Guid`, optional `UserMarkId` (the highlight it belongs to),
+  `LocationId`, `Title`, `Content` (plain text), `LastModified`, `Created`,
+  `BlockType`/`BlockIdentifier` (0 = whole page, else as in `BlockRange`).
+- `Tag` (`Type` 1 = user tag, 0 = favorites) and `TagMap` linking a tag to
+  a note, a location or a playlist item, with a `Position` per tag.
+- `Bookmark` (`Slot`, `Title`, `Snippet`, block), `InputField` (answers
+  typed into workbook fields: `TextTag` = the field id, e.g. `tt21`),
+  playlists and `IndependentMedia` (not used here yet).
+- `LastModified` holds one timestamp that the app's triggers update.
+
 ## Unknown / not relied upon
 
 - What the `C` constant protects beyond obfuscation. We only reproduce the
