@@ -5,6 +5,16 @@ format. It has a desktop app (Tauri, with a React frontend), a command line
 tool called `pergament`, and a Rust library underneath both. The app's layout
 follows JW Library on other platforms, with its own name, colours and icons.
 
+![Home with today's daily text](docs/screenshots/01-home-light.png)
+
+| | |
+|---|---|
+| ![Daily text with a Bible reference open in the side pane](docs/screenshots/02-daily-text-reference-dark.png) | ![Hebrews 10 with highlights, a note and the study pane](docs/screenshots/03-bible-study-pane-dark.png) |
+| ![Workbook week with highlights in all six colours](docs/screenshots/06-workbook-highlights-light.png) | ![Personal Study with notes and tags](docs/screenshots/08-personal-study-light.png) |
+
+Every view is in [docs/screenshots](docs/screenshots), in both themes. The
+notes and highlights in them are sample data.
+
 ## Before you use it
 
 This project is not affiliated with, endorsed by or supported by Jehovah's
@@ -12,9 +22,10 @@ Witnesses or the Watch Tower Bible and Tract Society. "JW Library" and
 related names are their trademarks.
 
 It is meant for reading publications you have obtained yourself, on your own
-computer. The repository contains no publications, images or other content;
-you import or download them at runtime. Test files are read from paths you
-supply and are never committed.
+computer. The repository contains no publications; you import or download
+them at runtime. The only publication text and catalog images in it are what
+the screenshots in `docs/screenshots` show. Test files are read from paths
+you supply and are never committed.
 
 Nothing was decompiled or taken from the official app. The file format was
 worked out from public open-source projects and from inspecting `.jwpub`
