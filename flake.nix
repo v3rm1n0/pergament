@@ -45,7 +45,7 @@
             ./src-tauri
             ./ui
             ./package.json
-            ./pnpm-lock.yaml
+            ./bun.lock
             ./tsconfig.json
             ./vite.config.ts
           ];
@@ -62,10 +62,34 @@
           cargoLock.lockFile = ./Cargo.lock;
 
           # React frontend, built into dist/ and embedded into pergament-app.
-          pnpmDeps = pkgs.fetchPnpmDeps {
-            inherit (finalAttrs) pname version src;
-            fetcherVersion = 4;
-            hash = "sha256-AQBgMkoZXjEY9uARNSq44FnAVtuohE5vj9sXkP1m0+k=";
+          # node_modules is fetched in a fixed-output derivation from bun.lock.
+          nodeModules = pkgs.stdenvNoCC.mkDerivation {
+            pname = "pergament-node-modules";
+            inherit version;
+            src = pkgs.lib.fileset.toSource {
+              root = ./.;
+              fileset = pkgs.lib.fileset.unions [
+                ./package.json
+                ./bun.lock
+              ];
+            };
+            nativeBuildInputs = [ pkgs.bun ];
+            dontConfigure = true;
+            dontFixup = true;
+            buildPhase = ''
+              runHook preBuild
+              export HOME=$TMPDIR
+              bun install --frozen-lockfile --ignore-scripts --no-progress
+              runHook postBuild
+            '';
+            installPhase = ''
+              runHook preInstall
+              cp -r node_modules $out
+              runHook postInstall
+            '';
+            outputHashMode = "recursive";
+            outputHashAlgo = "sha256";
+            outputHash = "sha256-dc8Z1aEMhwvHYa8YCbwxTguyvppRsadxYxBJt1Jb7/Y=";
           };
 
           cargoBuildFlags = [
@@ -86,15 +110,17 @@
           nativeBuildInputs = with pkgs; [
             pkg-config
             nodejs_22
-            pnpm
-            pnpmConfigHook
+            bun
             wrapGAppsHook3
             copyDesktopItems
           ];
           buildInputs = [ pkgs.sqlite ] ++ tauriLibs;
 
           preBuild = ''
-            pnpm build
+            cp -r ${finalAttrs.nodeModules} node_modules
+            chmod -R u+w node_modules
+            patchShebangs node_modules
+            bun run build
           '';
 
           desktopItems = [
@@ -154,9 +180,9 @@
             cargo-nextest
             cargo-deny
 
-            # Frontend (React + Vite) and Tauri CLI via pnpm
+            # Frontend (React + Vite) and Tauri CLI via bun
             nodejs_22
-            pnpm
+            bun
 
             pkg-config
             wrapGAppsHook3

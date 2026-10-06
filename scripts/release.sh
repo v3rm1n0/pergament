@@ -26,8 +26,8 @@ echo "release: running checks"
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -q -- -D warnings
 cargo test --workspace -q
-pnpm lint
-pnpm test --run
+bun run lint
+bun run test --run
 nix build --no-link .#pergament
 
 echo "release: setting version $version"
