@@ -3,6 +3,7 @@ name = "jwlinux-app"
 version = "0.1.0"
 edition = "2024"
 description = "Desktop reader for jwlinux (Tauri)"
+license = "GPL-3.0-or-later"
 
 [lib]
 name = "jwlinux_app"

@@ -105,4 +105,33 @@ that downloads one Watchtower issue (about 3 MB) from jw.org.
 
 ## License
 
-Not decided yet.
+This project is free software under the GNU General Public License,
+version 3 or (at your option) any later version. The full text is in
+[LICENSE](LICENSE).
+
+The notes below describe how the project is published and what you should
+know before using it. They do not add restrictions to the GPL.
+
+### Tolerated, not authorised
+
+The project has no permission from the Watch Tower Bible and Tract Society
+or any other rights holder of the publications it reads. At most, its
+existence and use are tolerated. That can change at any time, and the
+project may then be changed or withdrawn without notice.
+
+### Use at your own risk
+
+You use this software entirely at your own risk. As sections 15 and 16 of
+the GPL state, it comes without any warranty, and the authors are not
+liable for any damage or loss, including lost data and any legal
+consequences of using it. You are responsible for checking that your use
+is lawful where you live, in particular decrypting `.jwpub` files and
+downloading from jw.org.
+
+### Source code only
+
+The project is published as uncompiled source code only. There are no
+official builds, packages or installers. To use it, build it yourself as
+described in [Usage](#usage) and [Desktop app](#desktop-app). Compiled
+versions from anyone else do not come from this project and are not
+supported.

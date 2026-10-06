@@ -47,6 +47,7 @@
         meta = {
           description = "Unofficial native Linux reader for JW publications (.jwpub)";
           platforms = pkgs.lib.platforms.linux;
+          license = pkgs.lib.licenses.gpl3Plus;
         };
 
         jwlinux = pkgs.rustPlatform.buildRustPackage {
