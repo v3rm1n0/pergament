@@ -297,7 +297,7 @@ export function TitleStrip() {
       >
         <ArrowLeft size={14} />
       </button>
-      <span data-tauri-drag-region>jwlinux</span>
+      <span data-tauri-drag-region>Pergament</span>
     </div>
   );
 }

@@ -51,7 +51,7 @@ export function SettingsView() {
           <section className="text-sm text-muted">
             <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-fg">About</h2>
             <p>
-              jwlinux is an unofficial reader for publications you import or download yourself, for personal use.
+              Pergament is an unofficial reader for publications you import or download yourself, for personal use.
               It is not affiliated with Jehovah's Witnesses or the Watch Tower Bible and Tract Society and contains
               no publication content. No telemetry.
             </p>
