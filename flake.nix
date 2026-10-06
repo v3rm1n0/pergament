@@ -43,6 +43,11 @@
             ./src
             ./tests
             ./src-tauri
+            ./ui
+            ./package.json
+            ./pnpm-lock.yaml
+            ./tsconfig.json
+            ./vite.config.ts
           ];
         };
         meta = {
@@ -51,24 +56,83 @@
           license = pkgs.lib.licenses.gpl3Plus;
         };
 
-        pergament = pkgs.rustPlatform.buildRustPackage {
+        pergament = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
           pname = "pergament";
           inherit version src;
           cargoLock.lockFile = ./Cargo.lock;
+
+          # React frontend, built into dist/ and embedded into pergament-app.
+          pnpmDeps = pkgs.fetchPnpmDeps {
+            inherit (finalAttrs) pname version src;
+            fetcherVersion = 4;
+            hash = "sha256-AQBgMkoZXjEY9uARNSq44FnAVtuohE5vj9sXkP1m0+k=";
+          };
+
           cargoBuildFlags = [
             "-p"
             "pergament"
+            "-p"
+            "pergament-app"
+            "--features"
+            "pergament-app/custom-protocol"
           ];
           cargoTestFlags = [
             "-p"
             "pergament"
+            "-p"
+            "pergament-app"
           ];
-          nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.sqlite ];
+
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            nodejs_22
+            pnpm
+            pnpmConfigHook
+            wrapGAppsHook3
+            copyDesktopItems
+          ];
+          buildInputs = [ pkgs.sqlite ] ++ tauriLibs;
+
+          preBuild = ''
+            pnpm build
+          '';
+
+          desktopItems = [
+            (pkgs.makeDesktopItem {
+              name = "io.github.v3rm1n.pergament";
+              desktopName = "Pergament";
+              genericName = "Publication Reader";
+              comment = meta.description;
+              exec = "pergament-app";
+              startupWMClass = "pergament-app";
+              icon = "io.github.v3rm1n.pergament";
+              categories = [
+                "Office"
+                "Viewer"
+              ];
+              keywords = [
+                "jwpub"
+                "Bible"
+                "reader"
+              ];
+            })
+          ];
+
+          postInstall = ''
+            for size in 32 64 128 256; do
+              install -Dm644 src-tauri/icons/''${size}x''${size}.png \
+                $out/share/icons/hicolor/''${size}x''${size}/apps/io.github.v3rm1n.pergament.png
+            done
+            install -Dm644 src-tauri/icons/icon.png \
+              $out/share/icons/hicolor/512x512/apps/io.github.v3rm1n.pergament.png
+            install -Dm644 src-tauri/icons/icon.svg \
+              $out/share/icons/hicolor/scalable/apps/io.github.v3rm1n.pergament.svg
+          '';
+
           meta = meta // {
-            mainProgram = "pergament";
+            mainProgram = "pergament-app";
           };
-        };
+        });
       in
       {
         packages = {
