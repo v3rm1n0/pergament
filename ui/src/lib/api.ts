@@ -281,6 +281,7 @@ export const api = {
   openLocation: (loc: Loc) => invoke<Target | null>("open_location", { loc }),
   exportBackup: (path: string) => invoke<void>("export_backup", { path }),
   restoreBackup: (path: string) => invoke<UserDataSummary>("restore_backup", { path }),
+  media: (url: string) => invoke<ArrayBuffer>("media", { url }),
 };
 
 export function chapterTarget(publication: string, book: number, chapter: number, verse = 1): Target {

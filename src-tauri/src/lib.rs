@@ -528,6 +528,28 @@ fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
     }
 }
 
+/// Bytes of a `jwmedia:` URL. The frontend loads images through this and shows them
+/// as blob URLs, which WebKit allows from any page origin (it refuses the
+/// custom scheme from the dev server's `http://localhost`).
+#[tauri::command]
+async fn media(app: AppHandle, url: String) -> ApiResult<tauri::ipc::Response> {
+    let prefix = format!("{}://localhost", api::MEDIA_SCHEME);
+    let path = url
+        .strip_prefix(&prefix)
+        .ok_or_else(|| "not a media URL".to_string())?
+        .to_owned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let response = media_response(&app, &path);
+        if response.status() == StatusCode::OK {
+            Ok(tauri::ipc::Response::new(response.into_body()))
+        } else {
+            Err(format!("no image at {path}"))
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 pub fn run() {
     let root = std::env::var_os("PERGAMENT_LIBRARY")
         .map(PathBuf::from)
@@ -565,6 +587,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            media,
             list_publications,
             publication,
             render_page,

@@ -1,9 +1,11 @@
+import { MediaImg } from "@/components/media-img";
 import { useEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, CloudDownload } from "lucide-react";
 import { taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Page, type Target } from "@/lib/api";
 import { citedBy, markCited, splitPage } from "@/lib/page";
+import { hydrateMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
@@ -58,6 +60,7 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
+    hydrateMedia(root);
     const first =
       markCited(root, citedBy(pref.href)) ??
       (pref.page.fragment ? root.querySelector(`[id="${CSS.escape(pref.page.fragment)}"]`) : null);
@@ -85,7 +88,7 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
         className="flex shrink-0 items-center gap-3 bg-bar py-1.5 pl-1.5 pr-3 text-left hover:brightness-110"
       >
         {card?.cover ? (
-          <img src={card.cover} alt="" className="h-11 w-11 object-cover" draggable={false} />
+          <MediaImg src={card.cover} alt="" className="h-11 w-11 object-cover" draggable={false} />
         ) : (
           <div className="flex h-11 w-11 items-center justify-center bg-tile">
             <BookOpen size={20} strokeWidth={1.3} />

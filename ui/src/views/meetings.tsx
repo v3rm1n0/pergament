@@ -1,3 +1,4 @@
+import { MediaImg } from "@/components/media-img";
 import { useEffect, useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, CloudDownload } from "lucide-react";
 import { AppBar, useApp } from "@/app";
@@ -28,7 +29,7 @@ function WeekItem({ page, caption }: { page: DatedPage; caption?: string }) {
       className="mt-3 flex w-full items-center gap-3 text-left"
     >
       {page.image ? (
-        <img src={page.image} alt="" className="h-16 w-16 shrink-0 object-cover" draggable={false} />
+        <MediaImg src={page.image} alt="" className="h-16 w-16 shrink-0 object-cover" draggable={false} />
       ) : (
         <div className="flex h-16 w-16 shrink-0 items-center justify-center bg-tile">
           <BookOpen size={24} strokeWidth={1.3} />
