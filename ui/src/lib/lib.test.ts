@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bookShade, booksTabIndex, shortBookName } from "./bible";
 import { currentView, initialNav, navReducer } from "./nav";
-import { citedBy, markCited, splitPage, themeScripture, verseKeyFromHref, verseKeyFromId } from "./page";
+import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, verseKeyFromHref, verseKeyFromId } from "./page";
 import { defaultLangCode, prefersDark } from "./settings";
 import { BLOCK_PARAGRAPH, BLOCK_VERSE, applyMarks, blockElements, blockOf, selectionRanges, tokens } from "./marks";
 import type { TocNode } from "./api";
@@ -193,5 +193,16 @@ describe("marks", () => {
     range.setEnd(second, 3); // after "Mir"
     expect(selectionRanges(root, range)).toEqual([{ blockType: BLOCK_VERSE, identifier: 1, start: 1, end: 5 }]);
     expect(blockOf(first.parentElement)?.identifier).toBe(1);
+  });
+});
+
+describe("cited paragraphs", () => {
+  const html = '<h1>Midian</h1><p id="p1">One</p><p id="p2">Two <a href="x">link</a></p><p id="p3">Three</p><p id="p4">Four</p>';
+  it("keeps only the cited paragraphs", () => {
+    const out = extractParagraphs(html, { kind: "paragraphs", from: 2, to: 3 });
+    expect(out).toBe('<p id="p2">Two <a href="x">link</a></p><p id="p3">Three</p>');
+  });
+  it("falls back to the whole page when none is found", () => {
+    expect(extractParagraphs(html, { kind: "paragraphs", from: 9, to: 9 })).toBeNull();
   });
 });

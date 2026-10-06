@@ -4,7 +4,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, CloudDownload } from "lucide-react";
 import { taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Page, type Target } from "@/lib/api";
-import { citedBy, markCited, splitPage } from "@/lib/page";
+import { citedBy, extractParagraphs, markCited, splitPage } from "@/lib/page";
 import { hydrateMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
@@ -57,7 +57,13 @@ export function ReferencePane({
 function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "page" }>; onFollow: (href: string) => void }) {
   const { openTarget, publications } = useApp();
   const ref = useRef<HTMLDivElement>(null);
-  const body = useMemo(() => splitPage(pref.page.html).body, [pref.page.html]);
+  // A publication reference shows only the cited paragraphs, like verses do.
+  const { body, onlyCited } = useMemo(() => {
+    const full = splitPage(pref.page.html).body;
+    const cited = citedBy(pref.href);
+    const part = cited?.kind === "paragraphs" ? extractParagraphs(full, cited) : null;
+    return { body: part ?? full, onlyCited: part !== null };
+  }, [pref.page.html, pref.href]);
   const card = publications.find((p) => p.dir === pref.target.publication);
   const isChapter = "chapter" in pref.target.kind;
 
@@ -66,11 +72,11 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
     if (!root) return;
     hydrateMedia(root);
     const first =
-      markCited(root, citedBy(pref.href)) ??
+      (onlyCited ? null : markCited(root, citedBy(pref.href))) ??
       (pref.page.fragment ? root.querySelector(`[id="${CSS.escape(pref.page.fragment)}"]`) : null);
     if (first) first.scrollIntoView({ block: "start" });
     else root.parentElement?.scrollTo({ top: 0 });
-  }, [body, pref.href, pref.page.fragment]);
+  }, [body, onlyCited, pref.href, pref.page.fragment]);
 
   const onClick = (e: ReactMouseEvent) => {
     const a = (e.target as HTMLElement).closest("a");
