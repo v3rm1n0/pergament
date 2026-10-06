@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { bookShade, booksTabIndex, shortBookName } from "./bible";
 import { currentView, initialNav, navReducer } from "./nav";
-import { splitPage, verseKeyFromHref, verseKeyFromId } from "./page";
+import { citedBy, markCited, splitPage, themeScripture, verseKeyFromHref, verseKeyFromId } from "./page";
 import { defaultLangCode, prefersDark } from "./settings";
+import { BLOCK_PARAGRAPH, BLOCK_VERSE, applyMarks, blockElements, blockOf, selectionRanges, tokens } from "./marks";
 import type { TocNode } from "./api";
 
 const node = (title: string, children: TocNode[] = [], bible_book: number | null = null): TocNode => ({
@@ -99,7 +100,7 @@ describe("language filter", () => {
   });
 });
 
-import { addDays, ago, isoDate, rangeLabel, weekLabel, weekStart } from "./dates";
+import { addDays, ago, fromDateNumber, isoDate, longDate, rangeLabel, weekLabel, weekStart } from "./dates";
 
 describe("dates", () => {
   it("finds the meeting week", () => {
@@ -116,5 +117,81 @@ describe("dates", () => {
     expect(ago("2026-10-03T07:21:15+00:00", now)).toBe("2 days ago");
     expect(ago(null, now)).toBe("");
     expect(rangeLabel("2026-10-05", "2026-11-01")).toBe("October 5 to November 1");
+  });
+});
+
+describe("references", () => {
+  it("reads what a link cites", () => {
+    expect(citedBy("jwlinux://bible/58:13:7-58:13:9")).toEqual({ kind: "verses", from: [13, 7], to: [13, 9] });
+    expect(citedBy("jwlinux://bible/19:23:1")).toEqual({ kind: "verses", from: [23, 1], to: [23, 1] });
+    expect(citedBy("jwlinux://verse/X:1001070105/1:1-1:31")).toEqual({ kind: "verses", from: [1, 1], to: [1, 31] });
+    expect(citedBy("jwlinux://pub/X:2024366/7-8")).toEqual({ kind: "paragraphs", from: 7, to: 8 });
+    expect(citedBy("jwlinux://pub/X:2026520/")).toBeNull();
+    expect(citedBy("https://www.jw.org/")).toBeNull();
+  });
+  it("marks cited verses and paragraphs", () => {
+    const doc = new DOMParser().parseFromString(
+      `<div><span class="v" id="v58-13-6-1">a</span><span class="v" id="v58-13-7-1">b</span><span class="v" id="v58-13-8-1">c</span>
+       <p id="p6">x</p><p id="p7">y</p></div>`,
+      "text/html",
+    );
+    const root = doc.body.firstElementChild!;
+    expect(markCited(root, citedBy("jwlinux://bible/58:13:7-58:13:8"))?.id).toBe("v58-13-7-1");
+    expect([...root.querySelectorAll(".cited")].map((e) => e.id)).toEqual(["v58-13-7-1", "v58-13-8-1"]);
+    expect(markCited(root, citedBy("jwlinux://pub/X:1/7-7"))?.id).toBe("p7");
+  });
+  it("extracts the theme scripture", () => {
+    const html = `<header><h2>Mittwoch</h2></header><p class="themeScrp"><em>Denkt an die </em><a><em>Heb. 13:7</em></a></p>`;
+    expect(themeScripture(html)).toBe("Denkt an die Heb. 13:7");
+    expect(themeScripture("<p>x</p>")).toBe("");
+  });
+});
+
+describe("dates", () => {
+  it("converts date numbers", () => {
+    expect(isoDate(fromDateNumber(20261007))).toBe("2026-10-07");
+    expect(longDate(fromDateNumber(20261005))).toBe("Monday, October 5");
+  });
+});
+
+describe("marks", () => {
+  // Psalm 23:1, 4 as rendered: verse spans, chapter and verse numbers, markers.
+  const html = `<div id="root">
+    <p id="p417"><span class="v" id="v19-23-1-1"><span class="cl"><strong>23</strong> </span>Jehova ist mein Hirte.<a class="xr" href="#xref1">a</a></span></p>
+    <p id="p418"><span class="v" id="v19-23-1-2">Mir wird nichts fehlen.</span></p>
+    <p id="p422"><span class="v" id="v19-23-4-1"> <span class="vl">4 </span>Geht es auch durch das Tal dunklen Schattens,</span></p>
+    <p id="p9">Wir können nicht erwarten, dass Jehova uns (<a href="#x"><em>cl</em> 72</a>)</p>
+  </div>`;
+  const load = () => new DOMParser().parseFromString(html, "text/html").getElementById("root")!;
+
+  it("tokenizes blocks like the stored highlights", () => {
+    const root = load();
+    const words = (b: number, id: number) =>
+      tokens(blockElements(root, b, id)).map((t) => t.node.data.slice(t.start, t.end));
+    expect(words(BLOCK_VERSE, 1)).toEqual(["Jehova", "ist", "mein", "Hirte", ".", "Mir", "wird", "nichts", "fehlen", "."]);
+    expect(words(BLOCK_VERSE, 4).slice(0, 2)).toEqual(["Geht", "es"]);
+    expect(words(BLOCK_PARAGRAPH, 9).slice(3, 6)).toEqual(["erwarten", ",", "dass"]);
+  });
+
+  it("wraps highlighted tokens across verse parts", () => {
+    const root = load();
+    applyMarks(root, [{ guid: "g", color: 3, ranges: [{ blockType: BLOCK_VERSE, identifier: 1, start: 3, end: 6 }] }]);
+    const marks = [...root.querySelectorAll("mark.hl")];
+    expect(marks.map((m) => m.textContent)).toEqual(["Hirte.", "Mir wird"]);
+    expect((marks[0] as HTMLElement).dataset.color).toBe("3");
+    // Highlighting does not change the token count.
+    expect(tokens(blockElements(root, BLOCK_VERSE, 1)).length).toBe(10);
+  });
+
+  it("turns a selection into token ranges", () => {
+    const root = load();
+    const doc = root.ownerDocument;
+    const first = root.querySelector("#v19-23-1-1")!.childNodes[1] as Text; // "Jehova ist mein Hirte."
+    const second = root.querySelector("#v19-23-1-2")!.firstChild as Text; // "Mir wird nichts fehlen."
+    const range = doc.createRange();
+    range.setStart(first, 7); // "ist"
+    range.setEnd(second, 3); // after "Mir"
+    expect(selectionRanges(root, range)).toEqual([{ blockType: BLOCK_VERSE, identifier: 1, start: 1, end: 5 }]);
+    expect(blockOf(first.parentElement)?.identifier).toBe(1);
   });
 });

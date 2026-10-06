@@ -39,7 +39,8 @@ export interface PubDetail {
 /** Mirrors jwlinux::navigate::Target (serde external tagging). */
 export type TargetKind =
   | { document: number }
-  | { chapter: { book: number; chapter: number; verse: number } };
+  | { chapter: { book: number; chapter: number; verse: number } }
+  | { dated: { date: number } };
 
 export interface Target {
   publication: string;
@@ -107,6 +108,95 @@ export interface Meetings {
   other: CatalogEntry[];
 }
 
+export type DatedKind = "dailyText" | "workbook" | "study";
+
+/** The material for one date from a downloaded dated publication. */
+export interface DatedPage {
+  target: Target;
+  /** Title of the opened document (empty for a daily text). */
+  title: string;
+  start: string;
+  end: string;
+  html: string;
+  image: string | null;
+}
+
+/** A page in user data (see jwlinux::userdata::Loc). */
+export interface Loc {
+  keySymbol: string;
+  mepsLanguage: number;
+  issueTag: number;
+  documentId: number | null;
+  book: number | null;
+  chapter: number | null;
+}
+
+/** Highlighted tokens `start..=end` of a paragraph (1) or verse (2). */
+export interface MarkRange {
+  blockType: number;
+  identifier: number;
+  start: number;
+  end: number;
+}
+
+export interface Mark {
+  guid: string;
+  /** 1-6, see `HIGHLIGHT_COLORS`. */
+  color: number;
+  ranges: MarkRange[];
+}
+
+export interface Note {
+  guid: string;
+  title: string;
+  content: string;
+  blockType: number;
+  blockIdentifier: number | null;
+  markGuid: string | null;
+  color: number | null;
+  tags: string[];
+  lastModified: string;
+  location: (Loc & { title: string | null }) | null;
+}
+
+export interface NoteInput {
+  guid?: string;
+  title: string;
+  content: string;
+  blockType?: number;
+  blockIdentifier?: number | null;
+  markGuid?: string | null;
+  tags: string[];
+}
+
+export interface TagInfo {
+  id: number;
+  name: string;
+  notes: number;
+}
+
+export interface Bookmark {
+  slot: number;
+  title: string;
+  snippet: string | null;
+  blockType: number;
+  blockIdentifier: number | null;
+  location: Loc & { title: string | null };
+}
+
+export interface UserDataSummary {
+  marks: number;
+  notes: number;
+  tags: number;
+  bookmarks: number;
+  device: string | null;
+}
+
+export interface PageUserData {
+  marks: Mark[];
+  notes: Note[];
+}
+
 export interface OutlineEntry {
   level: number;
   text: string;
@@ -172,6 +262,23 @@ export const api = {
   meetings: (lang: string, date: string) => invoke<Meetings | null>("meetings", { lang, date }),
   downloadPublication: (item: CatalogItem, lang: string) =>
     invoke<string>("download_publication", { item, lang }),
+  datedPage: (lang: string, kind: DatedKind, date: string) =>
+    invoke<DatedPage | null>("dated_page", { lang, kind, date }),
+  missingEntry: (lang: string, href: string) => invoke<CatalogEntry | null>("missing_entry", { lang, href }),
+  pageUserData: (target: Target) => invoke<PageUserData>("page_user_data", { target }),
+  addMark: (target: Target, color: number, ranges: MarkRange[]) =>
+    invoke<string>("add_mark", { target, color, ranges }),
+  setMarkColor: (guid: string, color: number) => invoke<void>("set_mark_color", { guid, color }),
+  deleteMark: (guid: string) => invoke<void>("delete_mark", { guid }),
+  saveNote: (target: Target | null, note: NoteInput) => invoke<string>("save_note", { target, note }),
+  deleteNote: (guid: string) => invoke<void>("delete_note", { guid }),
+  allNotes: (tag: number | null) => invoke<Note[]>("all_notes", { tag }),
+  tags: () => invoke<TagInfo[]>("tags"),
+  bookmarks: () => invoke<Bookmark[]>("bookmarks"),
+  userDataSummary: () => invoke<UserDataSummary>("user_data_summary"),
+  openLocation: (loc: Loc) => invoke<Target | null>("open_location", { loc }),
+  exportBackup: (path: string) => invoke<void>("export_backup", { path }),
+  restoreBackup: (path: string) => invoke<UserDataSummary>("restore_backup", { path }),
 };
 
 export function chapterTarget(publication: string, book: number, chapter: number, verse = 1): Target {

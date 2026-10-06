@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Star } from "lucide-react";
+import { BookOpen, CalendarDays, ChevronRight, Star } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
-import { api, type HomeLists, type PubCard } from "@/lib/api";
-import { isoDate } from "@/lib/dates";
+import { api, type DatedPage, type HomeLists, type PubCard } from "@/lib/api";
+import { isoDate, longDate } from "@/lib/dates";
+import { themeScripture } from "@/lib/page";
 import { inLanguage, loadFavorites } from "@/lib/settings";
 import { CatalogPrompt, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
 
@@ -27,7 +28,7 @@ function FavoriteTile({ pub }: { pub: PubCard }) {
 }
 
 export function HomeView() {
-  const { lang, languageName, publications, catalogVersion, toast } = useApp();
+  const { lang, languageName, publications, catalogVersion, toast, push } = useApp();
   const [lists, setLists] = useState<HomeLists | null | undefined>(undefined);
   const { activate } = useEntryAction();
   const favorites = loadFavorites();
@@ -47,19 +48,46 @@ export function HomeView() {
     };
   }, [lang, catalogVersion, toast]);
 
+  // Today's text from a downloaded daily text booklet, if there is one.
+  const [today, setToday] = useState<DatedPage | null>(null);
+  useEffect(() => {
+    let live = true;
+    api
+      .datedPage(lang, "dailyText", isoDate(new Date()))
+      .then((p) => live && setToday(p))
+      .catch(() => live && setToday(null));
+    return () => {
+      live = false;
+    };
+  }, [lang, publications]);
+
   const daily = lists?.dailyText;
   return (
     <>
       <AppBar title="Home" />
       <div className="flex-1 overflow-y-auto">
-        <div className="bg-bar/60 px-6 py-8 text-center">
-          <h2 className="text-[1.55rem] font-semibold text-accent">Welcome to Pergament</h2>
-          {daily && (
-            <button className="mt-3 text-[1.05rem] text-link hover:underline" onClick={() => void activate(daily)}>
-              {daily.local ? "Open" : "Download"} {daily.item.title}
+        {today ? (
+          <div className="bg-surface px-6 py-10 text-center">
+            <button
+              className="inline-flex items-center gap-2 text-[1.55rem] font-semibold text-accent hover:underline"
+              onClick={() => push({ name: "reader", target: today.target })}
+            >
+              <CalendarDays size={24} strokeWidth={1.5} />
+              {longDate(new Date())}
+              <ChevronRight size={22} />
             </button>
-          )}
-        </div>
+            <p className="mx-auto mt-2 max-w-3xl">{themeScripture(today.html)}</p>
+          </div>
+        ) : (
+          <div className="bg-bar/60 px-6 py-8 text-center">
+            <h2 className="text-[1.55rem] font-semibold text-accent">Welcome to Pergament</h2>
+            {daily && (
+              <button className="mt-3 text-[1.05rem] text-link hover:underline" onClick={() => void activate(daily)}>
+                {daily.local ? "Open" : "Download"} {daily.item.title}
+              </button>
+            )}
+          </div>
+        )}
         <div className="px-5 pb-10">
           <SectionTitle>Favorites</SectionTitle>
           {favoritePubs.length > 0 ? (

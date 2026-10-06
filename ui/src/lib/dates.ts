@@ -44,3 +44,13 @@ export function rangeLabel(start: string, end: string, locale = "en-US"): string
     new Date(`${s}T12:00:00`).toLocaleDateString(locale, { month: "long", day: "numeric" });
   return `${f(start)} to ${f(end)}`;
 }
+
+/** `20261007` -> local date. */
+export function fromDateNumber(n: number): Date {
+  return new Date(Math.floor(n / 10000), (Math.floor(n / 100) % 100) - 1, n % 100);
+}
+
+/** "Wednesday, October 7". */
+export function longDate(d: Date, locale = "en-US"): string {
+  return d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+}
