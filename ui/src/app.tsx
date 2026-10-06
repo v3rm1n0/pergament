@@ -266,7 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           >
             <span>{t.text}</span>
             {t.action && (
-              <button className="font-semibold text-[#c9b6f2] hover:underline" onClick={t.action.run}>
+              <button className="font-semibold text-[#e0b24f] hover:underline" onClick={t.action.run}>
                 {t.action.label}
               </button>
             )}
