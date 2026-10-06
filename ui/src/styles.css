@@ -306,7 +306,14 @@ body {
 .hl-dot-4 { background: var(--hl-4); }
 .hl-dot-5 { background: var(--hl-5); }
 .hl-dot-6 { background: var(--hl-6); }
-/* Blocks with a note get a marker in the margin. */
-.reader .has-user-note {
-  box-shadow: -10px 0 0 -7px var(--accent);
+/* Verses and paragraphs with a note start with a dot. */
+.reader .has-user-note::before {
+  content: "";
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  margin-right: 0.35em;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
 }
