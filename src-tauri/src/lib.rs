@@ -208,6 +208,27 @@ fn with_catalog<T>(
 }
 
 #[tauri::command]
+fn research_verses(
+    state: State<'_, AppState>,
+    dir: String,
+    book: i64,
+    chapter: i64,
+) -> ApiResult<Vec<i64>> {
+    api::research_verses(&*state.lib()?, &dir, book, chapter)
+}
+
+#[tauri::command]
+fn research_guide(
+    state: State<'_, AppState>,
+    dir: String,
+    book: i64,
+    chapter: i64,
+    verse: i64,
+) -> ApiResult<Vec<api::ResearchEntry>> {
+    api::research_guide(&*state.lib()?, &dir, book, chapter, verse)
+}
+
+#[tauri::command]
 fn chapter_study(
     state: State<'_, AppState>,
     dir: String,
@@ -598,6 +619,8 @@ pub fn run() {
             catalog_search,
             languages,
             chapter_study,
+            research_verses,
+            research_guide,
             catalog_cached,
             load_catalog,
             home_lists,

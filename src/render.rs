@@ -330,6 +330,11 @@ impl<'a> Renderer<'a> {
         })
     }
 
+    /// Rewrite and sanitize one HTML fragment, e.g. an excerpt of the Research Guide.
+    pub fn fragment(&self, html: &str) -> Result<String> {
+        Ok(self.clean(&self.rewrite(html)?.0))
+    }
+
     fn clean(&self, html: &str) -> String {
         self.sanitizer.clean(html).to_string()
     }
