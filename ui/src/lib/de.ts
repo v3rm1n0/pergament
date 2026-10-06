@@ -65,7 +65,6 @@ export const de: Record<string, string> = {
   Programs: "Programme",
   Index: "Index",
   Guidelines: "Richtlinien",
-  "Convention Releases": "Kongressveröffentlichungen",
   Curriculum: "Lehrplan",
   Outlines: "Vortragsgliederungen",
   Other: "Sonstiges",

@@ -247,8 +247,8 @@ impl Catalog {
     }
 
     /// Categories with publications in a language: `(type id, count)`, in the
-    /// order of [`CATEGORIES`]. Convention releases are an attribute and are
-    /// reported as [`CONVENTION`].
+    /// order of [`CATEGORIES`]. Convention releases are not listed: the catalog
+    /// has neither their days nor their videos.
     pub fn categories(&self, meps_language: i64) -> Result<Vec<(i64, i64)>> {
         let mut stmt = self.conn.prepare(
             "SELECT PublicationTypeId, count(*) FROM Publication
@@ -260,20 +260,9 @@ impl Catalog {
         if let Some(n) = counts.remove(&PROGRAMS_OLD) {
             *counts.entry(PROGRAMS).or_default() += n;
         }
-        let convention: i64 = self.conn.query_row(
-            "SELECT count(*) FROM PublicationAttributeMap m
-             JOIN PublicationAttribute a ON a.Id = m.PublicationAttributeId
-             JOIN Publication p ON p.Id = m.PublicationId
-             WHERE a.Name = 'Convention' AND p.MepsLanguageId = ?1",
-            [meps_language],
-            |r| r.get(0),
-        )?;
         Ok(CATEGORIES
             .iter()
-            .filter_map(|(id, _)| match *id {
-                CONVENTION => (convention > 0).then_some((CONVENTION, convention)),
-                id => counts.get(&id).map(|n| (id, *n)),
-            })
+            .filter_map(|(id, _)| counts.get(id).map(|n| (*id, *n)))
             .collect())
     }
 
@@ -407,7 +396,6 @@ pub const CATEGORIES: &[(i64, &str)] = &[
     (31, "Programs"),
     (6, "Index"),
     (17, "Guidelines"),
-    (CONVENTION, "Convention Releases"),
     (1, "Bible"),
 ];
 
