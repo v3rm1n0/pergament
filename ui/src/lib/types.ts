@@ -77,10 +77,98 @@ export function importedOnly(entries: CatalogEntry[], pubs: PubCard[], category:
           short_title: p.shortTitle,
           cataloged_on: null,
           image: null,
+          attributes: guessAttributes(p),
         },
         category: categoryOf(p).name,
         imageUrl: p.cover,
         local: p.dir,
       }),
     );
+}
+
+/** Attributes of an imported publication, which has none, guessed from its symbol. */
+function guessAttributes(p: PubCard): string[] {
+  const s = p.symbol;
+  if (/^(yb|syr)\d/.test(s)) return ["Yearbook"];
+  if (/^es\d/.test(s)) return ["Examining the Scriptures"];
+  if (/^CA-/.test(s)) return ["Circuit Assembly"];
+  if (/^CO-/.test(s)) return ["Convention"];
+  if (/^kn\d/.test(s)) return ["Kingdom News"];
+  if (/^wp/.test(s)) return ["Public"];
+  if (s === "w" && p.year >= 2008) return ["Study"];
+  return [];
+}
+
+export interface Part {
+  title: string | null;
+  entries: CatalogEntry[];
+}
+
+export interface Section {
+  title: string | null;
+  parts: Part[];
+}
+
+const newest = (a: CatalogEntry, b: CatalogEntry) =>
+  b.item.year - a.item.year || b.item.issue_tag - a.item.issue_tag;
+
+/** Entries split by the first of `rules` whose attribute they have; the rest go first, untitled. */
+function byAttribute(entries: CatalogEntry[], rules: [attr: string, title: string][]): Section[] {
+  const buckets: CatalogEntry[][] = [[], ...rules.map(() => [])];
+  for (const e of entries) {
+    const i = rules.findIndex(([attr]) => e.item.attributes.includes(attr));
+    buckets[i + 1].push(e);
+  }
+  const titles = [null, ...rules.map(([, title]) => title)];
+  return buckets
+    .map((b, i): Section => ({ title: titles[i], parts: [{ title: null, entries: b }] }))
+    .filter((s) => s.parts[0].entries.length > 0);
+}
+
+/**
+ * A category page split the way the original app does it. The newer
+ * publications come first and carry no heading.
+ */
+export function sectionsFor(category: number, all: CatalogEntry[]): Section[] {
+  const entries = [...all].sort(newest);
+  switch (category) {
+    case 2:
+      return byAttribute(entries, [
+        ["Yearbook", "Yearbooks"],
+        ["Archive", "Older Publications"],
+      ]);
+    case 4:
+      return byAttribute(entries, [
+        ["Examining the Scriptures", "Examining the Scriptures"],
+        ["Archive", "Older Publications"],
+      ]);
+    case 10:
+      return byAttribute(entries, [
+        ["Convention", "Convention"],
+        ["Archive", "Older Publications"],
+        ["Kingdom News", "Kingdom News"],
+      ]);
+    case 31:
+      return byAttribute(entries, [
+        ["Circuit Assembly", "Circuit Assembly"],
+        ["Convention", "Convention Program"],
+      ]);
+    case 13:
+    case 14: {
+      const years = [...new Set(entries.map((e) => e.item.year))];
+      return years.map((year) => {
+        const ofYear = entries.filter((e) => e.item.year === year);
+        const part = (title: string | null, attr: string | null): Part => ({
+          title,
+          entries: ofYear.filter((e) =>
+            attr ? e.item.attributes.includes(attr) : !e.item.attributes.some((a) => a === "Public" || a === "Study"),
+          ),
+        });
+        const parts = [part("Public Edition", "Public"), part("Study Edition", "Study"), part(null, null)];
+        return { title: String(year), parts: parts.filter((p) => p.entries.length > 0) };
+      });
+    }
+    default:
+      return [{ title: null, parts: [{ title: null, entries }] }];
+  }
 }

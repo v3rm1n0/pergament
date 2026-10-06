@@ -74,6 +74,8 @@ export interface CatalogItem {
   short_title: string | null;
   cataloged_on: string | null;
   image: string | null;
+  /** Catalog attributes such as Archive, Yearbook or Study. */
+  attributes: string[];
 }
 
 /** A catalog publication plus its library directory if downloaded. */
