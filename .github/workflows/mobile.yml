@@ -32,7 +32,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install the NDK
         run: |
-          sdkmanager "ndk;27.2.12479018"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - run: scripts/mobile.sh android --apk --debug
       - uses: actions/upload-artifact@v4
