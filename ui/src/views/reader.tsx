@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gem, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
 import {
   api,
@@ -363,13 +363,15 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     <>
       <AppBar title={dated !== null ? "Daily Text" : (page?.title ?? "")} subtitle={subtitle}>
         {hasPane && (
-          <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
-            {paneOpen ? (
-              <PanelRightClose size={21} strokeWidth={1.5} />
-            ) : (
-              <PanelRightOpen size={21} strokeWidth={1.5} />
-            )}
-          </BarButton>
+          <span className="max-md:hidden">
+            <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
+              {paneOpen ? (
+                <PanelRightClose size={21} strokeWidth={1.5} />
+              ) : (
+                <PanelRightOpen size={21} strokeWidth={1.5} />
+              )}
+            </BarButton>
+          </span>
         )}
       </AppBar>
       <div className="relative flex min-h-0 flex-1">
@@ -414,6 +416,15 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             </div>
           </div>
         </div>
+        {hasPane && (
+          <button
+            aria-label={paneOpen ? "Hide study pane" : "Show study pane"}
+            onClick={() => setPaneOpen((o) => !o)}
+            className="absolute bottom-5 right-5 z-30 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-bg shadow-lg max-md:flex"
+          >
+            {paneOpen ? <X size={24} strokeWidth={1.6} /> : <Gem size={24} strokeWidth={1.5} />}
+          </button>
+        )}
         {hasPane && paneOpen && refs.length > 0 && (
           <aside className="study-pane w-[min(44%,640px)] shrink-0 max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full border-l border-line bg-surface text-[0.93rem] leading-relaxed">
             <ReferencePane

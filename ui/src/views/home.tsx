@@ -69,7 +69,7 @@ export function HomeView() {
         {today ? (
           <div className="bg-surface px-6 py-10 text-center">
             <button
-              className="inline-flex items-center gap-2 text-[1.55rem] font-semibold text-accent hover:underline"
+              className="inline-flex items-center gap-2 text-[1.55rem] font-semibold text-accent hover:underline max-md:text-[1.3rem]"
               onClick={() => push({ name: "reader", target: today.target })}
             >
               <CalendarDays size={24} strokeWidth={1.5} />
@@ -91,7 +91,7 @@ export function HomeView() {
         <div className="px-5 pb-10">
           <SectionTitle>Favorites</SectionTitle>
           {favoritePubs.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 max-md:-mx-5 max-md:overflow-x-auto max-md:px-5 md:flex-wrap">
               {favoritePubs.map((p) => (
                 <FavoriteTile key={p.dir} pub={p} />
               ))}
@@ -111,7 +111,7 @@ export function HomeView() {
           {lists && (
             <>
               <SectionTitle aside={languageName(lang)}>Teaching Toolbox</SectionTitle>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 max-md:-mx-5 max-md:grid max-md:auto-cols-max max-md:grid-flow-col max-md:grid-rows-2 max-md:overflow-x-auto max-md:px-5">
                 {lists.teachingToolbox.map((e) => (
                   <CoverTile
                     key={`${e.item.symbol}-${e.item.issue_tag}`}

@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   ArrowLeft,
   BookOpen,
+  ChevronLeft,
   Ellipsis,
   FolderInput,
   Gem,
@@ -335,13 +336,13 @@ export function TitleStrip() {
   return (
     <div
       data-tauri-drag-region
-      className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg box-content max-md:h-9 max-md:pt-[env(safe-area-inset-top)]"
+      className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg max-md:hidden"
     >
       <button
         aria-label="Back"
         disabled={!canGoBack}
         onClick={back}
-        className="flex h-6 w-6 items-center justify-center disabled:opacity-40 max-md:h-9 max-md:w-9"
+        className="flex h-6 w-6 items-center justify-center disabled:opacity-40"
       >
         <ArrowLeft size={14} />
       </button>
@@ -370,15 +371,13 @@ function RailButton({
       onClick={onClick}
       className={cn(
         "relative flex h-14 w-full items-center gap-4 px-[13px] text-fg/75 hover:bg-white/5 hover:text-fg",
-        "max-md:h-14 max-md:flex-1 max-md:justify-center max-md:px-0",
+        "max-md:h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:px-0",
         active && "text-accent",
       )}
     >
-      {active && (
-        <span className="absolute inset-y-3 left-0 w-[3px] bg-accent max-md:inset-x-4 max-md:inset-y-auto max-md:top-0 max-md:h-[3px] max-md:w-auto" />
-      )}
+      {active && <span className="absolute inset-y-3 left-0 w-[3px] bg-accent max-md:hidden" />}
       <span className="flex w-6 justify-center">{children}</span>
-      {expanded && <span className="text-sm">{label}</span>}
+      <span className={cn("text-sm max-md:whitespace-nowrap max-md:text-[0.6rem]", !expanded && "hidden max-md:block")}>{label}</span>
     </button>
   );
 }
@@ -447,14 +446,16 @@ export function Rail() {
         <Gem {...icon} />
       </RailButton>
       <div className="flex-1 max-md:hidden" />
-      <RailButton
-        label="Settings"
-        active={view.name === "settings"}
-        expanded={expanded}
-        onClick={() => go({ name: "settings" })}
-      >
-        <Settings {...icon} />
-      </RailButton>
+      <div className="max-md:hidden">
+        <RailButton
+          label="Settings"
+          active={view.name === "settings"}
+          expanded={expanded}
+          onClick={() => go({ name: "settings" })}
+        >
+          <Settings {...icon} />
+        </RailButton>
+      </div>
     </nav>
   );
 }
@@ -533,11 +534,20 @@ export function AppBar({
   subtitle?: string;
   children?: ReactNode;
 }) {
-  const { push, lang, setLang, publications } = useApp();
+  const { push, lang, setLang, publications, canGoBack, back } = useApp();
   const libraryCodes = [...new Set(publications.map((p) => p.langCode).filter((c): c is string => !!c))];
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-1 bg-bar pl-4 pr-2">
-      <div className="min-w-0 flex-1 leading-tight">
+    <header className="box-content flex h-[52px] shrink-0 items-center gap-1 bg-bar pl-4 pr-2 max-md:pl-1 max-md:pt-[env(safe-area-inset-top)]">
+      {/* Phones have no title strip, so the back arrow lives here. */}
+      <button
+        aria-label="Back"
+        disabled={!canGoBack}
+        onClick={back}
+        className={cn("hidden h-10 w-10 shrink-0 items-center justify-center text-accent max-md:flex", !canGoBack && "invisible")}
+      >
+        <ChevronLeft size={26} strokeWidth={1.8} />
+      </button>
+      <div className="min-w-0 flex-1 leading-tight max-md:text-center">
         <h1 className="truncate text-[0.95rem] font-semibold">{title}</h1>
         {subtitle && <div className="truncate text-[0.85rem] text-fg/80">{subtitle}</div>}
       </div>
