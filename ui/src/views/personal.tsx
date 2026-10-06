@@ -35,7 +35,7 @@ export function PersonalView() {
         <Section title="Playlists">
           <Hint icon={<Plus size={34} strokeWidth={1.1} />} text="Create playlists of images from publications" />
         </Section>
-        <p className="text-center text-sm text-muted">Notes, tags and playlists are not available in jwlinux yet.</p>
+        <p className="text-center text-sm text-muted">Notes, tags and playlists are not available in Pergament yet.</p>
       </div>
     </>
   );

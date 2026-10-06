@@ -53,7 +53,7 @@ export function HomeView() {
       <AppBar title="Home" />
       <div className="flex-1 overflow-y-auto">
         <div className="bg-bar/60 px-6 py-8 text-center">
-          <h2 className="text-[1.55rem] font-semibold text-accent">Welcome to jwlinux</h2>
+          <h2 className="text-[1.55rem] font-semibold text-accent">Welcome to Pergament</h2>
           {daily && (
             <button className="mt-3 text-[1.05rem] text-link hover:underline" onClick={() => void activate(daily)}>
               {daily.local ? "Open" : "Download"} {daily.item.title}
