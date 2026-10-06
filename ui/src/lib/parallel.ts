@@ -43,5 +43,6 @@ export function extractVerses(html: string, r: BibleRange): string {
     copy.querySelectorAll("a").forEach((a) => a.replaceWith(...Array.from(a.childNodes)));
     out.push(copy.outerHTML);
   });
-  return out.join(" ");
+  // In a paragraph, so the chapter number sits in the indent as in the reader.
+  return out.length > 0 ? `<p>${out.join(" ")}</p>` : "";
 }
