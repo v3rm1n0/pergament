@@ -278,9 +278,10 @@ body {
 .reader.pane-reader.bible {
   font-size: calc(1.05rem * var(--font-scale, 1));
 }
-/* Verses or paragraphs a link points at stay marked. */
+/* Verses or paragraphs a link points at get a neutral tint, so they do not
+   look like a yellow highlight. */
 .reader .cited {
-  background: var(--mark);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
   border-radius: 2px;
 }
 .reader .themeScrp {
