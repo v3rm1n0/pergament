@@ -1,3 +1,4 @@
+import { MediaImg } from "@/components/media-img";
 import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, ChevronRight, Star } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
@@ -17,7 +18,7 @@ function FavoriteTile({ pub }: { pub: PubCard }) {
       title={pub.title}
     >
       {pub.cover ? (
-        <img src={pub.cover} alt="" className="h-[88px] w-[88px] object-cover" draggable={false} />
+        <MediaImg src={pub.cover} alt="" className="h-[88px] w-[88px] object-cover" draggable={false} />
       ) : (
         <div className="flex h-[88px] w-[88px] items-center justify-center bg-tile">
           <BookOpen size={28} strokeWidth={1.2} />

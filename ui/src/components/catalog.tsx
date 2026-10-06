@@ -1,3 +1,4 @@
+import { MediaImg } from "@/components/media-img";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { BookOpen, CloudDownload, FileText } from "lucide-react";
@@ -21,10 +22,9 @@ export function EntryImage({ entry, className }: { entry: CatalogEntry; classNam
     );
   }
   return (
-    <img
+    <MediaImg
       src={entry.imageUrl}
       alt=""
-      loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
       className={cn("object-cover", className)}

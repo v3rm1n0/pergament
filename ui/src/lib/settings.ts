@@ -95,3 +95,17 @@ export function loadLastColor(): number {
 export function saveLastColor(color: number) {
   write("highlightColor", String(color));
 }
+
+/** Saved text of an answer field in a publication (`div.gen-field`). */
+export function loadAnswer(key: string): string {
+  return read(`answer:${key}`) ?? "";
+}
+
+export function saveAnswer(key: string, text: string) {
+  try {
+    if (text) localStorage.setItem(`answer:${key}`, text);
+    else localStorage.removeItem(`answer:${key}`);
+  } catch {
+    // Storage unavailable: the answer is not kept.
+  }
+}

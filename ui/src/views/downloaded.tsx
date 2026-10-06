@@ -1,3 +1,4 @@
+import { MediaImg } from "@/components/media-img";
 import { useState } from "react";
 import { BookOpen, CloudDownload, FolderInput, Trash2 } from "lucide-react";
 import { useApp } from "@/app";
@@ -16,7 +17,7 @@ function Cover({ pub }: { pub: PubCard }) {
     );
   }
   return (
-    <img
+    <MediaImg
       src={pub.cover}
       alt=""
       onError={() => setFailed(true)}

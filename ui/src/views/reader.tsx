@@ -16,7 +16,8 @@ import {
   type VerseStudy,
 } from "@/lib/api";
 import { applyMarks, blockElements, selectionRanges } from "@/lib/marks";
-import { loadLastColor, saveLastColor } from "@/lib/settings";
+import { loadAnswer, loadLastColor, saveAnswer, saveLastColor } from "@/lib/settings";
+import { hydrateMedia } from "@/lib/media";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
@@ -132,12 +133,24 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       const key = verseKeyOfSpan(el.id);
       if (key && owners.noted.has(key)) el.classList.add("has-notes");
     });
+    // Answer fields of workbooks and study articles become text boxes.
+    root.querySelectorAll<HTMLElement>("div.gen-field[id]").forEach((el) => {
+      const key = `${JSON.stringify(target)}#${el.id}`;
+      const box = document.createElement("textarea");
+      box.className = "gen-field-input";
+      box.rows = 3;
+      box.setAttribute("aria-label", el.textContent?.trim() ?? "");
+      box.value = loadAnswer(key);
+      box.addEventListener("input", () => saveAnswer(key, box.value));
+      el.replaceWith(box);
+    });
+    hydrateMedia(root);
     applyMarks(root, user.marks);
     for (const n of user.notes) {
       if (n.blockIdentifier == null) continue;
       blockElements(root, n.blockType, n.blockIdentifier)[0]?.classList.add("has-user-note");
     }
-  }, [split, owners, user]);
+  }, [split, owners, user, target]);
 
   // Jump to the requested verse.
   useEffect(() => {
@@ -345,7 +358,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   useEffect(() => {
     if (!chapter && dated === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "ArrowLeft" && !e.altKey) go(-1);
       if (e.key === "ArrowRight" && !e.altKey) go(1);
     };
