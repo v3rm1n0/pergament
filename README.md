@@ -1,86 +1,71 @@
-# jwlinux
+# Pergament
 
-An unofficial, native Linux reader for JW publications in the `.jwpub`
-format, written in Rust. It has a library crate (`jwlinux`) and a command
-line tool (`jwl`). A GTK4/libadwaita interface is planned.
+Pergament is an unofficial Linux reader for publications in the `.jwpub`
+format. It has a desktop app (Tauri, with a React frontend), a command line
+tool called `pergament`, and a Rust library underneath both. The app's layout
+follows JW Library on other platforms, with its own name, colours and icons.
 
-## Status and position
+## Before you use it
 
-- **Unofficial.** This project is not affiliated with, endorsed by or
-  supported by Jehovah's Witnesses or the Watch Tower Bible and Tract
-  Society. "JW Library" and related names are their trademarks.
-- **Personal use only.** It is meant for reading publications you have
-  obtained yourself, on your own computer.
-- **No bundled content.** The repository contains no publications, images
-  or other content. You import your own `.jwpub` files at runtime. Test
-  files are read from paths you supply and are never committed.
-- **Clean room.** Nothing was decompiled or taken from the official app.
-  The file format was worked out from public open-source projects and from
-  inspecting `.jwpub` files; every detail and its source is listed in
-  [docs/FORMAT.md](docs/FORMAT.md).
-- **No telemetry.** Nothing is sent anywhere. All imported data is treated
-  as untrusted: hashes are verified, archives are unpacked with path and
-  size checks, and rendered HTML is sanitized.
+This project is not affiliated with, endorsed by or supported by Jehovah's
+Witnesses or the Watch Tower Bible and Tract Society. "JW Library" and
+related names are their trademarks.
 
-Publication text inside `.jwpub` files is encrypted. jwlinux decrypts it so
-you can read it. Depending on where you live, distributing software that
-does this may be restricted. Check before you redistribute it.
+It is meant for reading publications you have obtained yourself, on your own
+computer. The repository contains no publications, images or other content;
+you import or download them at runtime. Test files are read from paths you
+supply and are never committed.
 
-## Usage
+Nothing was decompiled or taken from the official app. The file format was
+worked out from public open-source projects and from inspecting `.jwpub`
+files and one user data backup. Every detail and where it came from is in
+[docs/FORMAT.md](docs/FORMAT.md).
 
-```sh
-jwl import nwtsty_X.jwpub wp_X_202609.jwpub   # verify and add to the library
-jwl list                                      # show imported publications
-jwl show nwtsty                               # list books and documents
-jwl show nwtsty 19:23 > psalm23.html          # Bible chapter (book:chapter)
-jwl show wp26 3 > article.html                # document by DocumentId
-```
+Publication text inside `.jwpub` files is encrypted, and Pergament decrypts
+it so you can read it. Depending on where you live, distributing software
+that does this may be restricted. Read the [license notes](#license) before
+you use or share it.
 
-Downloading from jw.org's public services:
-
-```sh
-jwl search X wachtturm                        # search the catalog (X = German)
-jwl download wp --lang X --issue 20260900     # download, verify, import
-jwl download nwtsty --lang X                  # undated works need no issue
-```
-
-`search` downloads the public publication catalog once (about 58 MB) and
-checks for a newer one at most once a day (`--refresh` forces a check).
-Language codes are mapped to MEPS ids from the catalog; for languages that
-cannot be mapped, pass `--meps-id`. Downloads resume after interruptions, are
-checked against the MD5 from the download API and, when the catalog is
-cached, against its size and SHA-1, and then go through the normal import.
-Requests carry a `jwlinux/…` User-Agent, are spaced at least one second apart
-and are retried with backoff on network errors, 429 and 5xx.
-
-The library lives in `$XDG_DATA_HOME/jwlinux` (usually
-`~/.local/share/jwlinux`). Override it with `--library DIR` or
-`JWL_LIBRARY`. The catalog and partial downloads are kept in
-`$XDG_CACHE_HOME/jwlinux` (`--cache DIR` or `JWL_CACHE`). Re-importing a
-publication replaces the existing copy.
-
-`jwl show` writes a complete HTML page with light and dark styles. Images
-point to the files in the library. Use `--fragment` for just the content.
+Pergament sends no telemetry. The only network traffic goes to jw.org's
+public catalog and download services, and only when you search or download.
+Imported files are treated as untrusted: hashes are verified, archives are
+unpacked with path and size checks, and rendered HTML is sanitized.
 
 ## Desktop app
 
-A Tauri v2 app (`src-tauri/`, React frontend in `ui/`) with a layout modelled on
-the original app (own name, colours and icons):
+- Home shows today's date and theme scripture when the daily text booklet is
+  downloaded. It opens a Daily Text view with arrows for the previous and
+  next day. Below are your favorites, the Teaching Toolbox and What's New.
+- The Bible has tabs from the publication's own navigation, book tiles and a
+  chapter grid. The reader has a study pane with the outline, footnotes,
+  cross references and study notes per verse.
+- The Library lists the catalog's categories and your downloaded
+  publications.
+- Meetings shows the selected week's workbook program and Watchtower study
+  article from downloaded issues, with links to download the rest.
+- Links in a text open in a side pane with the cited verses or paragraphs
+  marked. The publication bar at the top of the pane opens the reference in
+  the main reader. If the publication isn't downloaded, the pane offers to
+  download it.
+- Select text to highlight it in one of six colours or attach a note. Click
+  a highlight to change its colour, add a note or remove it.
+- Personal Study lists your notes with their tags, and your bookmarks.
+- Backups are `.jwlibrary` files, the same format JW Library uses, so a
+  backup from a phone can be restored here and the other way round.
+  Restoring replaces the current data; the previous database is kept as
+  `userData.db.before-restore` in the library folder.
 
-- **Home**: daily text booklet, favorites, Teaching Toolbox and What's New
-- **Bible**: tabs from the publication's own navigation, Testament book tiles,
-  chapter grid, and a reader with a study pane (outline, footnotes,
-  abbreviated cross references and study notes per verse)
-- **Library**: publication categories from the catalog, downloaded publications
-- **Meetings**: workbook and Watchtower study of the selected week
-- **Personal Study**: layout only; notes, tags and playlists are not built yet
-- language selector in the top right, light/dark theme, import (.jwpub)
+The language menu sits in the top right corner. There is a light and a dark
+theme.
 
-Catalog content (Home lists, categories, meetings) needs the public catalog
-(about 58 MB); it is downloaded only when you ask for it. Cover images are
-fetched once and cached. On Linux the app sets
-`WEBKIT_DISABLE_DMABUF_RENDERER=1` (unless set) to avoid rendering glitches on
-some GPUs.
+Home lists, categories and meetings come from jw.org's public catalog, about
+58 MB. It is downloaded only when you ask for it and checked for updates at
+most once a day. Cover images are fetched once and cached.
+
+On Linux the app sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` (unless it is
+already set) because WebKitGTK draws garbage on some GPUs without it.
+
+To run it from the source tree:
 
 ```sh
 nix develop
@@ -88,20 +73,60 @@ pnpm install
 pnpm tauri dev
 ```
 
+`pnpm tauri build --debug --no-bundle` builds `target/debug/pergament-app`
+with the frontend embedded.
+
+## Command line
+
+```sh
+pergament import nwtsty_X.jwpub wp_X_202609.jwpub   # verify and add to the library
+pergament list                                      # show imported publications
+pergament show nwtsty                               # list books and documents
+pergament show nwtsty 19:23 > psalm23.html          # Bible chapter (book:chapter)
+pergament show wp26 3 > article.html                # document by DocumentId
+pergament search X wachtturm                        # search the catalog (X = German)
+pergament download wp --lang X --issue 20260900     # download, verify, import
+pergament download nwtsty --lang X                  # undated works need no issue
+```
+
+`show` writes a complete HTML page with light and dark styles, with images
+pointing into the library. `--fragment` prints only the content.
+
+Language codes are mapped to MEPS ids through the catalog; for a language
+that can't be mapped, pass `--meps-id`. Downloads resume after an
+interruption. They are checked against the MD5 from the download API and,
+when the catalog is cached, against its size and SHA-1, and then go through
+the normal import. Requests carry a `pergament/…` User-Agent, are at least
+one second apart and are retried with backoff on network errors, 429 and
+5xx.
+
+The library lives in `$XDG_DATA_HOME/pergament` (usually
+`~/.local/share/pergament`); `--library DIR` or `PERGAMENT_LIBRARY` changes
+it. The catalog and partial downloads go to `$XDG_CACHE_HOME/pergament`
+(`--cache DIR` or `PERGAMENT_CACHE`). A folder from before the rename,
+`jwlinux`, is moved to the new name on first start. Importing a publication
+again replaces the existing copy.
+
 ## Development
 
 ```sh
-nix develop          # or: direnv allow (uses the flake)
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
+nix develop          # or: direnv allow
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+pnpm lint
+pnpm test --run
 ```
 
-Tests build small valid and malicious `.jwpub` files in memory. To also
-test against real publications, set `JWL_TEST_JWPUB` (study Bible) and
-`JWL_TEST_JWPUB_WP` (a Watchtower issue) to their paths. Those tests are
-skipped when the variables are not set. `JWL_TEST_NETWORK=1` enables a test
-that downloads one Watchtower issue (about 3 MB) from jw.org.
+The Rust tests build small valid and malicious `.jwpub` files and user data
+backups in memory. To also test against real publications, set
+`PERGAMENT_TEST_JWPUB` (study Bible) and `PERGAMENT_TEST_JWPUB_WP` (a
+Watchtower issue) to their paths; without them those tests are skipped.
+`PERGAMENT_TEST_NETWORK=1` enables a test that downloads one Watchtower issue
+(about 3 MB) from jw.org.
+
+The flake has a dev shell and a package for the command line tool
+(`nix build .#pergament`). There is no Nix package for the desktop app yet.
 
 ## License
 
@@ -132,6 +157,6 @@ downloading from jw.org.
 
 The project is published as uncompiled source code only. There are no
 official builds, packages or installers. To use it, build it yourself as
-described in [Usage](#usage) and [Desktop app](#desktop-app). Compiled
-versions from anyone else do not come from this project and are not
-supported.
+described under [Desktop app](#desktop-app) and
+[Command line](#command-line). Compiled versions from anyone else do not
+come from this project and are not supported.
