@@ -39,6 +39,7 @@
           fileset = pkgs.lib.fileset.unions [
             ./Cargo.toml
             ./Cargo.lock
+            ./assets
             ./src
             ./tests
             ./src-tauri
