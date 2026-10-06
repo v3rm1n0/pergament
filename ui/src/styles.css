@@ -2,46 +2,46 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Palette modelled on the layout of the original app, with own colours. */
+/* "Ink & amber": charcoal bars and tiles, amber for verses, links and the active state. */
 :root {
-  --brand: #5b3d8f;
-  --brand-fg: #ffffff;
-  --bg: #f0f0f0;
+  --brand: #2b2b33;
+  --brand-fg: #f3ead6;
+  --bg: #f1f1f2;
   --surface: #ffffff;
-  --bar: #f0f0f0;
-  --rail: #e4e4e4;
-  --tile: #e2e2e2;
-  --text: #1b1b1b;
-  --muted: #6b6b6b;
-  --border: #d6d6d6;
-  --accent: #5b3d8f;
-  --link: #3f5fae;
-  --verse: #3f5fae;
-  --tile-0: #3c3149;
-  --tile-1: #574a6a;
-  --tile-2: #78698c;
-  --tile-fg: #ffffff;
-  --mark: #fff0a8;
+  --bar: #f1f1f2;
+  --rail: #e3e3e6;
+  --tile: #e0e0e3;
+  --text: #1b1b20;
+  --muted: #66666f;
+  --border: #d4d4d9;
+  --accent: #97680d;
+  --link: #8a5f0c;
+  --verse: #8a5f0c;
+  --tile-0: #2a2a31;
+  --tile-1: #3d3d47;
+  --tile-2: #56565f;
+  --tile-fg: #f3ead6;
+  --mark: #fde9b0;
 }
 
-/* Dark: black content, dark grey bars, like the original. */
+/* Dark: black content, dark grey bars, brighter amber. */
 .dark {
-  --brand: #5b3d8f;
+  --brand: #1c1c22;
   --bg: #000000;
   --surface: #000000;
-  --bar: #1f1f1f;
-  --rail: #2b2b2b;
-  --tile: #2e2e2e;
-  --text: #e6e6e6;
-  --muted: #9a9a9a;
-  --border: #333333;
-  --accent: #a68ddb;
-  --link: #7b9fe8;
-  --verse: #7b9fe8;
-  --tile-0: #3a3046;
-  --tile-1: #4e4260;
-  --tile-2: #65597a;
-  --mark: #3d3a1a;
+  --bar: #1e1e23;
+  --rail: #27272d;
+  --tile: #2a2a30;
+  --text: #e7e7ea;
+  --muted: #9a9aa3;
+  --border: #34343b;
+  --accent: #e0b24f;
+  --link: #e0b24f;
+  --verse: #e0b24f;
+  --tile-0: #2a2a31;
+  --tile-1: #3a3a44;
+  --tile-2: #4f4f59;
+  --mark: #3d3416;
 }
 
 @theme inline {
