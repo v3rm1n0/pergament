@@ -7,6 +7,7 @@ import { citedBy, markCited, splitPage } from "@/lib/page";
 import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
+import { t } from "@/lib/i18n";
 
 /** A link opened in the side pane instead of the main view. */
 export type PaneRef =
@@ -33,10 +34,10 @@ export function ReferencePane({
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-line">
-        <button aria-label="Back" onClick={onBack} className="flex h-11 w-11 items-center justify-center text-accent">
+        <button aria-label={t("Back")} onClick={onBack} className="flex h-11 w-11 items-center justify-center text-accent">
           <ChevronLeft size={20} />
         </button>
-        <span className="flex-1 pr-11 text-center text-sm">Publication Reference</span>
+        <span className="flex-1 pr-11 text-center text-sm">{t("Publication Reference")}</span>
       </div>
       {pref.kind === "page" ? (
         <ReferencePage pref={pref} onFollow={onFollow} />
@@ -80,7 +81,7 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
     <>
       <button
         onClick={() => openTarget(pref.target, pref.studyNote)}
-        title="Open in the reader"
+        title={t("Open in the reader")}
         className="flex shrink-0 items-center gap-3 bg-bar py-1.5 pl-1.5 pr-3 text-left hover:brightness-110"
       >
         {card?.cover ? (
@@ -117,7 +118,7 @@ function MissingReference({ pref, onRetry }: { pref: Extract<PaneRef, { kind: "m
       {entry && <EntryImage entry={entry} className="h-28 w-28" />}
       <div>
         {entry && <div className="font-semibold">{entry.item.issue_title || entry.item.title}</div>}
-        <p className="mt-1 text-sm text-muted">This publication is not in your library.</p>
+        <p className="mt-1 text-sm text-muted">{t("This publication is not in your library.")}</p>
       </div>
       {entry && !progress && (
         <button
@@ -126,7 +127,7 @@ function MissingReference({ pref, onRetry }: { pref: Extract<PaneRef, { kind: "m
           }}
           className="flex items-center gap-2 bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
         >
-          <CloudDownload size={17} /> Download ({mb(entry.item.size)})
+          <CloudDownload size={17} /> {t("Download ({size})", { size: mb(entry.item.size) })}
         </button>
       )}
       {progress && (
@@ -136,7 +137,7 @@ function MissingReference({ pref, onRetry }: { pref: Extract<PaneRef, { kind: "m
       )}
       {!entry && pref.url && (
         <button className="text-sm text-link hover:underline" onClick={() => void api.openExternal(pref.url!)}>
-          Open on jw.org
+          {t("Open on jw.org")}
         </button>
       )}
     </div>

@@ -4,6 +4,7 @@ import { AppBar, SectionTitle, useApp } from "@/app";
 import { api, type Bookmark, type Loc, type Note, type TagInfo, type UserDataSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { NoteCard, NoteEditor } from "@/components/notes";
+import { t } from "@/lib/i18n";
 
 /** Notes, tags and bookmarks from user data, plus backups. */
 export function PersonalView() {
@@ -37,7 +38,7 @@ export function PersonalView() {
     try {
       const target = await api.openLocation(loc);
       if (target) push({ name: "reader", target });
-      else toast("This publication is not in your library");
+      else toast(t("This publication is not in your library"));
     } catch (e) {
       toast(String(e));
     }
@@ -45,7 +46,7 @@ export function PersonalView() {
 
   return (
     <>
-      <AppBar title="Personal Study" subtitle={summary ? summaryLine(summary) : undefined} />
+      <AppBar title={t("Personal Study")} subtitle={summary ? summaryLine(summary) : undefined} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-5 pb-12">
           <SectionTitle>Backup</SectionTitle>
@@ -54,35 +55,35 @@ export function PersonalView() {
               onClick={() => void createBackup()}
               className="flex items-center gap-2 bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
             >
-              <DatabaseBackup size={17} /> Create backup
+              <DatabaseBackup size={17} /> {t("Create backup")}
             </button>
             <button
               onClick={() => void restoreBackup()}
               className="flex items-center gap-2 bg-tile px-4 py-2 text-sm hover:brightness-110"
             >
-              <FolderOpen size={17} /> Restore backup…
+              <FolderOpen size={17} /> {t("Restore backup…")}
             </button>
           </div>
           <p className="mt-2 text-xs text-muted">
-            Backups are .jwlibrary files with highlights, notes, tags and bookmarks.
+            {t("Backups are .jwlibrary files with highlights, notes, tags and bookmarks.")}
           </p>
 
           <SectionTitle>Notes and Tags</SectionTitle>
           {tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-1.5">
               <Chip active={tag === null} onClick={() => setTag(null)}>
-                All
+                {t("All")}
               </Chip>
-              {tags.map((t) => (
-                <Chip key={t.id} active={tag === t.id} onClick={() => setTag(t.id)}>
-                  <Tag size={13} /> {t.name} <span className="text-muted">{t.notes}</span>
+              {tags.map((tg) => (
+                <Chip key={tg.id} active={tag === tg.id} onClick={() => setTag(tg.id)}>
+                  <Tag size={13} /> {tg.name} <span className="text-muted">{tg.notes}</span>
                 </Chip>
               ))}
             </div>
           )}
           {notes.length === 0 ? (
             <p className="flex items-center gap-3 text-sm text-muted">
-              <Plus size={20} /> Select text in a publication to highlight it or add a note.
+              <Plus size={20} /> {t("Select text in a publication to highlight it or add a note.")}
             </p>
           ) : (
             <div className="flex flex-col gap-2">
@@ -96,8 +97,8 @@ export function PersonalView() {
                     />
                   </div>
                   <button
-                    title="Edit note"
-                    aria-label="Edit note"
+                    title={t("Edit note")}
+                    aria-label={t("Edit note")}
                     onClick={() => setEditing(n)}
                     className="flex w-10 items-center justify-center bg-tile/60 hover:text-accent"
                   >
@@ -155,7 +156,12 @@ export function PersonalView() {
 }
 
 function summaryLine(s: UserDataSummary): string {
-  return `${s.notes} notes · ${s.marks} highlights · ${s.tags} tags · ${s.bookmarks} bookmarks`;
+  return t("{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks", {
+    notes: s.notes,
+    marks: s.marks,
+    tags: s.tags,
+    bookmarks: s.bookmarks,
+  });
 }
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {

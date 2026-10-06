@@ -5,6 +5,7 @@ import { loadFavorites, toggleFavorite } from "@/lib/settings";
 import { api, documentTarget, type PubDetail, type TocNode } from "@/lib/api";
 import { bookShade, booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const shadeClass = ["bg-tile-0", "bg-tile-1", "bg-tile-2"] as const;
@@ -17,7 +18,7 @@ export function usePublication(dir: string): PubDetail | null {
     api
       .publication(dir)
       .then((d) => live && setDetail(d))
-      .catch((e) => toast(`Cannot open publication: ${e}`));
+      .catch((e) => toast(t("Cannot open publication: {error}", { error: String(e) })));
     return () => {
       live = false;
     };

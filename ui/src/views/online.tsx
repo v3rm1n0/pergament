@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { GridCard } from "@/components/catalog";
+import { t } from "@/lib/i18n";
 
 const mb = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
 
@@ -47,7 +48,7 @@ export function OnlineView() {
 
   return (
     <>
-      <AppBar title="Search" subtitle={languageName(lang)} />
+      <AppBar title={t("Search")} subtitle={languageName(lang)} />
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <form
           className="mb-6 flex max-w-3xl gap-2"
@@ -58,20 +59,20 @@ export function OnlineView() {
         >
           <Input
             autoFocus
-            placeholder="Title or symbol, e.g. Wachtturm Studienausgabe"
+            placeholder={t("Title or symbol, e.g. Wachtturm Studienausgabe")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1"
           />
           <Button type="submit" disabled={searching}>
-            <Search size={17} /> Search
+            <Search size={17} /> {t("Search")}
           </Button>
         </form>
 
         {catalog && (
           <div className="mb-6 max-w-3xl">
             <div className="mb-1.5 text-sm text-muted">
-              Downloading the public catalog… {mb(catalog.done)}
+              {t("Downloading the public catalog…")} {mb(catalog.done)}
               {catalog.total ? ` / ${mb(catalog.total)}` : ""}
             </div>
             <Progress value={catalog.total ? (catalog.done / catalog.total) * 100 : null} />
@@ -80,11 +81,13 @@ export function OnlineView() {
 
         {items === null ? (
           <p className="max-w-3xl text-muted">
-            Searches the public jw.org catalog in {languageName(lang)}. The first search downloads the catalog
-            (about 58 MB); downloads are verified and then imported into your library.
+            {t(
+              "Searches the public jw.org catalog in {language}. The first search downloads the catalog (about 58 MB); downloads are verified and then imported into your library.",
+              { language: languageName(lang) },
+            )}
           </p>
         ) : items.length === 0 ? (
-          <p className="text-muted">Nothing found.</p>
+          <p className="text-muted">{t("Nothing found.")}</p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3 gap-y-5">
             {items.map((e) => (

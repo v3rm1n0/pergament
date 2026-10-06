@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { CatalogPrompt, GridCard } from "@/components/catalog";
 import { HomeLibraryGrid } from "./downloaded";
 import { importedOnly, mergeCategories, sectionsFor } from "@/lib/types";
+import { t } from "@/lib/i18n";
 
 /** Icons per category id (see CATEGORIES in src/catalog.rs). */
 const ICONS: Record<number, LucideIcon> = {
@@ -58,8 +59,8 @@ function Tabs({ value, onChange }: { value: string; onChange: (v: "publications"
   );
   return (
     <div className="flex gap-3 bg-bar px-3">
-      {tab("publications", "Publications")}
-      {tab("downloaded", "Downloaded")}
+      {tab("publications", t("Publications"))}
+      {tab("downloaded", t("Downloaded"))}
     </div>
   );
 }
@@ -86,7 +87,7 @@ export function LibraryView({ tab = "publications" }: { tab?: "publications" | "
 
   return (
     <>
-      <AppBar title="Library" subtitle={languageName(lang)} />
+      <AppBar title={t("Library")} subtitle={languageName(lang)} />
       <Tabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
       <div className="flex-1 overflow-y-auto px-5 py-5">
         {tab === "downloaded" ? (
@@ -100,11 +101,11 @@ export function LibraryView({ tab = "publications" }: { tab?: "publications" | "
               return (
                 <button
                   key={c.id}
-                  onClick={() => push({ name: "category", id: c.id, title: c.name })}
+                  onClick={() => push({ name: "category", id: c.id, title: t(c.name) })}
                   className="flex h-[86px] items-center gap-5 bg-tile px-6 text-left text-[0.95rem] hover:brightness-125"
                 >
                   <Icon size={36} strokeWidth={1.1} className="shrink-0" />
-                  {c.name}
+                  {t(c.name)}
                 </button>
               );
             })}
@@ -147,7 +148,7 @@ export function CategoryView({ id, title }: { id: number; title: string }) {
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter"
+              placeholder={t("Filter")}
               className="mb-5 h-9 w-72 bg-tile px-3 text-sm outline-none placeholder:text-muted focus:ring-1 focus:ring-accent"
             />
             {sectionsFor(id, shown).map((s) => (

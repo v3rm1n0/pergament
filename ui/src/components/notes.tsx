@@ -3,6 +3,7 @@ import { NotebookPen, Trash2, X } from "lucide-react";
 import type { Note, NoteInput } from "@/lib/api";
 import { HIGHLIGHT_COLORS } from "@/lib/marks";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 /** Color swatches plus note and delete actions, shown at a selection or highlight. */
 export function MarkToolbar({
@@ -44,8 +45,8 @@ export function MarkToolbar({
       {HIGHLIGHT_COLORS.map((c) => (
         <button
           key={c.index}
-          title={c.name}
-          aria-label={`Highlight ${c.name}`}
+          title={t(c.name)}
+          aria-label={t("Highlight {color}", { color: t(c.name) })}
           onClick={() => onColor(c.index)}
           className={cn(
             `hl-dot-${c.index} h-6 w-6 rounded-full ring-1 ring-black/20`,
@@ -54,11 +55,11 @@ export function MarkToolbar({
         />
       ))}
       <span className="mx-1 h-5 w-px bg-line" />
-      <button title="Note" aria-label="Add note" onClick={onNote} className="p-1 hover:text-accent">
+      <button title={t("Note")} aria-label={t("Add note")} onClick={onNote} className="p-1 hover:text-accent">
         <NotebookPen size={18} />
       </button>
       {onDelete && (
-        <button title="Remove highlight" aria-label="Remove highlight" onClick={onDelete} className="p-1 hover:text-accent">
+        <button title={t("Remove highlight")} aria-label={t("Remove highlight")} onClick={onDelete} className="p-1 hover:text-accent">
           <Trash2 size={18} />
         </button>
       )}
@@ -111,22 +112,22 @@ export function NoteEditor({
         className="flex w-[min(90vw,560px)] flex-col gap-3 bg-surface p-5 shadow-2xl ring-1 ring-line"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{note.guid ? "Edit note" : "New note"}</h2>
-          <button aria-label="Close" onClick={onClose}>
+          <h2 className="text-lg font-semibold">{note.guid ? t("Edit note") : t("New note")}</h2>
+          <button aria-label={t("Close")} onClick={onClose}>
             <X size={20} />
           </button>
         </div>
         <input
           id="note-title"
           autoFocus
-          placeholder="Title"
+          placeholder={t("Title")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="bg-bar px-3 py-2 outline-none focus:ring-1 focus:ring-accent"
         />
         <textarea
           id="note-content"
-          placeholder="Note"
+          placeholder={t("Note")}
           rows={8}
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -134,7 +135,7 @@ export function NoteEditor({
         />
         <input
           id="note-tags"
-          placeholder="Tags, separated by commas"
+          placeholder={t("Tags, separated by commas")}
           value={tags}
           onChange={(e) => setTags(e.target.value)}
           className="bg-bar px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-accent"
@@ -142,12 +143,12 @@ export function NoteEditor({
         <div className="flex items-center gap-2">
           {onDelete && (
             <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted hover:text-fg">
-              <Trash2 size={16} /> Delete
+              <Trash2 size={16} /> {t("Delete")}
             </button>
           )}
           <span className="flex-1" />
           <button onClick={onClose} className="px-4 py-2 text-sm hover:bg-bar">
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             disabled={!title.trim() && !content.trim()}
@@ -163,7 +164,7 @@ export function NoteEditor({
             }
             className="bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110 disabled:opacity-50"
           >
-            Save
+            {t("Save")}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { api, type CatalogEntry, type DatedEntry, type DatedPage, type Meetings 
 import { addDays, isoDate, rangeLabel, weekLabel, weekStart } from "@/lib/dates";
 import { CatalogPrompt, EntryImage, useEntryAction } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
+import { t } from "@/lib/i18n";
 import { taskKey } from "@/app";
 
 function MaterialLink({ dated }: { dated: DatedEntry }) {
@@ -99,38 +100,38 @@ export function MeetingsView() {
 
   return (
     <>
-      <AppBar title="Meetings" subtitle={languageName(lang)} />
+      <AppBar title={t("Meetings")} subtitle={languageName(lang)} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-5 pb-12">
           <div className="flex items-center justify-center gap-16 py-3 text-sm">
-            <button aria-label="Previous week" onClick={() => setWeek((w) => addDays(w, -7))}>
+            <button aria-label={t("Previous week")} onClick={() => setWeek((w) => addDays(w, -7))}>
               <ChevronLeft size={20} />
             </button>
             <span className="w-56 text-center">
               {weekLabel(week)}
-              {thisWeek && " · This Week"}
+              {thisWeek && ` · ${t("This Week")}`}
             </span>
-            <button aria-label="Next week" onClick={() => setWeek((w) => addDays(w, 7))}>
+            <button aria-label={t("Next week")} onClick={() => setWeek((w) => addDays(w, 7))}>
               <ChevronRight size={20} />
             </button>
           </div>
           {(data !== undefined || local.workbook || local.study) && (
             <>
-              <h2 className="mt-4 text-[1.15rem] font-semibold">Life and Ministry</h2>
+              <h2 className="mt-4 text-[1.15rem] font-semibold">{t("Life and Ministry")}</h2>
               {local.workbook ? (
                 <WeekItem page={local.workbook} />
               ) : data?.workbook ? (
                 <MaterialLink dated={data.workbook} />
               ) : (
-                <p className="mt-4 pl-5 text-sm text-muted">No workbook for this week.</p>
+                <p className="mt-4 pl-5 text-sm text-muted">{t("No workbook for this week.")}</p>
               )}
-              <h2 className="mt-10 text-[1.15rem] font-semibold">Watchtower Study</h2>
+              <h2 className="mt-10 text-[1.15rem] font-semibold">{t("Watchtower Study")}</h2>
               {local.study ? (
                 <WeekItem page={local.study} caption={studyCaption} />
               ) : data?.study ? (
                 <MaterialLink dated={data.study} />
               ) : (
-                <p className="mt-4 pl-5 text-sm text-muted">No study edition for this week.</p>
+                <p className="mt-4 pl-5 text-sm text-muted">{t("No study edition for this week.")}</p>
               )}
             </>
           )}
@@ -142,17 +143,17 @@ export function MeetingsView() {
           {data && (
             <>
               <hr className="my-8 border-line" />
-              <h2 className="mb-3 text-[1.15rem] font-semibold">Other Meeting Publications</h2>
+              <h2 className="mb-3 text-[1.15rem] font-semibold">{t("Other Meeting Publications")}</h2>
               {data.workbook && (
                 <OtherRow
                   entry={data.workbook.entry}
-                  subtitle={`Meetings for ${rangeLabel(data.workbook.start, data.workbook.end)}`}
+                  subtitle={t("Meetings for {range}", { range: rangeLabel(data.workbook.start, data.workbook.end) })}
                 />
               )}
               {data.study && (
                 <OtherRow
                   entry={data.study.entry}
-                  subtitle={`Study Articles for ${rangeLabel(data.study.start, data.study.end)}`}
+                  subtitle={t("Study Articles for {range}", { range: rangeLabel(data.study.start, data.study.end) })}
                 />
               )}
               {data.other.map((e) => (
