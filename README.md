@@ -80,11 +80,11 @@ To run it from the source tree:
 
 ```sh
 nix develop
-pnpm install
-pnpm tauri dev
+bun install
+bun run tauri dev
 ```
 
-`pnpm tauri build --debug --no-bundle` builds `target/debug/pergament-app`
+`bun run tauri build --debug --no-bundle` builds `target/debug/pergament-app`
 with the frontend embedded.
 
 ## Command line
@@ -125,8 +125,8 @@ nix develop          # or: direnv allow
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-pnpm lint
-pnpm test --run
+bun run lint
+bun run test --run
 ```
 
 The Rust tests build small valid and malicious `.jwpub` files and user data
