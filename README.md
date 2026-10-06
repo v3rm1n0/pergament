@@ -136,8 +136,9 @@ Watchtower issue) to their paths; without them those tests are skipped.
 `PERGAMENT_TEST_NETWORK=1` enables a test that downloads one Watchtower issue
 (about 3 MB) from jw.org.
 
-The flake has a dev shell and a package for the command line tool
-(`nix build .#pergament`). There is no Nix package for the desktop app yet.
+The flake has a dev shell and a package (`nix build .#pergament`) with the
+desktop app `pergament-app`, its desktop entry and icons, and the command line
+tool `pergament`. `nix run .#pergament` starts the app.
 
 ## Releases
 
