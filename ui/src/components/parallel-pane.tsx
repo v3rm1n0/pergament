@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronLeft, ChevronRight, CirclePlus, CircleMinus } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleMinus, CirclePlus } from "lucide-react";
 import { useApp } from "@/app";
 import { api, chapterTarget, type PubCard } from "@/lib/api";
 import { t } from "@/lib/i18n";
@@ -139,18 +139,50 @@ function CustomizeDialog({
   onClose: () => void;
 }) {
   const { languageName } = useApp();
-  const row = (b: PubCard, add: boolean) => (
-    <button
-      key={b.dir}
-      onClick={() => onChange(add ? [...included, b.dir] : included.filter((d) => d !== b.dir))}
-      className="flex w-full items-center gap-4 py-2 text-left"
-    >
-      {add ? <CirclePlus className="text-green-500" size={24} /> : <CircleMinus className="text-red-500" size={24} />}
-      <span className="min-w-0 leading-tight">
-        <span className="block truncate text-xs text-muted">{b.langCode ? languageName(b.langCode) : ""}</span>
-        <span className="block truncate text-sm">{b.shortTitle ?? b.title}</span>
-      </span>
-    </button>
+  const move = (i: number, by: number) => {
+    const next = [...included];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    onChange(next);
+  };
+  const row = (b: PubCard, i: number | null) => (
+    <div key={b.dir} className="flex items-center gap-1">
+      <button
+        onClick={() => onChange(i === null ? [...included, b.dir] : included.filter((d) => d !== b.dir))}
+        className="flex min-w-0 flex-1 items-center gap-4 py-2 text-left"
+      >
+        {i === null ? (
+          <CirclePlus className="shrink-0 text-green-500" size={24} />
+        ) : (
+          <CircleMinus className="shrink-0 text-red-500" size={24} />
+        )}
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-xs text-muted">{b.langCode ? languageName(b.langCode) : ""}</span>
+          <span className="block truncate text-sm">{b.shortTitle ?? b.title}</span>
+        </span>
+      </button>
+      {i !== null && (
+        <>
+          <button
+            aria-label={t("Move up")}
+            title={t("Move up")}
+            disabled={i === 0}
+            onClick={() => move(i, -1)}
+            className="p-1.5 hover:text-accent disabled:opacity-30"
+          >
+            <ChevronUp size={20} />
+          </button>
+          <button
+            aria-label={t("Move down")}
+            title={t("Move down")}
+            disabled={i === included.length - 1}
+            onClick={() => move(i, 1)}
+            className="p-1.5 hover:text-accent disabled:opacity-30"
+          >
+            <ChevronDown size={20} />
+          </button>
+        </>
+      )}
+    </div>
   );
   const out = bibles.filter((b) => !included.includes(b.dir));
   return (
@@ -160,11 +192,11 @@ function CustomizeDialog({
         className="flex w-[min(90vw,420px)] flex-col gap-3 bg-surface p-5 shadow-2xl ring-1 ring-line"
       >
         <p className="text-center text-sm text-muted">{t("Import or download more Bibles to add translations.")}</p>
-        <div>{included.flatMap((d) => bibles.find((b) => b.dir === d) ?? []).map((b) => row(b, false))}</div>
+        <div>{included.flatMap((d) => bibles.find((b) => b.dir === d) ?? []).map((b, i) => row(b, i))}</div>
         {out.length > 0 && (
           <div>
             <h3 className="mb-1 text-sm font-semibold">{t("Not Included")}</h3>
-            {out.map((b) => row(b, true))}
+            {out.map((b) => row(b, null))}
           </div>
         )}
         <div className="flex justify-end">
