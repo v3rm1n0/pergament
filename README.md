@@ -139,6 +139,16 @@ Watchtower issue) to their paths; without them those tests are skipped.
 The flake has a dev shell and a package for the command line tool
 (`nix build .#pergament`). There is no Nix package for the desktop app yet.
 
+## Releases
+
+Versions follow [semantic versioning](https://semver.org). To release, run
+`scripts/release.sh X.Y.Z` on a clean `main` inside `nix develop`. It runs
+the checks, sets the version in `Cargo.toml`, `src-tauri/Cargo.toml`,
+`package.json` and `tauri.conf.json`, commits, tags `vX.Y.Z` and pushes.
+The tag starts a GitHub workflow that publishes the release with notes made
+from the commit messages since the last tag. A release contains the source
+code only.
+
 ## License
 
 This project is free software under the GNU General Public License,
