@@ -92,6 +92,7 @@ export const de: Record<string, string> = {
   "Next day": "Nächster Tag",
   "Previous chapter": "Voriges Kapitel",
   "Previous page": "Vorherige Seite",
+  "Show note": "Notiz anzeigen",
   "Next page": "Nächste Seite",
   "Next chapter": "Nächstes Kapitel",
   "My notes": "Meine Notizen",

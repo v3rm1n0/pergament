@@ -307,8 +307,8 @@ body {
 .hl-dot-4 { background: var(--hl-4); }
 .hl-dot-5 { background: var(--hl-5); }
 .hl-dot-6 { background: var(--hl-6); }
-/* Verses and paragraphs with a note start with a dot. */
-.reader .has-user-note::before {
+/* Verses and paragraphs with a note start with a dot that opens it. */
+.reader .note-dot {
   content: "";
   display: inline-block;
   width: 0.4em;
@@ -317,6 +317,7 @@ body {
   border-radius: 50%;
   background: var(--accent);
   vertical-align: middle;
+  cursor: pointer;
 }
 
 /* Answer fields of workbooks and study articles. */

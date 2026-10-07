@@ -17,7 +17,7 @@ export const HIGHLIGHT_COLORS: { index: number; name: string }[] = [
 ];
 
 /** Verse and paragraph numbers and footnote or reference markers are not part of the text. */
-const SKIP = ".vl, .cl, a.fn, a.xr, .pageNum, .parNum";
+const SKIP = ".note-dot, .vl, .cl, a.fn, a.xr, .pageNum, .parNum";
 
 /**
  * A word, a number or a single punctuation character. `-` and `:` between word

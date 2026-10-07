@@ -158,7 +158,14 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     applyMarks(root, user.marks);
     for (const n of user.notes) {
       if (n.blockIdentifier == null) continue;
-      blockElements(root, n.blockType, n.blockIdentifier)[0]?.classList.add("has-user-note");
+      const first = blockElements(root, n.blockType, n.blockIdentifier)[0];
+      if (!first) continue;
+      const dot = first.querySelector<HTMLElement>(":scope > .note-dot") ?? document.createElement("span");
+      dot.className = "note-dot";
+      dot.dataset.notes = [...(dot.dataset.notes?.split(" ") ?? []), n.guid].join(" ");
+      dot.setAttribute("role", "button");
+      dot.setAttribute("aria-label", t("Show note"));
+      first.prepend(dot);
     }
   }, [split, owners, user, target]);
 
@@ -295,9 +302,21 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     );
   };
 
+  /** Open the study pane on the notes and point at one. */
+  const showNote = (guid?: string) => {
+    setRefs([]);
+    setPaneOpen(true);
+    requestAnimationFrame(() => flash(paneRef.current?.querySelector(`[data-note="${guid}"]`) ?? null, "start"));
+  };
+
   const onArticleClick = (e: ReactMouseEvent) => {
     if (!window.getSelection()?.isCollapsed) return;
     const el = e.target as HTMLElement;
+    const dot = el.closest<HTMLElement>(".note-dot");
+    if (dot) {
+      showNote(dot.dataset.notes?.split(" ")[0]);
+      return;
+    }
     const a = el.closest("a");
     if (a) {
       e.preventDefault();
@@ -471,7 +490,9 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
               <section className="mb-6 flex flex-col gap-2">
                 <h3 className="text-[1.05rem] font-semibold">{t("My notes")}</h3>
                 {user.notes.map((n) => (
-                  <NoteCard key={n.guid} note={n} onClick={() => setEditing({ note: n })} />
+                  <div key={n.guid} data-note={n.guid}>
+                    <NoteCard note={n} onClick={() => setEditing({ note: n })} />
+                  </div>
                 ))}
               </section>
             )}
