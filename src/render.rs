@@ -346,6 +346,19 @@ impl<'a> Renderer<'a> {
         let out = rewrite_str(
             html,
             RewriteStrSettings::new()
+                // The text area of an answer field is dropped by the sanitizer; its id
+                // (`TextTag` in user data) stays on an empty marker.
+                .append_element_content_handler(element!("textarea[id]", |el| {
+                    el.set_tag_name("span")?;
+                    let id = el.get_attribute("id").unwrap_or_default();
+                    let attrs: Vec<String> = el.attributes().iter().map(|a| a.name()).collect();
+                    for a in attrs {
+                        el.remove_attribute(&a);
+                    }
+                    el.set_attribute("class", "gen-tag")?;
+                    el.set_attribute("id", &id)?;
+                    Ok(())
+                }))
                 // Empty tooltip anchors and print page markers.
                 .append_element_content_handler(element!("span.tt, span.pageNum", |el| {
                     el.remove();

@@ -68,6 +68,8 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   const [selected, setSelected] = useState<string | null>(null);
   const [paneOpen, setPaneOpen] = useState(true);
   const articleRef = useRef<HTMLDivElement>(null);
+  /** Answers typed on this page, which win over the loaded ones until they are reloaded. */
+  const answers = useRef<Record<string, string>>({});
   const paneRef = useRef<HTMLElement>(null);
   const detail = usePublication(target.publication);
   const chapter = "chapter" in target.kind ? target.kind.chapter : null;
@@ -79,6 +81,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     setStudy(null);
     setResearch([]);
     setSelected(null);
+    answers.current = {};
     setRefs([]);
     api
       .renderPage(target)
@@ -124,12 +127,12 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   }, []);
 
   // Highlights and notes of this page from user data.
-  const [user, setUser] = useState<PageUserData>({ marks: [], notes: [] });
+  const [user, setUser] = useState<PageUserData>({ marks: [], notes: [], answers: {} });
   const reloadUser = useCallback(() => {
     api
       .pageUserData(target)
       .then(setUser)
-      .catch(() => setUser({ marks: [], notes: [] }));
+      .catch(() => setUser({ marks: [], notes: [], answers: {} }));
     // userVersion: reload after a backup was restored.
   }, [target, userVersion]);
   useEffect(reloadUser, [reloadUser]);
@@ -143,15 +146,30 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       const key = verseKeyOfSpan(el.id);
       if (key && owners.noted.has(key)) el.classList.add("has-notes");
     });
-    // Answer fields of workbooks and study articles become text boxes.
+    // Answer fields of workbooks and study articles become text boxes. Their
+    // text is kept in the user data under the id of the original text area.
     root.querySelectorAll<HTMLElement>("div.gen-field[id]").forEach((el) => {
-      const key = `${JSON.stringify(target)}#${el.id}`;
+      const tag = el.querySelector(".gen-tag")?.id;
+      const legacy = `${JSON.stringify(target)}#${el.id}`;
       const box = document.createElement("textarea");
       box.className = "gen-field-input";
       box.rows = 3;
       box.setAttribute("aria-label", el.textContent?.trim() ?? "");
-      box.value = loadAnswer(key);
-      box.addEventListener("input", () => saveAnswer(key, box.value));
+      box.value = tag ? (answers.current[tag] ?? user.answers[tag] ?? "") : loadAnswer(legacy);
+      let timer: number | undefined;
+      const save = () => {
+        window.clearTimeout(timer);
+        if (!tag) return saveAnswer(legacy, box.value);
+        answers.current[tag] = box.value;
+        api.saveAnswer(target, tag, box.value).catch((e) => toast(String(e)));
+      };
+      box.addEventListener("input", () => {
+        window.clearTimeout(timer);
+        if (!tag) return saveAnswer(legacy, box.value);
+        answers.current[tag] = box.value;
+        timer = window.setTimeout(save, 600);
+      });
+      box.addEventListener("blur", () => timer !== undefined && save());
       el.replaceWith(box);
     });
     hydrateMedia(root);

@@ -92,3 +92,16 @@ fn standalone_page_has_csp_and_escaped_title() {
     assert!(out.contains("Content-Security-Policy"));
     assert!(out.contains("<title>Doc</title>"));
 }
+
+#[test]
+fn answer_field_keeps_the_id_of_its_text_area() {
+    let out = render(
+        r#"<div class="gen-field" id="p41"><label for="tt47" id="tt45">Answer</label><textarea id="tt47" name="x"></textarea></div>"#,
+        RenderOptions::default(),
+    );
+    assert!(
+        out.contains(r#"<span class="gen-tag" id="tt47"></span>"#),
+        "{out}"
+    );
+    assert!(!out.contains("<textarea"), "{out}");
+}

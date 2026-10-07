@@ -2,6 +2,7 @@
 //! database with the layout of a JW Library `userData.db`, and `.jwlibrary`
 //! backups of it. Table semantics are in docs/FORMAT.md ("User data").
 
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -293,6 +294,82 @@ impl UserData {
             ],
         )?;
         Ok(tx.last_insert_rowid())
+    }
+
+    /// Location rows holding the answers of a page. JW Library leaves the
+    /// language of these empty, so an empty language matches too.
+    fn answer_location_ids(conn: &Connection, loc: &Loc) -> Result<Vec<i64>> {
+        let mut stmt = conn.prepare(
+            "SELECT LocationId FROM Location
+             WHERE Type = 0 AND Track IS NULL AND KeySymbol = ?1
+               AND (MepsLanguage IS NULL OR MepsLanguage = ?2)
+               AND IssueTagNumber = ?3 AND IFNULL(DocumentId, 0) = IFNULL(?4, 0)
+               AND IFNULL(BookNumber, 0) = IFNULL(?5, 0)
+               AND IFNULL(ChapterNumber, 0) = IFNULL(?6, 0)
+             ORDER BY LocationId",
+        )?;
+        let rows = stmt.query_map(
+            params![
+                loc.key_symbol,
+                loc.meps_language,
+                loc.issue_tag,
+                loc.document_id,
+                loc.book,
+                loc.chapter
+            ],
+            |r| r.get(0),
+        )?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Texts typed into the answer fields of a page, by field id (`TextTag`).
+    pub fn answers(&self, loc: &Loc) -> Result<BTreeMap<String, String>> {
+        let mut out = BTreeMap::new();
+        for location in Self::answer_location_ids(&self.conn, loc)? {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT TextTag, Value FROM InputField WHERE LocationId = ?1")?;
+            let rows = stmt.query_map([location], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })?;
+            for row in rows {
+                let (tag, value) = row?;
+                out.entry(tag).or_insert(value);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Store the text of an answer field; an empty text removes it.
+    pub fn save_answer(
+        &mut self,
+        loc: &Loc,
+        title: Option<&str>,
+        tag: &str,
+        value: &str,
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        let locations = Self::answer_location_ids(&tx, loc)?;
+        if value.is_empty() {
+            for location in locations {
+                tx.execute(
+                    "DELETE FROM InputField WHERE LocationId = ?1 AND TextTag = ?2",
+                    params![location, tag],
+                )?;
+            }
+        } else {
+            let location = match locations.first() {
+                Some(id) => *id,
+                None => Self::location_id(&tx, loc, title)?,
+            };
+            tx.execute(
+                "INSERT INTO InputField (LocationId, TextTag, Value) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (LocationId, TextTag) DO UPDATE SET Value = excluded.Value",
+                params![location, tag, value],
+            )?;
+        }
+        touch(&tx)?;
+        Ok(tx.commit()?)
     }
 
     /// Highlights on a page.
@@ -1048,6 +1125,59 @@ mod tests {
         assert!(ud.marks(&bible(23)).unwrap().is_empty());
     }
 
+    #[test]
+    fn answers_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        let loc = Loc {
+            key_symbol: "w".into(),
+            meps_language: 2,
+            issue_tag: 20260800,
+            document_id: Some(2026520),
+            book: None,
+            chapter: None,
+        };
+        assert!(ud.answers(&loc).unwrap().is_empty());
+        ud.save_answer(&loc, Some("Title"), "tt91", "first")
+            .unwrap();
+        ud.save_answer(&loc, None, "tt91", "second").unwrap();
+        ud.save_answer(&loc, None, "tt95", "other").unwrap();
+        let answers = ud.answers(&loc).unwrap();
+        assert_eq!(answers["tt91"], "second");
+        assert_eq!(answers.len(), 2);
+        ud.save_answer(&loc, None, "tt95", "").unwrap();
+        assert_eq!(ud.answers(&loc).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn answers_of_a_location_without_language() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        // JW Library stores answer fields on locations without a language.
+        ud.conn
+            .execute_batch(
+                "INSERT INTO Location (LocationId, DocumentId, IssueTagNumber, KeySymbol, Type)
+                 VALUES (387, 2026520, 20260800, 'w', 0);
+                 INSERT INTO InputField VALUES (387, 'tt91', 'from backup');",
+            )
+            .unwrap();
+        let loc = Loc {
+            key_symbol: "w".into(),
+            meps_language: 2,
+            issue_tag: 20260800,
+            document_id: Some(2026520),
+            book: None,
+            chapter: None,
+        };
+        assert_eq!(ud.answers(&loc).unwrap()["tt91"], "from backup");
+        ud.save_answer(&loc, None, "tt91", "edited").unwrap();
+        assert_eq!(ud.answers(&loc).unwrap()["tt91"], "edited");
+        let rows: i64 = ud
+            .conn
+            .query_row("SELECT COUNT(*) FROM Location", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 1);
+    }
     #[test]
     fn notes_and_tags() {
         let tmp = tempfile::tempdir().unwrap();

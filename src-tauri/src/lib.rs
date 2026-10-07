@@ -337,6 +337,21 @@ fn page_user_data(state: State<'_, AppState>, target: Target) -> ApiResult<api::
     api::page_user_data(&*state.lib()?, &*state.user()?, &target)
 }
 
+/// Keep the text of an answer field of a page.
+#[tauri::command]
+fn save_answer(
+    state: State<'_, AppState>,
+    target: Target,
+    tag: String,
+    value: String,
+) -> ApiResult<()> {
+    let (loc, title) = api::page_location(&*state.lib()?, &target)?;
+    state
+        .user()?
+        .save_answer(&loc, Some(&title), &tag, &value)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn add_mark(
     state: State<'_, AppState>,
@@ -631,6 +646,7 @@ pub fn run() {
             dated_page,
             missing_entry,
             page_user_data,
+            save_answer,
             add_mark,
             set_mark_color,
             delete_mark,
