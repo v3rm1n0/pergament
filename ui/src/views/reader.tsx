@@ -17,8 +17,8 @@ import {
   type Target,
   type VerseStudy,
 } from "@/lib/api";
-import { applyMarks, blockElements, selectionRanges } from "@/lib/marks";
-import { loadAnswer, loadLastColor, saveAnswer, saveLastColor } from "@/lib/settings";
+import { applyMarks, blockElements, markText, rangeText, selectionRanges, titleFromText } from "@/lib/marks";
+import { loadAnswer, saveAnswer, saveLastColor } from "@/lib/settings";
 import { hydrateMedia } from "@/lib/media";
 import { parseBibleRange } from "@/lib/parallel";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
@@ -237,7 +237,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     const ranges = selectionRanges(root, range);
     if (ranges.length === 0) return;
     const rect = range.getBoundingClientRect();
-    setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, ranges });
+    setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, ranges, text: rangeText(range) });
   };
 
   const userAction = async (run: () => Promise<unknown>) => {
@@ -258,21 +258,22 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     void userAction(() => (t.mark ? api.setMarkColor(t.mark.guid, color) : api.addMark(target, color, t.ranges ?? [])));
   };
 
-  /** Note on the toolbar's highlight, highlighting the selection first if needed. */
+  /** Note on the toolbar's highlight or, for a plain selection, on its text without highlighting it. */
   const noteChosen = async () => {
     const t = toolbar;
     if (!t) return;
     setToolbar(null);
     try {
-      const markGuid = t.mark ? t.mark.guid : await api.addMark(target, loadLastColor(), t.ranges ?? []);
+      const markGuid = t.mark?.guid;
       const block = (t.mark?.ranges ?? t.ranges ?? [])[0];
-      const existing = user.notes.find((n) => n.markGuid === markGuid);
+      const existing = markGuid ? user.notes.find((n) => n.markGuid === markGuid) : undefined;
+      const marked = t.mark && articleRef.current ? markText(articleRef.current, t.mark.guid) : (t.text ?? "");
       window.getSelection()?.removeAllRanges();
       reloadUser();
       setEditing(
         existing
           ? { note: existing }
-          : { note: {}, markGuid, blockType: block?.blockType, blockIdentifier: block?.identifier },
+          : { note: { title: titleFromText(marked) }, markGuid, blockType: block?.blockType, blockIdentifier: block?.identifier },
       );
     } catch (e) {
       toast(String(e));
@@ -340,11 +341,11 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   };
 
   const books = detail?.books;
-  const go = (delta: number) => {
   const docs = useMemo(() => (detail ? documentOrder(detail.toc) : []), [detail]);
   const docId = "document" in target.kind ? target.kind.document : null;
   const docIndex = docId !== null ? docs.indexOf(docId) : -1;
   const paged = chapter !== null || dated !== null || docIndex >= 0;
+  const go = (delta: number) => {
     if (dated !== null) {
       // The next day may be in another year's booklet.
       const day = addDays(fromDateNumber(dated), delta);
@@ -356,12 +357,12 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         .catch((e) => toast(String(e)));
       return;
     }
-    if (!chapter || !books) return;
     if (docIndex >= 0) {
       const id = docs[docIndex + delta];
       if (id !== undefined) replace({ name: "reader", target: documentTarget(target.publication, id) });
       return;
     }
+    if (!chapter || !books) return;
     const book = books.find((b) => b.number === chapter.book);
     if (!book) return;
     let [b, c] = [chapter.book, chapter.chapter + delta];
@@ -380,8 +381,8 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     if (!paged) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "ArrowLeft" && !e.altKey) go(-1);
       if (editing) return;
+      if (e.key === "ArrowLeft" && !e.altKey) go(-1);
       if (e.key === "ArrowRight" && !e.altKey) go(1);
     };
     window.addEventListener("keydown", onKey);
@@ -420,7 +421,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
                 <ChevronLeft size={18} />
               </button>
               <button
-                aria-label={dated !== null ? t("Next day") : t("Next chapter")}
+                aria-label={dated !== null ? t("Next day") : chapter ? t("Next chapter") : t("Next page")}
                 className={cn(edge, "right-1")}
                 onClick={() => go(1)}
               >
@@ -544,6 +545,8 @@ interface Toolbar {
   y: number;
   ranges?: MarkRange[];
   mark?: Mark;
+  /** The selected text, for a new selection. */
+  text?: string;
 }
 
 /** The note being written, and where a new one attaches. */
