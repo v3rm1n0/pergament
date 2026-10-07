@@ -5,6 +5,8 @@ import { AppBar, BarButton, useApp } from "@/app";
 import {
   api,
   chapterTarget,
+  documentOrder,
+  documentTarget,
   type ChapterStudy,
   type Mark,
   type MarkRange,
@@ -339,6 +341,10 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
 
   const books = detail?.books;
   const go = (delta: number) => {
+  const docs = useMemo(() => (detail ? documentOrder(detail.toc) : []), [detail]);
+  const docId = "document" in target.kind ? target.kind.document : null;
+  const docIndex = docId !== null ? docs.indexOf(docId) : -1;
+  const paged = chapter !== null || dated !== null || docIndex >= 0;
     if (dated !== null) {
       // The next day may be in another year's booklet.
       const day = addDays(fromDateNumber(dated), delta);
@@ -351,6 +357,11 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       return;
     }
     if (!chapter || !books) return;
+    if (docIndex >= 0) {
+      const id = docs[docIndex + delta];
+      if (id !== undefined) replace({ name: "reader", target: documentTarget(target.publication, id) });
+      return;
+    }
     const book = books.find((b) => b.number === chapter.book);
     if (!book) return;
     let [b, c] = [chapter.book, chapter.chapter + delta];
@@ -366,10 +377,11 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   };
 
   useEffect(() => {
-    if (!chapter && dated === null) return;
+    if (!paged) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "ArrowLeft" && !e.altKey) go(-1);
+      if (editing) return;
       if (e.key === "ArrowRight" && !e.altKey) go(1);
     };
     window.addEventListener("keydown", onKey);
@@ -398,10 +410,10 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
       </AppBar>
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
-          {(chapter || dated !== null) && (
+          {paged && (
             <>
               <button
-                aria-label={dated !== null ? t("Previous day") : t("Previous chapter")}
+                aria-label={dated !== null ? t("Previous day") : chapter ? t("Previous chapter") : t("Previous page")}
                 className={cn(edge, "left-1")}
                 onClick={() => go(-1)}
               >
