@@ -44,7 +44,27 @@ unpacked with path and size checks, and rendered HTML is sanitized.
 
 ## Install
 
-Pergament is built from source on your machine. There are two ways.
+Pergament is released as a zip for Linux, or you build it from source on your
+machine.
+
+**From the release zip.** Download `pergament-X.Y.Z-linux-x86_64.zip` and its
+`.sha256` file from the [releases page](https://github.com/v3rm1n0/pergament/releases),
+then:
+
+```sh
+sha256sum -c pergament-X.Y.Z-linux-x86_64.zip.sha256
+unzip pergament-X.Y.Z-linux-x86_64.zip
+cd pergament-X.Y.Z-linux-x86_64
+./install.sh                    # --prefix DIR, --dry-run and --uninstall also work
+```
+
+The installer copies `pergament-app` and `pergament` to `~/.local/bin`, adds
+the icons and a desktop entry so Pergament shows up in your application menu,
+and checks that the libraries it needs (WebKitGTK 4.1, GTK 3, libsoup 3,
+OpenSSL, SQLite) are installed. The zip is built on Ubuntu 22.04, so it needs
+a distribution at least that recent.
+
+To build from source there are two ways.
 
 **With Nix** (flakes enabled), straight from GitHub:
 
@@ -215,10 +235,12 @@ consequences of using it. You are responsible for checking that your use
 is lawful where you live, in particular decrypting `.jwpub` files and
 downloading from jw.org.
 
-### Source code only
+### Releases
 
-The project is published as uncompiled source code only. There are no
-official builds, packages or installers. To use it, build it yourself as
-described under [Install](#install), [Desktop app](#desktop-app) and
-[Command line](#command-line). Compiled versions from anyone else do not
-come from this project and are not supported.
+Each release on GitHub has a zip with the compiled binaries, the icons and
+an install script, a `.sha256` file to check the zip, and the source code.
+These are the only official builds; there are no distribution packages. You
+can also build it yourself as described under [Install](#install),
+[Desktop app](#desktop-app) and [Command line](#command-line). Compiled
+versions from anyone else do not come from this project and are not
+supported.
