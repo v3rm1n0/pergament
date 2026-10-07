@@ -567,6 +567,8 @@ pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, Stri
 pub struct PageUserData {
     pub marks: Vec<Mark>,
     pub notes: Vec<Note>,
+    /// Answer field texts by field id.
+    pub answers: std::collections::BTreeMap<String, String>,
 }
 
 pub fn page_user_data(
@@ -578,6 +580,7 @@ pub fn page_user_data(
     Ok(PageUserData {
         marks: user.marks(&loc).map_err(err)?,
         notes: user.notes(&loc).map_err(err)?,
+        answers: user.answers(&loc).map_err(err)?,
     })
 }
 

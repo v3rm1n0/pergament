@@ -309,7 +309,8 @@ Checked against one backup made by JW Library on iOS (schema version 16,
 - `Tag` (`Type` 1 = user tag, 0 = favorites) and `TagMap` linking a tag to
   a note, a location or a playlist item, with a `Position` per tag.
 - `Bookmark` (`Slot`, `Title`, `Snippet`, block), `InputField` (answers
-  typed into workbook fields: `TextTag` = the field id, e.g. `tt21`),
+  typed into workbook and study article fields: `TextTag` = the `id` of the
+  field's `<textarea>`, e.g. `tt47`, not the `id` of its `div.gen-field`),
   playlists and `IndependentMedia` (not used here yet).
 - `LastModified` holds one timestamp that the app's triggers update.
 
