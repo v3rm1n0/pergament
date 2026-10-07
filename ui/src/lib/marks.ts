@@ -129,3 +129,27 @@ function overlaps(range: Range, t: Token): boolean {
     range.comparePoint(t.node, t.start) <= 0 && !(t.node === range.endContainer && t.start === range.endOffset);
   return endsAfterStart && startsBeforeEnd;
 }
+
+const TITLE_MAX = 80;
+
+/** Text of a selection without verse numbers and markers, as one line. */
+export function rangeText(range: Range): string {
+  const box = document.createElement("div");
+  box.append(range.cloneContents());
+  box.querySelectorAll(SKIP).forEach((el) => el.remove());
+  return box.textContent?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+/** Text of the highlight with this guid. */
+export function markText(root: Element, guid: string): string {
+  const parts = [...root.querySelectorAll<HTMLElement>("mark.hl")].filter((m) => m.dataset.guid === guid);
+  return parts.map((m) => m.textContent ?? "").join(" ").replace(/\s+/g, " ").trim();
+}
+
+/** A note title from marked text, cut at a word when it is long. */
+export function titleFromText(text: string): string {
+  if (text.length <= TITLE_MAX) return text;
+  const cut = text.slice(0, TITLE_MAX);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > TITLE_MAX / 2 ? cut.slice(0, space) : cut).replace(/[\s.,;:]+$/, "")}…`;
+}
