@@ -173,6 +173,15 @@ describe("marks", () => {
     expect(words(BLOCK_PARAGRAPH, 9).slice(3, 6)).toEqual(["erwarten", ",", "dass"]);
   });
 
+  it("counts hyphenated words and references as one token and ignores paragraph numbers and soft hyphens", () => {
+    const root = new DOMParser().parseFromString(
+      `<div id="root"><p id="p5"><span class="parNum"><strong><sup>4</sup></strong></span> Die <em>Neue-Welt-Übersetzung</em> nennt Hiob 22:1-3 und Bibel\u00adübersetzungen.</p></div>`,
+      "text/html",
+    ).getElementById("root")!;
+    const words = tokens(blockElements(root, BLOCK_PARAGRAPH, 5)).map((t) => t.node.data.slice(t.start, t.end));
+    expect(words).toEqual(["Die", "Neue-Welt-Übersetzung", "nennt", "Hiob", "22:1-3", "und", "Bibel", "übersetzungen", "."]);
+  });
+
   it("wraps highlighted tokens across verse parts", () => {
     const root = load();
     applyMarks(root, [{ guid: "g", color: 3, ranges: [{ blockType: BLOCK_VERSE, identifier: 1, start: 3, end: 6 }] }]);
