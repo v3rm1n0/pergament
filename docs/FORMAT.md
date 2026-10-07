@@ -292,12 +292,17 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   (`Identifier` = verse number). `StartToken`/`EndToken` are inclusive token
   indices within the block.
 - Tokens: every run of letters, digits and combining marks is one token,
-  every other non-space character is one token; verse numbers and footnote
-  and cross-reference markers do not count. Checked by hand against
-  highlights in Psalms 8 and 23, Joshua 1, Ruth 1 and a workbook week; e.g.
-  "1. Die richtige Ansicht …" highlighted from token 2 starts at "Die".
-  Whether runs of punctuation such as `.“` are one token or two is not
-  settled (both readings fit the data).
+  every other non-space character is one token; verse numbers, paragraph
+  numbers and footnote and cross-reference markers do not count. Checked by
+  hand against highlights in Psalms 8 and 23, Joshua 1, Ruth 1 and a workbook
+  week; e.g. "1. Die richtige Ansicht …" highlighted from token 2 starts at
+  "Die". A `-` or `:` between two word characters stays inside the token
+  (`Neue-Welt-Übersetzung`, `22:1-3` are one token each), and a soft hyphen
+  (U+00AD) is not counted. These came from a backup written by JW Library:
+  with them all 38 paragraph highlights of the installed publications start
+  and end on sentence boundaries, without them 7 do not. Whether runs of
+  punctuation such as `.“` are one token or two is not settled (both readings
+  fit the data).
 - `Note`: `Guid`, optional `UserMarkId` (the highlight it belongs to),
   `LocationId`, `Title`, `Content` (plain text), `LastModified`, `Created`,
   `BlockType`/`BlockIdentifier` (0 = whole page, else as in `BlockRange`).

@@ -16,11 +16,15 @@ export const HIGHLIGHT_COLORS: { index: number; name: string }[] = [
   { index: 6, name: "Purple" },
 ];
 
-/** Verse numbers and footnote or reference markers are not part of the text. */
-const SKIP = ".vl, .cl, a.fn, a.xr, .pageNum";
+/** Verse and paragraph numbers and footnote or reference markers are not part of the text. */
+const SKIP = ".vl, .cl, a.fn, a.xr, .pageNum, .parNum";
 
-/** A word, a number, or a single punctuation character. */
-const TOKEN = /[\p{L}\p{N}\p{M}]+|[^\s\p{L}\p{N}\p{M}]/gu;
+/**
+ * A word, a number or a single punctuation character. `-` and `:` between word
+ * characters stay inside the token (`Neue-Welt-Übersetzung`, `22:1-3`) and soft
+ * hyphens are not counted, which is how the stored highlights are numbered.
+ */
+const TOKEN = /[\p{L}\p{N}\p{M}]+(?:[-\u2010\u2011:][\p{L}\p{N}\p{M}]+)*|[^\s\p{L}\p{N}\p{M}\u00ad]/gu;
 
 interface Token {
   node: Text;
