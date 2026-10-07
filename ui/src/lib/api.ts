@@ -8,6 +8,11 @@ export interface TocNode {
   children: TocNode[];
 }
 
+/** Ids of the documents in a table of contents, in reading order. */
+export function documentOrder(toc: TocNode[]): number[] {
+  return toc.flatMap((n) => [...(n.document_id != null && n.children.length === 0 ? [n.document_id] : []), ...documentOrder(n.children)]);
+}
+
 export interface BibleBook {
   number: number;
   title: string;
