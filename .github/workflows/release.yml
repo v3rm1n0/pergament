@@ -1,5 +1,6 @@
 # Publishes a GitHub release for every semantic version tag (vX.Y.Z), made by
-# scripts/release.sh. Nothing is built or uploaded: the release holds only the
+# scripts/release.sh. The release holds a zip with the binaries, the icons and
+# an installer (scripts/bundle-install.sh), a .sha256 file for the zip, and the
 # source code archives GitHub adds itself.
 name: Release
 
@@ -12,7 +13,9 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # The oldest runner image that has WebKitGTK 4.1, so the binary runs on
+    # as many distributions as possible.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,6 +25,26 @@ jobs:
         run: |
           [[ $GITHUB_REF_NAME =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           scripts/versions.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Install the build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config zip libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libsoup-3.0-dev libssl-dev libsqlite3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: oven-sh/setup-bun@v2
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          cargo build --release --locked -p pergament -p pergament-app --features pergament-app/custom-protocol
+
+      - name: Package the zip and its hash
+        run: scripts/package.sh "${GITHUB_REF_NAME#v}"
 
       - name: Write release notes
         run: scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
@@ -34,3 +57,5 @@ jobs:
           --verify-tag
           --title "Pergament ${GITHUB_REF_NAME#v}"
           --notes-file notes.md
+          target/package/*.zip
+          target/package/*.zip.sha256

@@ -19,7 +19,7 @@ section() {
     fi
 }
 
-echo "Source code only. There are no official builds; see the README for how to build Pergament."
+echo 'Download the zip for Linux, unpack it and run `./install.sh`. It installs the binaries and a desktop entry below `~/.local`. Check the download against the `.sha256` file with `sha256sum -c`. The README also describes building from source.'
 echo
 section Features feat
 section Fixes fix
