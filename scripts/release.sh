@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Cut a release: set version X.Y.Z everywhere, commit, tag vX.Y.Z and push.
-# Pushing the tag runs .github/workflows/release.yml, which publishes a
-# GitHub release with the source code only. Run inside `nix develop`.
+# Pushing the tag runs .github/workflows/release.yml, which builds the binaries
+# and publishes a GitHub release with a zip (binaries, icons, installer), its
+# .sha256 file and the source code. Run inside `nix develop`.
 set -euo pipefail
 die() { echo "release: $*" >&2; exit 1; }
 
