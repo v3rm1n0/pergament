@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { AppBar, useApp } from "@/app";
 import type { Theme } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -17,6 +19,10 @@ const themes: { value: Theme; label: string }[] = [
 ];
 
 export function SettingsView() {
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    getVersion().then(setVersion, () => undefined);
+  }, []);
   const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup } = useApp();
   return (
     <>
@@ -94,6 +100,7 @@ export function SettingsView() {
           </section>
           <section className="text-sm text-muted">
             <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-fg">{t("About")}</h2>
+            {version && <p className="mb-2">{t("Version {version}", { version })}</p>}
             <p>
               {t(
                 "Pergament is an unofficial reader for publications you import or download yourself, for personal use. It is not affiliated with Jehovah's Witnesses or the Watch Tower Bible and Tract Society and contains no publication content. No telemetry.",
