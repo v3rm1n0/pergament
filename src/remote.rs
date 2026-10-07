@@ -66,8 +66,9 @@ pub fn pub_media_url(req: &Request<'_>) -> Result<String> {
         encode_query(req.lang_code)
     );
     if let Some(tag) = req.issue_tag.filter(|t| *t > 0) {
-        // 20260900 -> 202609
-        url.push_str(&format!("&issue={}", tag / 100));
+        // 20260900 -> 202609; semi-monthly issues keep the day: 20071215
+        let issue = if tag % 100 == 0 { tag / 100 } else { tag };
+        url.push_str(&format!("&issue={issue}"));
     }
     Ok(url)
 }
@@ -177,6 +178,16 @@ mod tests {
         })
         .unwrap();
         assert!(!u.contains("issue="));
+        // Semi-monthly issues need the day, the API has no 200712.
+        for (tag, issue) in [(20071215, "20071215"), (20071201, "20071201")] {
+            let u = pub_media_url(&Request {
+                key_symbol: "w",
+                lang_code: "X",
+                issue_tag: Some(tag),
+            })
+            .unwrap();
+            assert!(u.ends_with(&format!("&issue={issue}")), "{u}");
+        }
         for (pub_, lang) in [("wp&x=1", "X"), ("wp", "X Y"), ("", "X"), ("wp", "../")] {
             assert!(
                 pub_media_url(&Request {
