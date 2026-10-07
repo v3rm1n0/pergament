@@ -447,7 +447,7 @@ impl Publication {
         let mut stmt = self.conn.prepare(
             "SELECT FilePath FROM Multimedia
              WHERE FilePath LIKE '%\\_cvr.jpg' ESCAPE '\\' OR FilePath LIKE '%\\_sqr%' ESCAPE '\\'
-             ORDER BY FilePath LIKE '%\\_cvr.jpg' ESCAPE '\\' DESC, Width DESC",
+             ORDER BY FilePath LIKE '%\\_cvr.jpg' ESCAPE '\\' DESC",
         )?;
         let names: Vec<String> = stmt
             .query_map([], |r| r.get(0))?
