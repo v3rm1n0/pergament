@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { AppBar, useApp } from "@/app";
 import { api, type Media, type MediaCategory, type MediaDownload } from "@/lib/api";
-import type { PlayerItem } from "@/lib/player";
 import { MediaImg } from "@/components/media-img";
-import { PlayerDialog } from "@/components/media-player";
 import {
   DownloadedCard,
   MediaCard,
@@ -13,6 +10,7 @@ import {
   type MediaDownloads,
   type MediaSource,
 } from "@/components/media-card";
+import { localItem, streamItem } from "@/lib/recording";
 import { t } from "@/lib/i18n";
 
 export const VIDEO_ROOT = "VideoOnDemand";
@@ -54,28 +52,6 @@ function Status({ error, retry }: { error: string | null; retry: () => void }) {
     </div>
   );
 }
-
-const streamItem = (m: Media): PlayerItem => ({
-  title: m.title,
-  kind: m.kind,
-  poster: m.image,
-  sources: m.files.map((f) => ({ label: f.label, url: f.url, size: f.size, subtitles: f.subtitles })),
-});
-
-/** A downloaded file, played from disk through the asset protocol. */
-const localItem = (d: MediaDownload): PlayerItem => ({
-  title: d.title,
-  kind: d.kind,
-  poster: d.image,
-  sources: [
-    {
-      label: "",
-      url: convertFileSrc(d.path),
-      size: d.size,
-      subtitles: d.subtitlePath ? convertFileSrc(d.subtitlePath) : null,
-    },
-  ],
-});
 
 /** Tile of a category, as in the official app: wide picture for video, cover and name for audio. */
 function CategoryTile({ cat, kind, onOpen }: { cat: MediaCategory; kind: "video" | "audio"; onOpen: () => void }) {
@@ -149,12 +125,11 @@ function Items({
 
 /** One category: sections with their recordings, or the recordings themselves. */
 export function MediaCategoryView({ catKey, title }: { catKey: string; title: string }) {
-  const { lang, languageName, push } = useApp();
+  const { lang, languageName, push, playItem } = useApp();
   const { cat, error, retry } = useCategory(catKey, true);
   const store = useMediaDownloads();
-  const [player, setPlayer] = useState<PlayerItem | null>(null);
   const from: MediaSource = { category: catKey, detailed: true };
-  const play = (m: Media) => setPlayer(streamItem(m));
+  const play = (m: Media) => playItem(streamItem(m));
 
   const sections = cat?.subcategories.filter((c) => c.media.length > 0) ?? [];
   const nested = cat?.subcategories.filter((c) => c.media.length === 0 && c.container) ?? [];
@@ -191,25 +166,22 @@ export function MediaCategoryView({ catKey, title }: { catKey: string; title: st
           </>
         )}
       </div>
-      {player && <PlayerDialog item={player} lang={lang} onClose={() => setPlayer(null)} />}
     </>
   );
 }
 
 /** Recordings saved in the library, for the Downloaded tab. */
 export function DownloadedRecordings({ items, store }: { items: MediaDownload[]; store: MediaDownloads }) {
-  const { lang } = useApp();
-  const [player, setPlayer] = useState<PlayerItem | null>(null);
+  const { playItem } = useApp();
   if (items.length === 0) return null;
   return (
     <section className="mb-8">
       <h2 className="mb-3 text-[1.35rem] font-semibold">{t("Recordings")}</h2>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-1">
         {items.map((d) => (
-          <DownloadedCard key={d.id} item={d} store={store} onPlay={() => setPlayer(localItem(d))} />
+          <DownloadedCard key={d.id} item={d} store={store} onPlay={() => playItem(localItem(d))} />
         ))}
       </div>
-      {player && <PlayerDialog item={player} lang={lang} onClose={() => setPlayer(null)} />}
     </section>
   );
 }

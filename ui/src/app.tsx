@@ -19,6 +19,9 @@ import {
   X,
 } from "lucide-react";
 import { api, type CatalogEntry, type Language, type Progress, type PubCard, type Target } from "@/lib/api";
+import type { MediaRef } from "@/lib/api";
+import type { PlayerItem } from "@/lib/player";
+import { linkedItem } from "@/lib/recording";
 import { currentView, initialNav, navReducer, type View } from "@/lib/nav";
 import {
   inLanguage,
@@ -80,6 +83,12 @@ interface AppContextValue {
   userVersion: number;
   createBackup: () => Promise<void>;
   restoreBackup: () => Promise<void>;
+  /** The recording being played; it keeps playing while the user navigates. */
+  player: { id: number; item: PlayerItem } | null;
+  playItem: (item: PlayerItem) => void;
+  /** Look up a recording that a publication links to and play it. */
+  playRecording: (media: MediaRef) => Promise<void>;
+  closePlayer: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -117,6 +126,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<Record<string, Progress>>({});
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [userVersion, setUserVersion] = useState(0);
+  const [player, setPlayer] = useState<AppContextValue["player"]>(null);
   const systemDark = useSystemDark();
   const dark = prefersDark(theme, systemDark);
   // Set while rendering so every `t()` below already uses the new language.
@@ -258,6 +268,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const names = useMemo(() => new Map(languages.map((l) => [l.code, l.vernacular])), [languages]);
 
+  const playItem = useCallback((item: PlayerItem) => setPlayer({ id: Date.now(), item }), []);
+  const closePlayer = useCallback(() => setPlayer(null), []);
+  const playRecording = useCallback(
+    async (media: MediaRef) => {
+      try {
+        playItem(await linkedItem(media));
+      } catch (e) {
+        toast(String(e instanceof Error ? e.message : e));
+      }
+    },
+    [playItem, toast],
+  );
+
   const value = useMemo<AppContextValue>(
     () => ({
       view: currentView(nav),
@@ -300,6 +323,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userVersion,
       createBackup,
       restoreBackup,
+      player,
+      playItem,
+      playRecording,
+      closePlayer,
     }),
     [
       nav,
@@ -320,6 +347,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userVersion,
       createBackup,
       restoreBackup,
+      player,
+      playItem,
+      playRecording,
+      closePlayer,
     ],
   );
 
