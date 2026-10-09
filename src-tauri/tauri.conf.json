@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' blob: jwmedia: http://jwmedia.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' blob: jwmedia: http://jwmedia.localhost data: https://*.jw-cdn.org; media-src https://*.jw-cdn.org; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

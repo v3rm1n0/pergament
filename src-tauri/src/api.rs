@@ -7,7 +7,7 @@ use pergament::catalog::{
     Catalog, CatalogItem, DATED_DAILY_TEXT, DATED_MEETING_WORKBOOK, DATED_WATCHTOWER_STUDY,
     LIST_MEETINGS, LIST_TEACHING_TOOLBOX, category_name, safe_image_path,
 };
-use pergament::links::Link;
+use pergament::links::{Link, MediaRef};
 use pergament::navigate::{self, Page, Target, TargetKind};
 use pergament::reader::{BibleBook, TocNode};
 use pergament::render::media_name;
@@ -645,6 +645,10 @@ pub enum LinkAction {
     External {
         url: String,
     },
+    /// A recording to play in the app.
+    Media {
+        media: MediaRef,
+    },
     /// Not in the library; `url` opens it on jw.org.
     Missing {
         url: Option<String>,
@@ -662,6 +666,9 @@ pub fn link_action(library: &Library, current: Option<&str>, href: &str) -> ApiR
     };
     Ok(match &link {
         Link::External(url) => LinkAction::External { url: url.clone() },
+        Link::Media(media) => LinkAction::Media {
+            media: media.clone(),
+        },
         Link::Fragment(_) => LinkAction::Ignore,
         _ => match navigate::resolve(library, current.as_ref(), &link).map_err(err)? {
             Some(target) => LinkAction::Open {
@@ -746,6 +753,15 @@ mod tests {
             LinkAction::Ignore
         );
         assert_eq!(link_action(&lib, None, "#x").unwrap(), LinkAction::Ignore);
+        assert!(matches!(
+            link_action(
+                &lib,
+                None,
+                "https://www.jw.org/finder?lank=pub-mwbv_202609_1_VIDEO&wtlocale=X"
+            )
+            .unwrap(),
+            LinkAction::Media { .. }
+        ));
     }
 
     #[test]
