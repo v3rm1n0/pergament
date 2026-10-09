@@ -240,4 +240,5 @@ export const de: Record<string, string> = {
   Unmute: "Ton einschalten",
   Volume: "Lautstärke",
   Position: "Position",
+  Auto: "Automatisch",
 };

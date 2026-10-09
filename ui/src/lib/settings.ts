@@ -133,3 +133,13 @@ export function loadMediaQuality(): number {
 export function saveMediaQuality(height: number) {
   write("mediaQuality", String(height));
 }
+
+/** Quality is automatic unless the user picked a fixed one. */
+export function loadAutoQuality(): boolean {
+  const v = read("mediaQuality");
+  return v === null || v === "auto";
+}
+
+export function saveAutoQuality() {
+  write("mediaQuality", "auto");
+}
