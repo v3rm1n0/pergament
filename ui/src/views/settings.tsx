@@ -3,13 +3,12 @@ import { getVersion } from "@tauri-apps/api/app";
 import { AppBar, useApp } from "@/app";
 import type { Theme } from "@/lib/settings";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
+import { t, uiLanguages } from "@/lib/i18n";
 import type { UiLangSetting } from "@/lib/i18n";
 
 const uiLangs: { value: UiLangSetting; label: string }[] = [
   { value: "system", label: "Follow system" },
-  { value: "en", label: "English" },
-  { value: "de", label: "Deutsch" },
+  ...uiLanguages().map((l) => ({ value: l.code, label: l.name })),
 ];
 
 const themes: { value: Theme; label: string }[] = [
@@ -41,7 +40,7 @@ export function SettingsView() {
                     uiLang === l.value ? "bg-brand text-brand-fg" : "bg-surface hover:bg-bar",
                   )}
                 >
-                  {t(l.label)}
+                  {l.value === "system" ? t(l.label) : l.label}
                 </button>
               ))}
             </div>

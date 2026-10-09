@@ -9,6 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "lint": "tsc --noEmit",
     "test": "vitest",
+    "i18n": "bun scripts/i18n.ts",
+    "i18n:new": "bun scripts/i18n.ts new",
     "tauri": "tauri"
   },
   "dependencies": {

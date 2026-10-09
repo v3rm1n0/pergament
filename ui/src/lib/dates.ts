@@ -30,9 +30,13 @@ export function weekLabel(monday: Date, locale = uiLocale()): string {
       ? `${monday.getDate()}.–${sunday.getDate()}. ${month(monday)}`
       : `${monday.getDate()}. ${month(monday)} – ${sunday.getDate()}. ${month(sunday)}`;
   }
-  return monday.getMonth() === sunday.getMonth()
-    ? `${month(monday)} ${monday.getDate()}-${sunday.getDate()}`
-    : `${month(monday)} ${monday.getDate()} - ${month(sunday)} ${sunday.getDate()}`;
+  if (locale.startsWith("en")) {
+    return monday.getMonth() === sunday.getMonth()
+      ? `${month(monday)} ${monday.getDate()}-${sunday.getDate()}`
+      : `${month(monday)} ${monday.getDate()} - ${month(sunday)} ${sunday.getDate()}`;
+  }
+  // Any other language: the browser knows how it writes a range of days.
+  return new Intl.DateTimeFormat(locale, { month: "long", day: "numeric" }).formatRange(monday, sunday);
 }
 
 /** "1 day ago", "3 weeks ago", ... for an RFC 3339 timestamp. */
