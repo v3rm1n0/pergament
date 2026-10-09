@@ -2,7 +2,7 @@ import { MediaImg } from "@/components/media-img";
 import { useState } from "react";
 import { BookOpen, CloudDownload, FolderInput } from "lucide-react";
 import { useApp } from "@/app";
-import { api, type PubCard } from "@/lib/api";
+import type { PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { TileMenu, cardTarget } from "@/components/tile-menu";
 import { groupByCategory } from "@/lib/types";
@@ -29,8 +29,7 @@ function Cover({ pub }: { pub: PubCard }) {
 }
 
 function PubTile({ pub }: { pub: PubCard }) {
-  const { push, refreshPublications, toast, lang } = useApp();
-  const [confirming, setConfirming] = useState(false);
+  const { push, lang } = useApp();
   return (
     <div className="group relative flex flex-col overflow-hidden bg-surface shadow-sm ring-1 ring-line">
       <button className="text-left" onClick={() => push({ name: "publication", dir: pub.dir })}>
@@ -44,30 +43,7 @@ function PubTile({ pub }: { pub: PubCard }) {
           </div>
         </div>
       </button>
-      {confirming ? (
-        <div className="absolute inset-x-1.5 top-1.5 flex gap-1 rounded bg-rail p-1 shadow ring-1 ring-line">
-          <Button
-            size="sm"
-            className="min-w-0 flex-1 px-2"
-            onClick={async () => {
-              try {
-                await api.removePublication(pub.dir);
-                toast(t("Removed {title}", { title: pub.shortTitle ?? pub.title }));
-              } catch (e) {
-                toast(t("Remove failed: {error}", { error: String(e) }));
-              }
-              await refreshPublications();
-            }}
-          >
-            {t("Remove")}
-          </Button>
-          <Button size="sm" variant="outline" className="min-w-0 flex-1 px-2" onClick={() => setConfirming(false)}>
-            {t("Cancel")}
-          </Button>
-        </div>
-      ) : (
-        <TileMenu target={cardTarget(pub, lang)} onRemove={() => setConfirming(true)} />
-      )}
+      <TileMenu target={cardTarget(pub, lang)} />
     </div>
   );
 }
