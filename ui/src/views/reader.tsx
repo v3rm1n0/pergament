@@ -19,7 +19,7 @@ import {
 } from "@/lib/api";
 import { applyMarks, blockElements, markText, rangeText, selectionRanges, titleFromText } from "@/lib/marks";
 import { loadAnswer, saveAnswer, saveLastColor } from "@/lib/settings";
-import { hydrateMedia } from "@/lib/media";
+import { clickedImage, hydrateMedia } from "@/lib/media";
 import { parseBibleRange } from "@/lib/parallel";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
 import { splitPage, verseKeyFromId } from "@/lib/page";
@@ -59,7 +59,7 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
-  const { push, replace, toast, lang, userVersion, publications, playRecording } = useApp();
+  const { push, replace, toast, lang, userVersion, publications, playRecording, showImage } = useApp();
   const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
@@ -333,6 +333,11 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   const onArticleClick = (e: ReactMouseEvent) => {
     if (!window.getSelection()?.isCollapsed) return;
     const el = e.target as HTMLElement;
+    const picture = clickedImage(el);
+    if (picture) {
+      showImage(picture.src, picture.caption);
+      return;
+    }
     const dot = el.closest<HTMLElement>(".note-dot");
     if (dot) {
       showNote(dot.dataset.notes?.split(" ")[0]);

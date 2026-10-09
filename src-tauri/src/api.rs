@@ -431,6 +431,37 @@ fn dated_document(
     Ok(dated.document_id)
 }
 
+/// The year text of `year` from the downloaded daily text booklet (`es26`
+/// for 2026) in language `lang`.
+pub fn year_text(
+    library: &Library,
+    lang: &str,
+    year: i64,
+) -> ApiResult<Option<pergament::yeartext::YearText>> {
+    let symbol = format!("es{:02}", year.rem_euclid(100));
+    let entry = library
+        .list()
+        .map_err(err)?
+        .into_iter()
+        .filter(|e| e.symbol == symbol && e.lang_code.as_deref() == Some(lang))
+        .max_by_key(|e| e.imported_at);
+    let Some(entry) = entry else {
+        return Ok(None);
+    };
+    let publication = Publication::open(library, &entry).map_err(err)?;
+    // It is on the title page, near the start.
+    for info in publication.documents().map_err(err)?.into_iter().take(8) {
+        if !info.has_content {
+            continue;
+        }
+        let (_, content) = publication.document(info.id).map_err(err)?;
+        if let Some(found) = content.as_deref().and_then(pergament::yeartext::find) {
+            return Ok(Some(found));
+        }
+    }
+    Ok(None)
+}
+
 /// The daily text, workbook week or study article for `date` (`YYYY-MM-DD`)
 /// from downloaded publications in language `lang`, newest issue first.
 pub fn dated_page(
