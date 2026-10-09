@@ -149,7 +149,7 @@ pub fn resolve(library: &Library, current: Option<&Entry>, link: &Link) -> Resul
             }),
             None => None,
         },
-        Link::External(_) | Link::Fragment(_) => None,
+        Link::External(_) | Link::Fragment(_) | Link::Media(_) => None,
     })
 }
 

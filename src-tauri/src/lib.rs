@@ -10,7 +10,7 @@ use std::time::Duration;
 use pergament::Library;
 use pergament::catalog::{Catalog, CatalogItem};
 use pergament::languages::Language;
-use pergament::links::Link;
+use pergament::links::{Link, MediaRef};
 use pergament::navigate::{Page, Target};
 use pergament::net::{Client, HttpConfig};
 use pergament::remote::{self, Request};
@@ -98,6 +98,17 @@ fn link_action(
     href: String,
 ) -> ApiResult<LinkAction> {
     api::link_action(&*state.lib()?, current.as_deref(), &href)
+}
+
+/// Renditions of a recording, smallest first. The player streams them.
+#[tauri::command]
+async fn media_links(media: MediaRef) -> ApiResult<Vec<remote::MediaFile>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = Client::new(HttpConfig::default());
+        remote::media_links(&client, &media).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Open an http(s) link in the browser. Anything else is refused.
@@ -629,6 +640,7 @@ pub fn run() {
             render_page,
             link_action,
             open_external,
+            media_links,
             remove_publication,
             import_files,
             catalog_search,

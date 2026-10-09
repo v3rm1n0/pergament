@@ -1,6 +1,26 @@
 //! Parsing of the link targets produced by [`crate::render`], so a viewer can
 //! route clicks.
 
+/// The two kinds of recording a publication can link to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MediaKind {
+    Audio,
+    Video,
+}
+
+/// A recording linked as `https://www.jw.org/finder?lank=pub-…&wtlocale=…`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MediaRef {
+    /// Key symbol such as `mwbv` or `jwb-098`.
+    pub pub_symbol: String,
+    /// `YYYYMM` for periodicals, `None` for undated publications.
+    pub issue: Option<String>,
+    pub track: u32,
+    pub kind: MediaKind,
+    pub lang_code: String,
+}
+
 /// Where a link in rendered content points.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Link {
@@ -21,6 +41,8 @@ pub enum Link {
         verse: i64,
         study_note: bool,
     },
+    /// A video or audio recording, played in the app.
+    Media(MediaRef),
     /// http(s) link to open in a browser.
     External(String),
     /// `#id` within the current page.
@@ -73,11 +95,60 @@ impl Link {
                 study_note,
             });
         }
+        if let Some(media) = parse_media(uri) {
+            return Some(Self::Media(media));
+        }
         if uri.starts_with("https://") || uri.starts_with("http://") {
             return Some(Self::External(uri.to_owned()));
         }
         None
     }
+}
+
+/// `https://www.jw.org/finder?lank=pub-mwbv_202609_1_VIDEO&wtlocale=X` and the
+/// undated `pub-jwb-098_7_VIDEO`. Other `lank` links (articles, other
+/// publications) are not media.
+fn parse_media(uri: &str) -> Option<MediaRef> {
+    let rest = uri
+        .strip_prefix("https://www.jw.org/finder?")
+        .or_else(|| uri.strip_prefix("https://jw.org/finder?"))?;
+    let (mut lank, mut lang) = (None, None);
+    for pair in rest.split('&') {
+        match pair.split_once('=') {
+            Some(("lank", v)) => lank = Some(v),
+            Some(("wtlocale", v)) => lang = Some(v),
+            _ => {}
+        }
+    }
+    let body = lank?.strip_prefix("pub-")?;
+    let (body, kind) = if let Some(b) = body.strip_suffix("_VIDEO") {
+        (b, MediaKind::Video)
+    } else {
+        (body.strip_suffix("_AUDIO")?, MediaKind::Audio)
+    };
+    let token = |s: &str| {
+        !s.is_empty() && s.len() <= 32 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    };
+    let mut parts = body.split('_');
+    let (pub_symbol, second, third) = (parts.next()?, parts.next()?, parts.next());
+    if parts.next().is_some() || !token(pub_symbol) {
+        return None;
+    }
+    let (issue, track) = match third {
+        Some(track) => (Some(second), track),
+        None => (None, second),
+    };
+    if issue.is_some_and(|i| !(i.len() == 6 || i.len() == 8) || !i.bytes().all(|b| b.is_ascii_digit())) {
+        return None;
+    }
+    let lang = lang.filter(|l| token(l))?;
+    Some(MediaRef {
+        pub_symbol: pub_symbol.to_owned(),
+        issue: issue.map(str::to_owned),
+        track: track.parse().ok().filter(|t| *t > 0)?,
+        kind,
+        lang_code: lang.to_owned(),
+    })
 }
 
 #[cfg(test)]
@@ -137,6 +208,47 @@ mod tests {
             Link::parse("https://www.jw.org/"),
             Some(Link::External(_))
         ));
+        assert!(matches!(
+            Link::parse("https://www.jw.org/finder?lank=pub-mwbv_202609_1_AUDIO"),
+            Some(Link::External(_))
+        ));
+    }
+
+    #[test]
+    fn parses_media() {
+        assert_eq!(
+            Link::parse("https://www.jw.org/finder?lank=pub-mwbv_202609_1_VIDEO&wtlocale=X"),
+            Some(Link::Media(MediaRef {
+                pub_symbol: "mwbv".into(),
+                issue: Some("202609".into()),
+                track: 1,
+                kind: MediaKind::Video,
+                lang_code: "X".into()
+            }))
+        );
+        assert_eq!(
+            Link::parse("https://www.jw.org/finder?wtlocale=E&lank=pub-jwb-098_7_AUDIO"),
+            Some(Link::Media(MediaRef {
+                pub_symbol: "jwb-098".into(),
+                issue: None,
+                track: 7,
+                kind: MediaKind::Audio,
+                lang_code: "E".into()
+            }))
+        );
+        for other in [
+            "https://www.jw.org/finder?lank=docid-1_VIDEO&wtlocale=X",
+            "https://www.jw.org/finder?lank=pub-mwbv_20269_1_VIDEO&wtlocale=X",
+            "https://www.jw.org/finder?lank=pub-mwbv_1_0_VIDEO&wtlocale=X",
+            "https://www.jw.org/finder?lank=pub-a_b_c_d_VIDEO&wtlocale=X",
+            "https://www.jw.org/finder?lank=pub-mwbv_1_PDF&wtlocale=X",
+            "https://www.jw.org/finder?lank=pub-mwbv_1_VIDEO&wtlocale=X%26",
+        ] {
+            assert!(
+                !matches!(Link::parse(other), Some(Link::Media(_))),
+                "{other}"
+            );
+        }
         for bad in [
             "pergament://bible/99:1:1",
             "pergament://bible/x",

@@ -9,6 +9,7 @@ import {
   documentTarget,
   type ChapterStudy,
   type Mark,
+  type MediaRef,
   type MarkRange,
   type Note,
   type NoteInput,
@@ -26,6 +27,7 @@ import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
 import { ReferencePane, type PaneRef } from "@/components/reference-pane";
+import { MediaPlayer } from "@/components/media-player";
 import { usePublication } from "./publication";
 import { t } from "@/lib/i18n";
 
@@ -61,6 +63,7 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
   const { push, replace, toast, lang, userVersion, publications } = useApp();
   const [refs, setRefs] = useState<PaneRef[]>([]);
+  const [player, setPlayer] = useState<MediaRef | null>(null);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
   /** Verses of the chapter the Research Guide has excerpts for. */
@@ -233,6 +236,9 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           }
           case "external":
             await api.openExternal(action.url);
+            break;
+          case "media":
+            setPlayer(action.media);
             break;
           case "missing": {
             const entry = await api.missingEntry(lang, href).catch(() => null);
@@ -558,6 +564,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           onClose={closeToolbar}
         />
       )}
+      {player && <MediaPlayer media={player} onClose={() => setPlayer(null)} />}
       {editing && (
         <NoteEditor
           note={editing.note}

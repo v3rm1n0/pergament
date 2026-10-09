@@ -59,9 +59,30 @@ export interface Page {
   name: string;
 }
 
+/** A recording a publication links to (`pergament::links::MediaRef`). */
+export interface MediaRef {
+  pub_symbol: string;
+  issue: string | null;
+  track: number;
+  kind: "audio" | "video";
+  lang_code: string;
+}
+
+/** One playable rendition of a recording (`pergament::remote::MediaFile`). */
+export interface MediaFile {
+  title: string;
+  label: string;
+  mime: string;
+  url: string;
+  size: number | null;
+  duration: number | null;
+  poster: string | null;
+}
+
 export type LinkAction =
   | { kind: "open"; target: Target; studyNote: boolean }
   | { kind: "external"; url: string }
+  | { kind: "media"; media: MediaRef }
   | { kind: "missing"; url: string | null }
   | { kind: "ignore" };
 
@@ -265,6 +286,7 @@ export const api = {
   linkAction: (current: string | null, href: string) =>
     invoke<LinkAction>("link_action", { current, href }),
   openExternal: (url: string) => invoke<void>("open_external", { url }),
+  mediaLinks: (media: MediaRef) => invoke<MediaFile[]>("media_links", { media }),
   removePublication: (dir: string) => invoke<void>("remove_publication", { dir }),
   importFiles: (paths: string[]) => invoke<ImportResult[]>("import_files", { paths }),
   languages: () => invoke<Language[]>("languages"),
