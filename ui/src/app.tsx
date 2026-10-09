@@ -26,6 +26,7 @@ import { DISPLAY_CLOSED, DISPLAY_READY, remember, sendToDisplay, type DisplayMes
 import { currentView, initialNav, navReducer, type View } from "@/lib/nav";
 import {
   inLanguage,
+  loadFavorites,
   loadFontScale,
   loadSecondDisplay,
   loadUpdateCheck,
@@ -36,6 +37,7 @@ import {
   loadTheme,
   prefersDark,
   saveFontScale,
+  toggleFavorite as toggleStoredFavorite,
   saveLang,
   saveUiLang,
   saveTheme,
@@ -98,6 +100,9 @@ interface AppContextValue {
   loadCatalog: () => Promise<void>;
   /** Bumped when user data was replaced by a restored backup. */
   userVersion: number;
+  /** Favorite keys (`symbol_meps[_issue]`, the library directory names). */
+  favorites: string[];
+  toggleFavorite: (key: string) => void;
   createBackup: () => Promise<void>;
   restoreBackup: () => Promise<void>;
   /** The recording being played; it keeps playing while the user navigates. */
@@ -150,6 +155,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<Record<string, Progress>>({});
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [userVersion, setUserVersion] = useState(0);
+  const [favorites, setFavorites] = useState(loadFavorites);
+  const toggleFavorite = useCallback((key: string) => setFavorites(toggleStoredFavorite(key)), []);
   const [player, setPlayer] = useState<AppContextValue["player"]>(null);
   const systemDark = useSystemDark();
   const dark = prefersDark(theme, systemDark);
@@ -476,6 +483,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       catalogVersion,
       loadCatalog,
       userVersion,
+      favorites,
+      toggleFavorite,
       createBackup,
       restoreBackup,
       player,
@@ -510,6 +519,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       catalogVersion,
       loadCatalog,
       userVersion,
+      favorites,
+      toggleFavorite,
       createBackup,
       restoreBackup,
       player,
