@@ -37,8 +37,14 @@ it so you can read it. Depending on where you live, distributing software
 that does this may be restricted. Read the [license notes](#license) before
 you use or share it.
 
+Pergament is free and non-commercial, and it will stay that way. It only
+downloads files that jw.org offers for download, such as `.jwpub` publications
+and MP3 and MP4 recordings, from the same public services the site uses. It
+does not scrape pages, and it is not meant for commercial use.
+
 Pergament sends no telemetry. The only network traffic goes to jw.org's
-public catalog and download services, and only when you search or download.
+public catalog and download services, and only when you search, download or
+play a recording.
 Imported files are treated as untrusted: hashes are verified, archives are
 unpacked with path and size checks, and rendered HTML is sanitized.
 
