@@ -18,7 +18,7 @@ use pergament::remote::{self, Request};
 use pergament::userdata::{self, Loc, NoteInput, Range, UserData};
 use serde::Serialize;
 use tauri::http::{Response, StatusCode};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_opener::OpenerExt;
 
 use api::{ApiResult, LinkAction, PubCard, PubDetail};
@@ -193,6 +193,62 @@ fn media_downloads(state: State<'_, AppState>) -> ApiResult<Vec<api::MediaDownlo
 fn remove_media(state: State<'_, AppState>, id: i64) -> ApiResult<()> {
     state.lib()?.remove_media(id).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Label of the second display window.
+const DISPLAY: &str = "display";
+
+/// The year text for the display's idle screen.
+#[tauri::command]
+fn year_text(
+    state: State<'_, AppState>,
+    lang: String,
+    year: i64,
+) -> ApiResult<Option<pergament::yeartext::YearText>> {
+    api::year_text(&*state.lib()?, &lang, year)
+}
+
+/// Open the second display: a black window that is shown fullscreen on a
+/// monitor other than the app's, if there is one. Wayland compositors decide
+/// where a window goes, so on some setups it has to be moved there by hand.
+#[tauri::command]
+fn open_display(app: AppHandle) -> ApiResult<()> {
+    if let Some(existing) = app.get_webview_window(DISPLAY) {
+        return existing.show().map_err(|e| e.to_string());
+    }
+    let current = app
+        .get_webview_window("main")
+        .and_then(|w| w.current_monitor().ok().flatten());
+    let other = app
+        .available_monitors()
+        .unwrap_or_default()
+        .into_iter()
+        .find(|m| {
+            current
+                .as_ref()
+                .is_none_or(|c| c.position() != m.position() || c.size() != m.size())
+        });
+    let mut builder =
+        WebviewWindowBuilder::new(&app, DISPLAY, WebviewUrl::App("index.html".into()))
+            .title("Pergament")
+            .background_color(tauri::window::Color(0, 0, 0, 255));
+    builder = match other {
+        Some(monitor) => {
+            let at = monitor.position().to_logical::<f64>(monitor.scale_factor());
+            builder.position(at.x, at.y).fullscreen(true)
+        }
+        None => builder.inner_size(1280.0, 720.0),
+    };
+    builder.build().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn close_display(app: AppHandle) -> ApiResult<()> {
+    match app.get_webview_window(DISPLAY) {
+        Some(w) => w.close().map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
 }
 
 /// Open an http(s) link in the browser. Anything else is refused.
@@ -709,6 +765,25 @@ pub fn run() {
                 ..HttpConfig::default()
             })),
         })
+        .on_window_event(|window, event| {
+            if !matches!(event, WindowEvent::Destroyed) {
+                return;
+            }
+            let app = window.app_handle();
+            match window.label() {
+                // Tell the app the display was closed, so the setting follows.
+                DISPLAY => {
+                    let _ = app.emit_to("main", "display-closed", ());
+                }
+                // The display does not outlive the app window.
+                "main" => {
+                    if let Some(display) = app.get_webview_window(DISPLAY) {
+                        let _ = display.close();
+                    }
+                }
+                _ => {}
+            }
+        })
         .setup(move |app| {
             // Downloaded recordings are played through the asset protocol, which
             // supports range requests; only the media folder is reachable.
@@ -733,6 +808,9 @@ pub fn run() {
             link_action,
             open_external,
             media_links,
+            year_text,
+            open_display,
+            close_display,
             media_category,
             download_media,
             media_downloads,

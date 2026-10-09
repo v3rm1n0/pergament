@@ -103,6 +103,13 @@ export interface MediaCategory {
   media: Media[];
 }
 
+/** The year's theme scripture (`pergament::yeartext::YearText`). */
+export interface YearText {
+  /** With the quotation marks of its language. */
+  text: string;
+  reference: string | null;
+}
+
 /** A recording saved in the library. */
 export interface MediaDownload {
   id: number;
@@ -333,6 +340,9 @@ export const api = {
     invoke<MediaDownload>("download_media", { lang, category, detailed, key, label }),
   mediaDownloads: () => invoke<MediaDownload[]>("media_downloads"),
   removeMedia: (id: number) => invoke<void>("remove_media", { id }),
+  yearText: (lang: string, year: number) => invoke<YearText | null>("year_text", { lang, year }),
+  openDisplay: () => invoke<void>("open_display"),
+  closeDisplay: () => invoke<void>("close_display"),
   removePublication: (dir: string) => invoke<void>("remove_publication", { dir }),
   importFiles: (paths: string[]) => invoke<ImportResult[]>("import_files", { paths }),
   languages: () => invoke<Language[]>("languages"),

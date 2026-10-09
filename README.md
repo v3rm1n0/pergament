@@ -123,6 +123,16 @@ missing for Debian, Fedora and Arch. It also runs straight from the web
   subtitles. The cloud button downloads a quality you pick; downloads are
   verified, kept in the library folder and listed under Downloaded. Videos
   and audio that publications link to open in the same dialog.
+  The player sits next to the sidebar and can be minimized to a bar at the
+  bottom while you keep reading; the quality is picked automatically unless
+  you choose one. Clicking a picture in a publication opens it large, with
+  zoom and its caption.
+- Settings has a "second display" option. It opens a black window, fullscreen
+  on another monitor if there is one, that shows the year text from the
+  daily text booklet. Recordings and pictures you open are shown there as
+  well, without controls, and the player here becomes the remote control.
+  Wayland compositors decide on which screen a window appears; if it opens
+  on the wrong one, move it and press F for fullscreen.
 - Meetings shows the selected week's workbook program and Watchtower study
   article from downloaded issues, with links to download the rest.
 - A Bible link opens "Parallel Translations" in a side pane: the cited verses
