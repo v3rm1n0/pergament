@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProvider, Rail, TitleStrip, useApp } from "./app";
+import { PlayerHost } from "./components/player-host";
 import { ChaptersView } from "./views/chapters";
 import { HomeView } from "./views/home";
 import { CategoryView, LibraryView } from "./views/library";
@@ -54,8 +55,11 @@ function Shell() {
       <TitleStrip />
       <div className="flex min-h-0 flex-1">
         <Rail />
-        <main className="flex min-w-0 flex-1 flex-col bg-bg">
-          <CurrentView />
+        <main className="relative flex min-w-0 flex-1 flex-col bg-bg">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <CurrentView />
+          </div>
+          <PlayerHost />
         </main>
       </div>
     </div>
