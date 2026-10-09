@@ -7,7 +7,7 @@ import { t } from "@/lib/i18n";
 
 // The list is the same for the whole session; load it once.
 let cache: Promise<Language[]> | null = null;
-function loadLanguages(): Promise<Language[]> {
+export function loadLanguages(): Promise<Language[]> {
   cache ??= api.languages().catch((e) => {
     cache = null;
     throw e;
