@@ -49,26 +49,28 @@ function FavoriteTile({ pub }: { pub: PubCard }) {
 }
 
 export function HomeView() {
-  const { lang, languageName, publications, catalogVersion, favorites, toast, push } = useApp();
+  const { lang, languageName, publications, libraryReady, catalogVersion, favorites, toast, push } = useApp();
   const [lists, setLists] = useState<HomeLists | null | undefined>(undefined);
   const { activate } = useEntryAction();
   const favoritePubs = inLanguage(publications, lang).filter((p) => favorites.includes(p.dir));
-  // Favorites that are not downloaded come from the catalog, if one is cached.
+  // Favorites that are not downloaded come from the catalog, if one is cached. A key that is not a library
+  // directory name (non-Latin symbols are cleaned there) can still resolve to a downloaded entry, which shows too.
   const missingKeys = favorites.filter((k) => !publications.some((p) => p.dir === k));
   const [extra, setExtra] = useState<CatalogEntry[]>([]);
   useEffect(() => {
-    if (missingKeys.length === 0) return setExtra([]);
+    // Until the library is read every favorite looks missing.
+    if (!libraryReady || missingKeys.length === 0) return setExtra([]);
     let live = true;
     api
       .favoriteEntries(lang, missingKeys)
-      .then((r) => live && setExtra((r ?? []).filter((e) => !e.local)))
+      .then((r) => live && setExtra(r ?? []))
       .catch(() => live && setExtra([]));
     return () => {
       live = false;
     };
     // The keys array is rebuilt on every render; its content is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang, catalogVersion, missingKeys.join("|")]);
+  }, [lang, catalogVersion, libraryReady, missingKeys.join("|")]);
 
   useEffect(() => {
     let live = true;
