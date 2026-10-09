@@ -2,12 +2,27 @@ import { MediaImg } from "@/components/media-img";
 import { useEffect, useState } from "react";
 import { BookOpen, CalendarDays, ChevronRight, Star } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
-import { api, type DatedPage, type HomeLists, type PubCard } from "@/lib/api";
+import { api, type CatalogEntry, type DatedPage, type HomeLists, type PubCard } from "@/lib/api";
 import { isoDate, longDate } from "@/lib/dates";
 import { themeScripture } from "@/lib/page";
 import { inLanguage, loadFavorites } from "@/lib/settings";
 import { t } from "@/lib/i18n";
 import { CatalogPrompt, CoverCaption, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
+
+/** First row of the Teaching Toolbox: brochures, books, then the current magazines. Everything else, such as tracts, follows on the next row. */
+const TOOLBOX_ROW = ["Brochures and Booklets", "Books", "Watchtower", "Awake!"];
+
+/** Publications the Teaching Toolbox leaves out (bh, bhs, lvs, lv, fg and jl). */
+const TOOLBOX_HIDDEN = ["bh", "bhs", "lvs", "lv", "fg", "jl"];
+
+/** Splits entries into the two toolbox rows of category groups, keeping the list order within each category. */
+function toolboxRows(entries: CatalogEntry[]): CatalogEntry[][][] {
+  const shown = entries.filter((e) => !TOOLBOX_HIDDEN.includes(e.item.symbol));
+  const group = (categories: (string | null)[]) =>
+    categories.map((c) => shown.filter((e) => e.category === c)).filter((g) => g.length > 0);
+  const others = [...new Set(shown.map((e) => e.category))].filter((c) => !TOOLBOX_ROW.includes(c ?? ""));
+  return [group(TOOLBOX_ROW), group(others)].filter((row) => row.length > 0);
+}
 
 function FavoriteTile({ pub }: { pub: PubCard }) {
   const { push } = useApp();
@@ -113,12 +128,17 @@ export function HomeView() {
           {lists && (
             <>
               <SectionTitle aside={languageName(lang)}>Teaching Toolbox</SectionTitle>
-              <div className="flex flex-wrap gap-2">
-                {lists.teachingToolbox.map((e) => (
-                  <CoverTile
-                    key={`${e.item.symbol}-${e.item.issue_tag}`}
-                    entry={e}
-                  />
+              <div className="flex flex-col gap-2">
+                {toolboxRows(lists.teachingToolbox).map((row, i) => (
+                  <div key={i} className="flex flex-wrap gap-x-6 gap-y-2">
+                    {row.map((group) => (
+                      <div key={group[0].category} className="flex flex-wrap gap-2">
+                        {group.map((e) => (
+                          <CoverTile key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 ))}
               </div>
               <SectionTitle aside={languageName(lang)}>What's New</SectionTitle>
