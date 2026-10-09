@@ -397,6 +397,44 @@ async fn catalog_cached(app: AppHandle) -> ApiResult<bool> {
         .map_err(|e| e.to_string())?
 }
 
+/// Downloaded publications that have a newer version in the catalog. Looks at
+/// the catalog only if one is cached already (this never downloads the first
+/// one) and refreshes it when it is more than a day old; without a network the
+/// cached catalog is used. `None` when there is no catalog yet.
+#[tauri::command]
+async fn check_updates(app: AppHandle) -> ApiResult<Option<Vec<api::UpdateInfo>>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        if Catalog::open_cached(&state.cache)
+            .map_err(|e| e.to_string())?
+            .is_none()
+        {
+            return Ok(None);
+        }
+        let client = Client::new(HttpConfig::default());
+        let fresh = Catalog::load(
+            &client,
+            &state.cache,
+            false,
+            Duration::from_secs(24 * 3600),
+            &mut progress(&app, "catalog"),
+        );
+        let catalog = match fresh {
+            Ok(c) => c,
+            // Offline or the server is down: the cached one is good enough.
+            Err(_) => Catalog::open_cached(&state.cache)
+                .map_err(|e| e.to_string())?
+                .ok_or("no catalog")?,
+        };
+        let found =
+            pergament::updates::available(&*state.lib()?, &catalog).map_err(|e| e.to_string())?;
+        *state.catalog.lock().map_err(|e| e.to_string())? = Some(Arc::new(Mutex::new(catalog)));
+        Ok(Some(found.into_iter().map(api::update_info).collect()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Download (or refresh) the catalog; reports `progress` events.
 #[tauri::command]
 async fn load_catalog(app: AppHandle) -> ApiResult<()> {
@@ -824,6 +862,7 @@ pub fn run() {
             research_guide,
             catalog_cached,
             load_catalog,
+            check_updates,
             home_lists,
             categories,
             category,
