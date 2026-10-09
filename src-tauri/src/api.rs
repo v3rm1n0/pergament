@@ -1,4 +1,4 @@
-//! Plain functions behind the Tauri commands, so they can be tested without
+//! P        assert_eq!(langs.iter().map(|l| l.code.as_str()).collect::<Vec<_>>(), ["X"]);ain functions behind the Tauri commands, so they can be tested without
 //! a running app. Everything returned is serialized for the frontend.
 
 use std::path::{Path, PathBuf};
@@ -310,11 +310,17 @@ pub fn languages_of(
         .iter()
         .map(|i| catalog.language_code(i.meps_language).map(str::to_owned))
         .collect();
-    Ok(entries(items, library)?
-        .into_iter()
-        .zip(codes)
-        .filter_map(|(entry, code)| Some(LanguageEntry { code: code?, entry }))
-        .collect())
+    // The catalog lists some publications more than once; keep one row per language, the downloaded one if any.
+    let mut out: Vec<LanguageEntry> = Vec::new();
+    for (entry, code) in entries(items, library)?.into_iter().zip(codes) {
+        let Some(code) = code else { continue };
+        match out.iter_mut().find(|l| l.code == code) {
+            Some(seen) if seen.entry.local.is_none() && entry.local.is_some() => seen.entry = entry,
+            Some(_) => {}
+            None => out.push(LanguageEntry { code, entry }),
+        }
+    }
+    Ok(out)
 }
 
 /// `symbol_meps[_issue]`, the library directory name of a publication, as
@@ -922,6 +928,7 @@ pub fn mime_for(path: &Path) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pergament::catalog::Catalog;
 
     #[test]
     fn parses_library_keys() {
@@ -935,6 +942,210 @@ mod tests {
         assert_eq!(parse_pub_key("nonsense"), None);
         assert_eq!(parse_pub_key("x_y"), None);
         assert_eq!(parse_pub_key("_2"), None);
+    }
+
+    /// A catalog with `w26` (August 2026) in German and English, `lff` in German only, a row listed twice
+    /// (the real catalog has such duplicates) and one whose language has no cover to derive a code from.
+    fn catalog(dir: &std::path::Path) -> Catalog {
+        let path = dir.join("catalog-test.db");
+        let c = rusqlite::Connection::open(&path).unwrap();
+        c.execute_batch(
+            "CREATE TABLE Publication (Id INTEGER PRIMARY KEY, MepsLanguageId INTEGER NOT NULL,
+                 PublicationTypeId INTEGER, IssueTagNumber INTEGER NOT NULL, Title TEXT NOT NULL,
+                 IssueTitle TEXT, ShortTitle TEXT NOT NULL, CoverTitle TEXT, Year INTEGER NOT NULL,
+                 Symbol TEXT NOT NULL, KeySymbol TEXT);
+             CREATE TABLE PublicationAsset (Id INTEGER PRIMARY KEY, PublicationId INTEGER NOT NULL,
+                 MepsLanguageId INTEGER NOT NULL, Signature TEXT NOT NULL, Size INTEGER NOT NULL,
+                 MimeType TEXT, CatalogedOn TEXT, ExpandedSize INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE ImageAsset (Id INTEGER PRIMARY KEY, NameFragment TEXT NOT NULL,
+                 Width INTEGER NOT NULL DEFAULT 270, Height INTEGER NOT NULL DEFAULT 270);
+             CREATE TABLE PublicationAssetImageMap (PublicationAssetId INTEGER, ImageAssetId INTEGER);
+             CREATE TABLE PublicationAttribute (Name TEXT, Id INTEGER PRIMARY KEY);
+             CREATE TABLE PublicationAttributeMap (PublicationId INTEGER, PublicationAttributeId INTEGER);
+             CREATE TABLE CuratedAsset (ListType INTEGER, SortOrder INTEGER, PublicationAssetId INTEGER);
+             CREATE TABLE DatedText (Class INTEGER, Start TEXT, End TEXT, PublicationId INTEGER);",
+        )
+        .unwrap();
+        // (id, meps, issue, title, symbol, key symbol)
+        let rows = [
+            (1, 2, 20260800, "Wachtturm August 2026", "w26", "w"),
+            (2, 0, 20260800, "Watchtower August 2026", "w26", "w"),
+            (3, 2, 0, "Glücklich", "lff", "lff"),
+            (4, 2, 0, "Glücklich (zweite Zeile)", "lff", "lff"),
+            (5, 99, 0, "Without a derived language code", "zz", "zz"),
+        ];
+        for (id, meps, issue, title, symbol, key) in rows {
+            c.execute(
+                "INSERT INTO Publication VALUES (?1, ?2, 14, ?3, ?4, ?4, ?4, NULL, 2026, ?5, ?6)",
+                rusqlite::params![id, meps, issue, title, symbol, key],
+            )
+            .unwrap();
+            c.execute(
+                "INSERT INTO PublicationAsset VALUES (?1, ?1, ?2, ?3, 1000, 'x', '2026-10-01T00:00:00+00:00', 2000)",
+                rusqlite::params![id, meps, format!("{id:040}")],
+            )
+            .unwrap();
+        }
+        // Cover names are the evidence for a language's code.
+        for (img, asset, name) in [
+            (1, 1, "images/aa/1_X_cvr.jpg"),
+            (2, 2, "images/bb/2_E_cvr.jpg"),
+            (3, 3, "images/cc/3_X_cvr.jpg"),
+        ] {
+            c.execute(
+                "INSERT INTO ImageAsset (Id, NameFragment) VALUES (?1, ?2)",
+                rusqlite::params![img, name],
+            )
+            .unwrap();
+            c.execute(
+                "INSERT INTO PublicationAssetImageMap VALUES (?1, ?2)",
+                rusqlite::params![asset, img],
+            )
+            .unwrap();
+        }
+        drop(c);
+        Catalog::open(&path, "test".into()).unwrap()
+    }
+
+    fn keys(entries: &[CatalogEntry]) -> Vec<String> {
+        entries
+            .iter()
+            .map(|e| {
+                format!(
+                    "{}_{}_{}",
+                    e.item.symbol, e.item.meps_language, e.item.issue_tag
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn lists_every_language_of_an_issue() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        let langs = languages_of(&cat, &lib, "w26", 20260800).unwrap();
+        let codes: Vec<_> = langs.iter().map(|l| l.code.as_str()).collect();
+        assert_eq!(codes, ["E", "X"]);
+        assert!(langs.iter().all(|l| l.entry.local.is_none()));
+    }
+
+    #[test]
+    fn languages_of_unknown_or_other_issues_is_empty() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        assert!(
+            languages_of(&cat, &lib, "w26", 20260900)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(languages_of(&cat, &lib, "nope", 0).unwrap().is_empty());
+        assert!(languages_of(&cat, &lib, "", 0).unwrap().is_empty());
+        // A quote must not break the query.
+        assert!(
+            languages_of(&cat, &lib, "w26' OR '1'='1", 0)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn languages_without_a_code_are_left_out() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        assert!(languages_of(&cat, &lib, "zz", 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_publication_listed_twice_is_one_language() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        let langs = languages_of(&cat, &lib, "lff", 0).unwrap();
+        assert_eq!(
+            langs.iter().map(|l| l.code.as_str()).collect::<Vec<_>>(),
+            ["X"]
+        );
+    }
+
+    #[test]
+    fn favorites_resolve_in_the_selected_language_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        let want = |ks: &[&str], meps| {
+            let ks: Vec<String> = ks.iter().map(|k| k.to_string()).collect();
+            keys(&favorite_entries(&cat, meps, &lib, &ks).unwrap())
+        };
+        assert_eq!(
+            want(&["w26_2_20260800", "w26_0_20260800"], 2),
+            ["w26_2_20260800"]
+        );
+        assert_eq!(
+            want(&["w26_2_20260800", "w26_0_20260800"], 0),
+            ["w26_0_20260800"]
+        );
+        assert_eq!(want(&["lff_2"], 2).len(), 1);
+    }
+
+    #[test]
+    fn favorites_skip_unknown_and_malformed_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (cat, lib) = (
+            catalog(tmp.path()),
+            Library::open(tmp.path().join("lib")).unwrap(),
+        );
+        let ks: Vec<String> = [
+            "",
+            "_",
+            "_2",
+            "nonsense",
+            "lff",
+            "lff_x",
+            "lff_2_notanumber",
+            "gone_2",
+            "w26_2_20260900",
+            "lff_2",
+        ]
+        .iter()
+        .map(|k| k.to_string())
+        .collect();
+        assert_eq!(
+            keys(&favorite_entries(&cat, 2, &lib, &ks).unwrap()),
+            ["lff_2_0"]
+        );
+        assert!(favorite_entries(&cat, 2, &lib, &[]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn keys_with_odd_numbers_do_not_panic() {
+        for k in [
+            "x_99999999999999999999",
+            "x_-1",
+            "x_2_-5",
+            "x_2_20260800_extra",
+            "é_2",
+            "a_b_c_d_e_2_20260800",
+        ] {
+            let _ = parse_pub_key(k);
+        }
+        assert_eq!(
+            parse_pub_key("a_b_c_d_e_2_20260800"),
+            Some(("a_b_c_d_e".into(), 2, 20260800))
+        );
+        assert_eq!(parse_pub_key("x_99999999999999999999"), None);
     }
 
     #[test]

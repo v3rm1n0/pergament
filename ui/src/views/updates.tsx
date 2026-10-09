@@ -3,15 +3,16 @@ import { CloudDownload } from "lucide-react";
 import { taskKey, useApp } from "@/app";
 import { api, type UpdateInfo } from "@/lib/api";
 import { CatalogPrompt, EntryImage, mb } from "@/components/catalog";
+import { TileMenu, entryTarget } from "@/components/tile-menu";
 import { Progress } from "@/components/ui/progress";
 import { t } from "@/lib/i18n";
 
 function UpdateRow({ update }: { update: UpdateInfo }) {
-  const { downloads, updates } = useApp();
+  const { downloads, updates, lang } = useApp();
   const { item } = update.entry;
   const progress = downloads[taskKey(update.entry)];
   return (
-    <div className="relative flex bg-tile">
+    <div className="group relative flex bg-tile">
       <EntryImage entry={update.entry} className="h-[88px] w-[88px] shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col px-3 py-2">
         <div className="line-clamp-2 text-[0.9rem] leading-snug">{item.issue_title || item.title}</div>
@@ -33,6 +34,7 @@ function UpdateRow({ update }: { update: UpdateInfo }) {
           <Progress value={progress.total ? (progress.done / progress.total) * 100 : null} />
         </div>
       )}
+      <TileMenu target={entryTarget(update.entry, lang)} className="text-fg drop-shadow-none" />
     </div>
   );
 }

@@ -26,6 +26,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 
 [dev-dependencies]
+rusqlite = "0.40.2"
 tempfile = "3.27.0"
 
 [features]
