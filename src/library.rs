@@ -2,7 +2,8 @@
 //!
 //! Layout below the root (default `$XDG_DATA_HOME/pergament`):
 //! `index.sqlite` and `publications/<symbol>_<lang>[_<issue>]/` holding the
-//! unpacked `contents` of each publication.
+//! unpacked `contents` of each publication, and `media/` with downloaded
+//! videos and audio.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,9 +12,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::jwpub::{self, JwPub, Limits, PublicationInfo};
+use crate::links::MediaKind;
 use crate::{Error, Result};
 
 const PUBLICATIONS: &str = "publications";
+const MEDIA: &str = "media";
 
 /// An imported publication as recorded in the index.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -79,6 +82,21 @@ impl Library {
                  contents_hash    TEXT    NOT NULL,
                  imported_at      INTEGER NOT NULL,
                  UNIQUE (symbol, meps_language, issue_tag)
+             );
+             CREATE TABLE IF NOT EXISTS media (
+                 id            INTEGER PRIMARY KEY,
+                 key           TEXT    NOT NULL,
+                 lang_code     TEXT    NOT NULL,
+                 title         TEXT    NOT NULL,
+                 kind          TEXT    NOT NULL,
+                 label         TEXT    NOT NULL,
+                 file_name     TEXT    NOT NULL UNIQUE,
+                 subtitle_file TEXT,
+                 size          INTEGER NOT NULL,
+                 duration      REAL,
+                 image         TEXT,
+                 downloaded_at INTEGER NOT NULL,
+                 UNIQUE (key, lang_code)
              );",
         )?;
         // Added after the first release of the index.
@@ -262,6 +280,180 @@ impl Library {
     }
 }
 
+/// A downloaded recording as recorded in the index.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaEntry {
+    pub id: i64,
+    /// `naturalKey` of the recording, unique per language.
+    pub key: String,
+    pub lang_code: String,
+    pub title: String,
+    pub kind: MediaKind,
+    /// Quality such as `480p`; empty for audio.
+    pub label: String,
+    /// File name below `media/`.
+    pub file_name: String,
+    /// WebVTT file name below `media/`, if captions were saved.
+    pub subtitle_file: Option<String>,
+    pub size: i64,
+    pub duration: Option<f64>,
+    /// Thumbnail path below [`crate::mediator::IMAGE_BASE`].
+    pub image: Option<String>,
+    pub downloaded_at: i64,
+}
+
+const MEDIA_COLUMNS: &str = "id, key, lang_code, title, kind, label, file_name, subtitle_file, \
+     size, duration, image, downloaded_at";
+
+fn row_to_media(r: &rusqlite::Row<'_>) -> rusqlite::Result<MediaEntry> {
+    let kind: String = r.get(4)?;
+    Ok(MediaEntry {
+        id: r.get(0)?,
+        key: r.get(1)?,
+        lang_code: r.get(2)?,
+        title: r.get(3)?,
+        kind: if kind == "audio" {
+            MediaKind::Audio
+        } else {
+            MediaKind::Video
+        },
+        label: r.get(5)?,
+        file_name: r.get(6)?,
+        subtitle_file: r.get(7)?,
+        size: r.get(8)?,
+        duration: r.get(9)?,
+        image: r.get(10)?,
+        downloaded_at: r.get(11)?,
+    })
+}
+
+/// File name stem for a recording: only `[A-Za-z0-9_-]` survive.
+pub fn media_stem(key: &str, lang_code: &str, label: &str) -> String {
+    let clean = |s: &str| -> String {
+        s.chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect()
+    };
+    let label = clean(label);
+    if label.is_empty() {
+        format!("{}_{}", clean(key), clean(lang_code))
+    } else {
+        format!("{}_{}_{label}", clean(key), clean(lang_code))
+    }
+}
+
+impl Library {
+    /// Directory holding downloaded recordings.
+    pub fn media_dir(&self) -> PathBuf {
+        self.root.join(MEDIA)
+    }
+
+    /// Record a downloaded recording whose files are already in
+    /// [`Library::media_dir`]. An earlier download of the same recording
+    /// (another quality) is replaced and its files deleted.
+    pub fn add_media(&self, entry: &MediaEntry) -> Result<MediaEntry> {
+        let old = self.find_media(&entry.key, &entry.lang_code)?;
+        self.index.execute(
+            "INSERT INTO media (key, lang_code, title, kind, label, file_name, subtitle_file,
+                                size, duration, image, downloaded_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+             ON CONFLICT (key, lang_code) DO UPDATE SET
+                title = excluded.title, kind = excluded.kind, label = excluded.label,
+                file_name = excluded.file_name, subtitle_file = excluded.subtitle_file,
+                size = excluded.size, duration = excluded.duration, image = excluded.image,
+                downloaded_at = excluded.downloaded_at",
+            params![
+                entry.key,
+                entry.lang_code,
+                entry.title,
+                match entry.kind {
+                    MediaKind::Audio => "audio",
+                    MediaKind::Video => "video",
+                },
+                entry.label,
+                entry.file_name,
+                entry.subtitle_file,
+                entry.size,
+                entry.duration,
+                entry.image,
+                entry.downloaded_at,
+            ],
+        )?;
+        if let Some(old) = old {
+            let keep = |f: &str| f == entry.file_name || entry.subtitle_file.as_deref() == Some(f);
+            for f in [Some(old.file_name), old.subtitle_file]
+                .into_iter()
+                .flatten()
+            {
+                if !keep(&f) {
+                    let _ = fs::remove_file(self.media_dir().join(f));
+                }
+            }
+        }
+        self.find_media(&entry.key, &entry.lang_code)?
+            .ok_or_else(|| Error::NotFound(entry.key.clone()))
+    }
+
+    pub fn find_media(&self, key: &str, lang_code: &str) -> Result<Option<MediaEntry>> {
+        Ok(self
+            .index
+            .query_row(
+                &format!("SELECT {MEDIA_COLUMNS} FROM media WHERE key = ?1 AND lang_code = ?2"),
+                [key, lang_code],
+                row_to_media,
+            )
+            .optional()?)
+    }
+
+    pub fn get_media(&self, id: i64) -> Result<Option<MediaEntry>> {
+        Ok(self
+            .index
+            .query_row(
+                &format!("SELECT {MEDIA_COLUMNS} FROM media WHERE id = ?1"),
+                [id],
+                row_to_media,
+            )
+            .optional()?)
+    }
+
+    /// Downloaded recordings, newest first. Entries whose file has gone
+    /// missing are left out.
+    pub fn list_media(&self) -> Result<Vec<MediaEntry>> {
+        let mut stmt = self.index.prepare(&format!(
+            "SELECT {MEDIA_COLUMNS} FROM media ORDER BY downloaded_at DESC, id DESC"
+        ))?;
+        let dir = self.media_dir();
+        let rows = stmt.query_map([], row_to_media)?;
+        Ok(rows
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|m| dir.join(&m.file_name).is_file())
+            .collect())
+    }
+
+    /// Delete a downloaded recording and its files.
+    pub fn remove_media(&self, id: i64) -> Result<bool> {
+        let Some(entry) = self.get_media(id)? else {
+            return Ok(false);
+        };
+        self.index
+            .execute("DELETE FROM media WHERE id = ?1", [id])?;
+        for f in [Some(entry.file_name), entry.subtitle_file]
+            .into_iter()
+            .flatten()
+        {
+            let _ = fs::remove_file(self.media_dir().join(f));
+        }
+        Ok(true)
+    }
+}
+
 const COLUMNS: &str = "symbol, meps_language, issue_tag, year, title, short_title, \
      publication_type, dir_name, db_file, contents_hash, imported_at, lang_code";
 
@@ -385,5 +577,76 @@ mod tests {
         // Opening again must not fail on the existing column.
         drop(lib);
         Library::open(tmp.path()).unwrap();
+    }
+
+    fn media_entry(label: &str) -> MediaEntry {
+        MediaEntry {
+            id: 0,
+            key: "pub-nwtsv_X_1_VIDEO".into(),
+            lang_code: "X".into(),
+            title: "Einführung".into(),
+            kind: MediaKind::Video,
+            label: label.into(),
+            file_name: format!("{}.mp4", media_stem("pub-nwtsv_X_1_VIDEO", "X", label)),
+            subtitle_file: Some(format!(
+                "{}.vtt",
+                media_stem("pub-nwtsv_X_1_VIDEO", "X", label)
+            )),
+            size: 4,
+            duration: Some(327.7),
+            image: None,
+            downloaded_at: 1,
+        }
+    }
+
+    fn write_media(lib: &Library, e: &MediaEntry) {
+        fs::create_dir_all(lib.media_dir()).unwrap();
+        fs::write(lib.media_dir().join(&e.file_name), "data").unwrap();
+        fs::write(
+            lib.media_dir().join(e.subtitle_file.as_ref().unwrap()),
+            "WEBVTT",
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn media_downloads() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lib = Library::open(tmp.path()).unwrap();
+        assert!(lib.list_media().unwrap().is_empty());
+
+        let a = media_entry("240p");
+        write_media(&lib, &a);
+        let saved = lib.add_media(&a).unwrap();
+        assert_eq!(saved.label, "240p");
+        assert_eq!(lib.list_media().unwrap().len(), 1);
+
+        // Another quality of the same recording replaces the first one.
+        let b = media_entry("480p");
+        write_media(&lib, &b);
+        let saved = lib.add_media(&b).unwrap();
+        assert_eq!(lib.list_media().unwrap(), vec![saved.clone()]);
+        assert!(!lib.media_dir().join(&a.file_name).exists());
+        assert!(!lib.media_dir().join(a.subtitle_file.unwrap()).exists());
+        assert!(lib.media_dir().join(&b.file_name).is_file());
+
+        // A file that went missing hides the entry.
+        fs::remove_file(lib.media_dir().join(&b.file_name)).unwrap();
+        assert!(lib.list_media().unwrap().is_empty());
+        write_media(&lib, &b);
+
+        assert!(lib.remove_media(saved.id).unwrap());
+        assert!(!lib.remove_media(saved.id).unwrap());
+        assert!(!lib.media_dir().join(&b.file_name).exists());
+        assert!(lib.list_media().unwrap().is_empty());
+    }
+
+    #[test]
+    fn media_stems_are_plain() {
+        assert_eq!(
+            media_stem("pub-a_X_1_VIDEO", "X", "480p"),
+            "pub-a_X_1_VIDEO_X_480p"
+        );
+        assert_eq!(media_stem("../x/y", "X", ""), "___x_y_X");
     }
 }
