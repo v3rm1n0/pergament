@@ -29,7 +29,7 @@ export const de: Record<string, string> = {
   "Open {title}": "{title} öffnen",
   "Download {title}": "{title} herunterladen",
   Favorites: "Favoriten",
-  "Add favorites with the star in a publication": "Favoriten fügst du mit dem Stern in einer Publikation hinzu",
+  "Add favorites with the menu of a tile": "Favoriten fügst du über das Menü einer Kachel hinzu",
   "What's New": "Neuerscheinungen",
   "Teaching Toolbox": "Werkzeug zum Lehren",
   "Add to favorites": "Zu Favoriten hinzufügen",

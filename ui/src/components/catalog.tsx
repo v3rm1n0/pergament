@@ -6,6 +6,7 @@ import { taskKey, useApp } from "@/app";
 import type { CatalogEntry } from "@/lib/api";
 import { ago } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { TileMenu, entryTarget } from "@/components/tile-menu";
 import { Progress } from "@/components/ui/progress";
 import { t } from "@/lib/i18n";
 
@@ -72,70 +73,82 @@ export function CoverCaption({ children }: { children: ReactNode }) {
 /** Square cover tile with a caption, as in the Teaching Toolbox. */
 export function CoverTile({ entry, label }: { entry: CatalogEntry; label?: string }) {
   const { activate } = useEntryAction();
+  const { lang } = useApp();
   return (
-    <button onClick={() => void activate(entry)} className="group w-[88px] text-left" title={entry.item.title}>
-      <div className="relative">
-        <EntryImage entry={entry} className="h-[88px] w-[88px]" />
-        {!entry.local && (
-          <CloudDownload
-            size={18}
-            strokeWidth={1.6}
-            className="absolute bottom-1 right-1 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
-          />
-        )}
-        <ProgressOverlay entry={entry} />
-      </div>
-      <CoverCaption>{label ?? entry.item.short_title ?? entry.item.title}</CoverCaption>
-    </button>
+    <div className="group relative w-[88px]">
+      <button onClick={() => void activate(entry)} className="w-full text-left" title={entry.item.title}>
+        <div className="relative">
+          <EntryImage entry={entry} className="h-[88px] w-[88px]" />
+          {!entry.local && (
+            <CloudDownload
+              size={18}
+              strokeWidth={1.6}
+              className="absolute bottom-1 right-1 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+            />
+          )}
+          <ProgressOverlay entry={entry} />
+        </div>
+        <CoverCaption>{label ?? entry.item.short_title ?? entry.item.title}</CoverCaption>
+      </button>
+      <TileMenu target={entryTarget(entry, lang)} />
+    </div>
   );
 }
 
 /** Wide card with thumbnail, category, title, language, age and size. */
 export function EntryCard({ entry, language, footer }: { entry: CatalogEntry; language: string; footer?: ReactNode }) {
   const { activate } = useEntryAction();
+  const { lang } = useApp();
   return (
-    <button
-      onClick={() => void activate(entry)}
-      className="relative flex h-[88px] w-[300px] shrink-0 bg-tile text-left hover:brightness-110"
-    >
-      <EntryImage entry={entry} className="h-[88px] w-[88px] shrink-0" />
-      <div className="flex min-w-0 flex-1 flex-col px-3 py-2">
-        <div className="truncate text-xs text-fg/70">{entry.category && t(entry.category)}</div>
-        <div className="line-clamp-2 text-[0.9rem] leading-snug">{entry.item.issue_title || entry.item.title}</div>
-        <div className="mt-auto flex items-end justify-between text-xs text-fg/70">
-          <span>{footer ?? `${language} · ${ago(entry.item.cataloged_on)}`}</span>
-          <span className="flex flex-col items-end">
-            {entry.local ? <BookOpen size={17} strokeWidth={1.5} /> : <CloudDownload size={17} strokeWidth={1.5} />}
-            {mb(entry.item.size)}
-          </span>
+    <div className="group relative h-[88px] w-[300px] shrink-0">
+      <button
+        onClick={() => void activate(entry)}
+        className="relative flex h-full w-full bg-tile text-left hover:brightness-110"
+      >
+        <EntryImage entry={entry} className="h-[88px] w-[88px] shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col px-3 py-2">
+          <div className="truncate text-xs text-fg/70">{entry.category && t(entry.category)}</div>
+          <div className="line-clamp-2 text-[0.9rem] leading-snug">{entry.item.issue_title || entry.item.title}</div>
+          <div className="mt-auto flex items-end justify-between text-xs text-fg/70">
+            <span>{footer ?? `${language} · ${ago(entry.item.cataloged_on)}`}</span>
+            <span className="flex flex-col items-end">
+              {entry.local ? <BookOpen size={17} strokeWidth={1.5} /> : <CloudDownload size={17} strokeWidth={1.5} />}
+              {mb(entry.item.size)}
+            </span>
+          </div>
         </div>
-      </div>
-      <ProgressOverlay entry={entry} />
-    </button>
+        <ProgressOverlay entry={entry} />
+      </button>
+      <TileMenu target={entryTarget(entry, lang)} />
+    </div>
   );
 }
 
 /** Large grid card for category pages. */
 export function GridCard({ entry }: { entry: CatalogEntry }) {
   const { activate } = useEntryAction();
+  const { lang } = useApp();
   return (
-    <button onClick={() => void activate(entry)} className="group text-left" title={entry.item.title}>
-      <div className="relative">
-        <EntryImage entry={entry} className="aspect-square w-full" />
-        {!entry.local && (
-          <CloudDownload
-            size={20}
-            strokeWidth={1.6}
-            className="absolute bottom-1.5 right-1.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
-          />
-        )}
-        <ProgressOverlay entry={entry} />
-      </div>
-      <div className="mt-1.5 line-clamp-2 text-[0.8rem] leading-snug group-hover:underline">
-        {entry.item.issue_title || entry.item.short_title || entry.item.title}
-      </div>
-      {entry.item.size > 0 && <div className="text-[0.7rem] text-muted">{mb(entry.item.size)}</div>}
-    </button>
+    <div className="group relative">
+      <button onClick={() => void activate(entry)} className="w-full text-left" title={entry.item.title}>
+        <div className="relative">
+          <EntryImage entry={entry} className="aspect-square w-full" />
+          {!entry.local && (
+            <CloudDownload
+              size={20}
+              strokeWidth={1.6}
+              className="absolute bottom-1.5 right-1.5 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+            />
+          )}
+          <ProgressOverlay entry={entry} />
+        </div>
+        <div className="mt-1.5 line-clamp-2 text-[0.8rem] leading-snug group-hover:underline">
+          {entry.item.issue_title || entry.item.short_title || entry.item.title}
+        </div>
+        {entry.item.size > 0 && <div className="text-[0.7rem] text-muted">{mb(entry.item.size)}</div>}
+      </button>
+      <TileMenu target={entryTarget(entry, lang)} />
+    </div>
   );
 }
 
