@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { de } from "@/lib/de";
+import { de } from "@/locales/de";
 import { ago } from "@/lib/dates";
 import { resolveUiLang, setUiLang, t } from "@/lib/i18n";
 
