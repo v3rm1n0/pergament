@@ -44,7 +44,8 @@ does not scrape pages, and it is not meant for commercial use.
 
 Pergament sends no telemetry. The only network traffic goes to jw.org's
 public catalog and download services, and only when you search, download or
-play a recording.
+play a recording, or when the startup check for updates refreshes a catalog
+you have loaded before.
 Imported files are treated as untrusted: hashes are verified, archives are
 unpacked with path and size checks, and rendered HTML is sanitized.
 
@@ -127,6 +128,13 @@ missing for Debian, Fedora and Arch. It also runs straight from the web
   bottom while you keep reading; the quality is picked automatically unless
   you choose one. Clicking a picture in a publication opens it large, with
   zoom and its caption.
+- The Updates tab of the Library lists downloaded publications that have a newer
+  version in the catalog, with a button per publication and "Update all". At
+  startup the app compares your publications with the catalog; this only
+  happens if you have loaded the catalog before, the catalog is refreshed at
+  most once a day, and Settings can turn it off. Updating downloads the new
+  version and replaces the old one. Highlights, notes and bookmarks are kept
+  because they are stored apart from the publications.
 - Settings has a "second display" option. It opens a black window, fullscreen
   on another monitor if there is one, that shows the year text from the
   daily text booklet. Recordings and pictures you open are shown there as

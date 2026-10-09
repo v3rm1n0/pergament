@@ -5,6 +5,7 @@ import {
   BookText,
   CalendarClock,
   Castle,
+  CloudDownload,
   FileText,
   GraduationCap,
   Layers,
@@ -16,7 +17,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { AppBar, useApp } from "@/app";
+import { AppBar, BarButton, taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Category, type PubCard } from "@/lib/api";
 import { inLanguage } from "@/lib/settings";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ import { HomeLibraryGrid } from "./downloaded";
 import { importedOnly, mergeCategories, sectionsFor } from "@/lib/types";
 import type { LibraryTab } from "@/lib/nav";
 import { DownloadedRecordings, MediaTab } from "./media";
+import { UpdatesTab } from "./updates";
 import { useMediaDownloads } from "@/components/media-card";
 import { t } from "@/lib/i18n";
 
@@ -47,7 +49,8 @@ const ICONS: Record<number, LucideIcon> = {
 };
 
 function Tabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab) => void }) {
-  const tab = (id: LibraryTab, label: string) => (
+  const { updates } = useApp();
+  const tab = (id: LibraryTab, label: string, badge = 0) => (
     <button
       onClick={() => onChange(id)}
       className={cn(
@@ -56,6 +59,11 @@ function Tabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab
       )}
     >
       {label}
+      {badge > 0 && (
+        <span className="ml-1.5 rounded-full bg-accent px-1.5 text-[0.7rem] font-semibold normal-case text-white">
+          {badge}
+        </span>
+      )}
     </button>
   );
   return (
@@ -64,6 +72,7 @@ function Tabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab
       {tab("video", t("Video"))}
       {tab("audio", t("Audio"))}
       {tab("downloaded", t("Downloaded"))}
+      {tab("updates", t("Updates"), updates.items.length)}
     </div>
   );
 }
@@ -82,7 +91,8 @@ function DownloadedTab({ pubs }: { pubs: PubCard[] }) {
 }
 
 export function LibraryView({ tab = "publications" }: { tab?: LibraryTab }) {
-  const { lang, languageName, replace, push, catalogVersion, toast, publications } = useApp();
+  const { lang, languageName, replace, push, catalogVersion, toast, publications, updates, downloads } = useApp();
+  const updating = updates.items.some((u) => downloads[taskKey(u.entry)]);
   const [categories, setCategories] = useState<Category[] | null | undefined>(undefined);
   const local = inLanguage(publications, lang);
   const shownCategories = mergeCategories(categories ?? [], local);
@@ -103,11 +113,19 @@ export function LibraryView({ tab = "publications" }: { tab?: LibraryTab }) {
 
   return (
     <>
-      <AppBar title={t("Library")} subtitle={languageName(lang)} />
+      <AppBar title={t("Library")} subtitle={languageName(lang)}>
+        {tab === "updates" && updates.items.length > 0 && (
+          <BarButton label="Update all" disabled={updating} onClick={() => void updates.updateAll()}>
+            <CloudDownload size={21} strokeWidth={1.5} />
+          </BarButton>
+        )}
+      </AppBar>
       <Tabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
       <div className="flex-1 overflow-y-auto px-5 py-5">
         {tab === "video" || tab === "audio" ? (
           <MediaTab kind={tab} />
+        ) : tab === "updates" ? (
+          <UpdatesTab />
         ) : tab === "downloaded" ? (
           <DownloadedTab pubs={local} />
         ) : categories === null && shownCategories.length === 0 ? (
