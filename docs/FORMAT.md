@@ -263,6 +263,41 @@ quality: `title`, `label` (`240p`, `360p`, …), `mimetype`, `filesize`,
 `trackImage.url` (poster) and `subtitles.url` (WebVTT). Pergament streams
 `file.url` in the app and stores nothing; subtitles are not used yet. [own]
 
+### Media catalog (mediator)
+
+The Video and Audio tabs come from the public catalog the website uses; it
+needs no token. Checked with live requests on 2026-10-09, German. [own]
+
+`GET https://b.jw-cdn.org/apis/mediator/v1/categories/{CODE}/{key}?detailed={0|1}`
+
+- Root keys: `VideoOnDemand` (14 containers such as `VODBible`, 32 KB with
+  `detailed=0`) and `Audio` (13 lists, 1.4 MB, recordings included).
+  `detailed=1` on a container adds the recordings of its subcategories
+  (`VODBible`: 8 sections, 382 recordings, 1.9 MB). A leaf (`type`
+  `ondemand`, e.g. `VODBibleReadingStudy`, `AudioInternationalMusic`) has
+  `media[]`. An unknown key returns HTTP 404.
+- `category`: `key`, `name`, `type` (`container` or `ondemand`), `images`,
+  `subcategories[]`, `media[]`.
+- `media[]`: `naturalKey` (`pub-nwtsv_X_1_VIDEO`, the language-agnostic form
+  is `languageAgnosticNaturalKey`), `type` (`video` or `audio`), `title`,
+  `duration` (seconds), `firstPublished`, `images`, `files[]`.
+- `files[]`, one per quality: `progressiveDownloadURL` (on
+  `cfp2.jw-cdn.org`), `checksum` (MD5), `filesize`, `label` (`240p` to
+  `720p`; **`null` for audio**), `frameHeight`, `mimetype`, `duration` and
+  `subtitles.url` (WebVTT, sometimes present with `subtitled: false`).
+  `label` is not the real height: `480p` has `frameHeight` 540.
+- `images`: `{kind: {size: url}}` with kinds `wss`/`lsr`/`wsr` (wide),
+  `sqr`/`sqs` (square) and `pnr` (panorama), sizes `sm`, `md`, `lg`, `xl`. They are
+  on `https://cms-imgp.jw-cdn.org/img/…`.
+- Files and VTT answer with `access-control-allow-origin: *` and `Range`
+  requests, so a webview can stream them and load captions.
+
+Pergament caches each response for six hours under `mediator/` in the cache
+folder and uses a stale copy when the network fails. It saves one quality of a
+recording per language under `media/` in the library and records it in the
+`media` table of `index.sqlite`; the MD5 and size from the catalog are
+verified, the captions are saved next to the file.
+
 ## Dated texts inside publications
 
 Publications carry their own `DatedText` table: `DocumentId`, `Link`,
@@ -339,7 +374,7 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   `data-vlid`.
 - `BibleCitation.MarginalClassification`, `SortPosition`.
 - The suffix in publication links like `jwpub://p/X:1001070144/1-1`.
-- `VerseMultimediaMap` (media attached to verses) and the Bible book intro videos (`DocumentMultimedia`) are not shown yet; only recordings linked from the text play.
+- `VerseMultimediaMap` (media attached to verses) and the Bible book intro videos (`DocumentMultimedia`) are not shown yet; only recordings linked from the text and those in the Video and Audio tabs play.
 - Full list of `Document.Class`/`Type` values across other publication types.
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.

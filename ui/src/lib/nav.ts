@@ -1,5 +1,7 @@
 import type { Target } from "./api";
 
+export type LibraryTab = "publications" | "video" | "audio" | "downloaded";
+
 export type View =
   | { name: "home" }
   | { name: "publication"; dir: string; tab?: number }
@@ -7,8 +9,9 @@ export type View =
   | { name: "reader"; target: Target; note?: boolean }
   | { name: "online" }
   | { name: "settings" }
-  | { name: "library"; tab?: "publications" | "downloaded" }
+  | { name: "library"; tab?: LibraryTab }
   | { name: "category"; id: number; title: string }
+  | { name: "media"; key: string; title: string }
   | { name: "meetings" }
   | { name: "personal" };
 
