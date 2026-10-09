@@ -117,6 +117,12 @@ missing for Debian, Fedora and Arch. It also runs straight from the web
   Watchtower and Awake! by year. Downloaded publications are grouped by the
   type in their manifest, so types the catalog doesn't list, such as
   Curriculum and Outlines, show up once you import one.
+- The Video and Audio tabs of the Library list the public video and audio
+  categories. A click on a thumbnail streams the recording in a dialog that
+  uses the system's own media controls, with quality, speed, repeat and
+  subtitles. The cloud button downloads a quality you pick; downloads are
+  verified, kept in the library folder and listed under Downloaded. Videos
+  and audio that publications link to open in the same dialog.
 - Meetings shows the selected week's workbook program and Watchtower study
   article from downloaded issues, with links to download the rest.
 - A Bible link opens "Parallel Translations" in a side pane: the cited verses

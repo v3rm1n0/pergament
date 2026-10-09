@@ -4,6 +4,7 @@ import { AppProvider, Rail, TitleStrip, useApp } from "./app";
 import { ChaptersView } from "./views/chapters";
 import { HomeView } from "./views/home";
 import { CategoryView, LibraryView } from "./views/library";
+import { MediaCategoryView } from "./views/media";
 import { MeetingsView } from "./views/meetings";
 import { OnlineView } from "./views/online";
 import { PersonalView } from "./views/personal";
@@ -31,6 +32,8 @@ function CurrentView() {
       return <LibraryView tab={view.tab} />;
     case "category":
       return <CategoryView key={view.id} id={view.id} title={view.title} />;
+    case "media":
+      return <MediaCategoryView key={view.key} catKey={view.key} title={view.title} />;
     case "meetings":
       return <MeetingsView />;
     case "personal":

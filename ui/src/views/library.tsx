@@ -17,12 +17,15 @@ import {
   Users,
 } from "lucide-react";
 import { AppBar, useApp } from "@/app";
-import { api, type CatalogEntry, type Category } from "@/lib/api";
+import { api, type CatalogEntry, type Category, type PubCard } from "@/lib/api";
 import { inLanguage } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { CatalogPrompt, GridCard } from "@/components/catalog";
 import { HomeLibraryGrid } from "./downloaded";
 import { importedOnly, mergeCategories, sectionsFor } from "@/lib/types";
+import type { LibraryTab } from "@/lib/nav";
+import { DownloadedRecordings, MediaTab } from "./media";
+import { useMediaDownloads } from "@/components/media-card";
 import { t } from "@/lib/i18n";
 
 /** Icons per category id (see CATEGORIES in src/catalog.rs). */
@@ -43,8 +46,8 @@ const ICONS: Record<number, LucideIcon> = {
   [-3]: Mic,
 };
 
-function Tabs({ value, onChange }: { value: string; onChange: (v: "publications" | "downloaded") => void }) {
-  const tab = (id: "publications" | "downloaded", label: string) => (
+function Tabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab) => void }) {
+  const tab = (id: LibraryTab, label: string) => (
     <button
       onClick={() => onChange(id)}
       className={cn(
@@ -58,12 +61,27 @@ function Tabs({ value, onChange }: { value: string; onChange: (v: "publications"
   return (
     <div className="flex gap-3 bg-bar px-3">
       {tab("publications", t("Publications"))}
+      {tab("video", t("Video"))}
+      {tab("audio", t("Audio"))}
       {tab("downloaded", t("Downloaded"))}
     </div>
   );
 }
 
-export function LibraryView({ tab = "publications" }: { tab?: "publications" | "downloaded" }) {
+/** Downloaded recordings and publications. */
+function DownloadedTab({ pubs }: { pubs: PubCard[] }) {
+  const { lang } = useApp();
+  const store = useMediaDownloads();
+  const mine = store.list.filter((m) => m.langCode === lang);
+  return (
+    <>
+      <DownloadedRecordings items={mine} store={store} />
+      {(pubs.length > 0 || mine.length === 0) && <HomeLibraryGrid pubs={pubs} />}
+    </>
+  );
+}
+
+export function LibraryView({ tab = "publications" }: { tab?: LibraryTab }) {
   const { lang, languageName, replace, push, catalogVersion, toast, publications } = useApp();
   const [categories, setCategories] = useState<Category[] | null | undefined>(undefined);
   const local = inLanguage(publications, lang);
@@ -88,8 +106,10 @@ export function LibraryView({ tab = "publications" }: { tab?: "publications" | "
       <AppBar title={t("Library")} subtitle={languageName(lang)} />
       <Tabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
       <div className="flex-1 overflow-y-auto px-5 py-5">
-        {tab === "downloaded" ? (
-          <HomeLibraryGrid pubs={local} />
+        {tab === "video" || tab === "audio" ? (
+          <MediaTab kind={tab} />
+        ) : tab === "downloaded" ? (
+          <DownloadedTab pubs={local} />
         ) : categories === null && shownCategories.length === 0 ? (
           <CatalogPrompt />
         ) : (
