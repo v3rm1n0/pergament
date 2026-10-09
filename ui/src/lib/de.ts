@@ -250,4 +250,23 @@ export const de: Record<string, string> = {
   "Zoom in": "Vergrößern",
   "Zoom out": "Verkleinern",
   "Reset zoom": "Zoom zurücksetzen",
+  // Updates
+  Updates: "Aktualisierungen",
+  Update: "Aktualisieren",
+  "Update all": "Alle aktualisieren",
+  "Update {title}": "{title} aktualisieren",
+  "Check now": "Jetzt prüfen",
+  "Checking…": "Wird geprüft…",
+  "All downloaded publications are up to date.": "Alle heruntergeladenen Publikationen sind auf dem neuesten Stand.",
+  "1 publication has an update.": "Für 1 Publikation gibt es eine Aktualisierung.",
+  "{count} publications have updates.": "Für {count} Publikationen gibt es Aktualisierungen.",
+  "1 publication update is available": "Eine Aktualisierung für eine Publikation ist verfügbar",
+  "{count} publication updates are available": "{count} Aktualisierungen für Publikationen sind verfügbar",
+  Show: "Anzeigen",
+  "Update check failed: {error}": "Die Prüfung auf Aktualisierungen ist fehlgeschlagen: {error}",
+  "Updating downloads the new version and replaces the old one. Your highlights, notes and bookmarks are kept.":
+    "Beim Aktualisieren wird die neue Version heruntergeladen und ersetzt die alte. Deine Markierungen, Notizen und Lesezeichen bleiben erhalten.",
+  "Check for publication updates at startup": "Beim Start auf Aktualisierungen von Publikationen prüfen",
+  "Compares your downloaded publications with the catalog, which is refreshed at most once a day, and only if you have loaded the catalog before. Nothing is downloaded until you update.":
+    "Vergleicht deine heruntergeladenen Publikationen mit dem Katalog, der höchstens einmal am Tag aktualisiert wird, und nur, wenn du den Katalog schon einmal geladen hast. Es wird nichts heruntergeladen, bis du aktualisierst.",
 };

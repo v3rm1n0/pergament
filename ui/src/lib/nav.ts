@@ -1,6 +1,6 @@
 import type { Target } from "./api";
 
-export type LibraryTab = "publications" | "video" | "audio" | "downloaded";
+export type LibraryTab = "publications" | "video" | "audio" | "updates" | "downloaded";
 
 export type View =
   | { name: "home" }

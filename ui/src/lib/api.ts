@@ -103,6 +103,15 @@ export interface MediaCategory {
   media: Media[];
 }
 
+/** A downloaded publication with a newer version in the catalog (`pergament_app::api::UpdateInfo`). */
+export interface UpdateInfo {
+  dir: string;
+  langCode: string;
+  installedSize: number;
+  /** The new version; `local` is the installed directory. */
+  entry: CatalogEntry;
+}
+
 /** The year's theme scripture (`pergament::yeartext::YearText`). */
 export interface YearText {
   /** With the quotation marks of its language. */
@@ -340,6 +349,8 @@ export const api = {
     invoke<MediaDownload>("download_media", { lang, category, detailed, key, label }),
   mediaDownloads: () => invoke<MediaDownload[]>("media_downloads"),
   removeMedia: (id: number) => invoke<void>("remove_media", { id }),
+  /** `null` when no catalog is cached yet. */
+  checkUpdates: () => invoke<UpdateInfo[] | null>("check_updates"),
   yearText: (lang: string, year: number) => invoke<YearText | null>("year_text", { lang, year }),
   openDisplay: () => invoke<void>("open_display"),
   closeDisplay: () => invoke<void>("close_display"),
