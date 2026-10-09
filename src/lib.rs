@@ -17,6 +17,7 @@ pub mod reader;
 pub mod remote;
 pub mod render;
 pub mod userdata;
+pub mod yeartext;
 
 pub use error::{Error, Result};
 pub use jwpub::JwPub;

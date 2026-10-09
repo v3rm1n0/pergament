@@ -1,7 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProvider, Rail, TitleStrip, useApp } from "./app";
+import { ImageViewer } from "./components/image-viewer";
 import { PlayerHost } from "./components/player-host";
+import { isDisplayWindow } from "./lib/display";
+import { DisplayView } from "./views/display";
 import { ChaptersView } from "./views/chapters";
 import { HomeView } from "./views/home";
 import { CategoryView, LibraryView } from "./views/library";
@@ -60,16 +63,22 @@ function Shell() {
             <CurrentView />
           </div>
           <PlayerHost />
+          <ImageViewer />
         </main>
       </div>
     </div>
   );
 }
 
+// The second display is the same page in another window; it shows only what the app sends.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AppProvider>
-      <Shell />
-    </AppProvider>
+    {isDisplayWindow() ? (
+      <DisplayView />
+    ) : (
+      <AppProvider>
+        <Shell />
+      </AppProvider>
+    )}
   </StrictMode>,
 );

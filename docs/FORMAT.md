@@ -177,6 +177,10 @@ HTML fragments (no `<html>`/`<body>`), with elements carrying
   per-chapter study note documents (`Document.Class` 118), split per verse;
   they exist from Matthew 1:1 (`BibleVerseId` 23261) on.
 - **External links**: `https://www.jw.org/finder?wtlocale=X&docid=…`.
+- **Year text**: the title page of the daily text booklet (`es26` for 2026, the
+  document with `Document.Class` 18) has `<p class="sn">Jahrestext „…“ (<a …>Matthäus 5:3</a>)</p>`.
+  The words before the first quotation mark are the label, the last link is the
+  reference. [own]
 - **Images**: `<figure><img src="jwpub-media://{Multimedia.FilePath}" alt=… width=… height=…>`.
   The file is inside `contents`.
 - Styling classes are site CSS (`du-*`, `dc-*`), which is not part of the file.

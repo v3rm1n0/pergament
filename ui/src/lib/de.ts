@@ -241,4 +241,13 @@ export const de: Record<string, string> = {
   Volume: "Lautstärke",
   Position: "Position",
   Auto: "Automatisch",
+  "Second display": "Zweiter Bildschirm",
+  "Use a second display": "Zweiten Bildschirm verwenden",
+  "Opens a black window, fullscreen on another monitor if there is one, that shows the year text. Recordings and pictures you open are shown there too, without controls. If the window opens on the wrong screen, move it there and press F to switch to fullscreen.":
+    "Öffnet ein schwarzes Fenster, wenn möglich im Vollbild auf einem anderen Monitor, das den Jahrestext zeigt. Aufnahmen und Bilder, die du öffnest, erscheinen dort ebenfalls, ohne Bedienelemente. Öffnet sich das Fenster auf dem falschen Bildschirm, verschiebe es dorthin und drücke F für den Vollbildmodus.",
+  "Cannot open the second display: {error}": "Der zweite Bildschirm kann nicht geöffnet werden: {error}",
+  Image: "Bild",
+  "Zoom in": "Vergrößern",
+  "Zoom out": "Verkleinern",
+  "Reset zoom": "Zoom zurücksetzen",
 };
