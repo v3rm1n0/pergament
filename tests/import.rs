@@ -44,6 +44,19 @@ fn imports_valid_publication() {
 }
 
 #[test]
+fn import_records_the_sha1_of_the_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let file = tmp.path().join("in.jwpub");
+    Fixture::default().write_to(&file);
+    let mut lib = Library::open(tmp.path().join("lib")).unwrap();
+    let entry = lib.import(&file).unwrap();
+    // What the catalog lists as the signature of a download.
+    let expected = pergament::net::file_sha1(&file).unwrap();
+    assert_eq!(entry.package_sha1.as_deref(), Some(expected.as_str()));
+    assert_eq!(lib.list().unwrap()[0].package_sha1, entry.package_sha1);
+}
+
+#[test]
 fn reimport_replaces_entry() {
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path().join("lib")).unwrap();
