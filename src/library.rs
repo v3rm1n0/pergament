@@ -36,6 +36,9 @@ pub struct Entry {
     /// Language code from the file name, e.g. `X`; `None` for entries
     /// imported before this was recorded.
     pub lang_code: Option<String>,
+    /// SHA-1 of the `.jwpub` file this was imported from, which the catalog
+    /// lists as `Signature`; `None` for entries imported before it was recorded.
+    pub package_sha1: Option<String>,
 }
 
 #[derive(Debug)]
@@ -106,6 +109,12 @@ impl Library {
         if !has_lang {
             index.execute_batch("ALTER TABLE publication ADD COLUMN lang_code TEXT;")?;
         }
+        let has_sha1: bool = index
+            .prepare("SELECT 1 FROM pragma_table_info('publication') WHERE name = 'package_sha1'")?
+            .exists([])?;
+        if !has_sha1 {
+            index.execute_batch("ALTER TABLE publication ADD COLUMN package_sha1 TEXT;")?;
+        }
         Ok(Self {
             root,
             index,
@@ -134,6 +143,7 @@ impl Library {
     /// Import a `.jwpub`. An existing entry for the same publication
     /// (symbol, language, issue) is replaced.
     pub fn import(&mut self, path: impl AsRef<Path>) -> Result<Entry> {
+        let package_sha1 = crate::net::file_sha1(path.as_ref())?;
         let mut pub_ = JwPub::open_with_limits(path, self.limits)?;
         let db_file = pub_.db_file_name()?.to_owned();
 
@@ -163,6 +173,7 @@ impl Library {
             contents_hash: pub_.manifest.hash.to_ascii_lowercase(),
             imported_at: now(),
             lang_code: lang_code_from_name(&pub_.manifest.name),
+            package_sha1: Some(package_sha1),
         };
 
         let final_dir = pubs_dir.join(&entry.dir_name);
@@ -179,8 +190,9 @@ impl Library {
         )?;
         tx.execute(
             "INSERT INTO publication (symbol, meps_language, issue_tag, year, title, short_title,
-                 publication_type, dir_name, db_file, contents_hash, imported_at, lang_code)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 publication_type, dir_name, db_file, contents_hash, imported_at, lang_code,
+                 package_sha1)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 entry.symbol,
                 entry.meps_language,
@@ -193,7 +205,8 @@ impl Library {
                 entry.db_file,
                 entry.contents_hash,
                 entry.imported_at,
-                entry.lang_code
+                entry.lang_code,
+                entry.package_sha1
             ],
         )?;
 
@@ -455,7 +468,7 @@ impl Library {
 }
 
 const COLUMNS: &str = "symbol, meps_language, issue_tag, year, title, short_title, \
-     publication_type, dir_name, db_file, contents_hash, imported_at, lang_code";
+     publication_type, dir_name, db_file, contents_hash, imported_at, lang_code, package_sha1";
 
 fn row_to_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
     Ok(Entry {
@@ -471,6 +484,7 @@ fn row_to_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
         contents_hash: r.get(9)?,
         imported_at: r.get(10)?,
         lang_code: r.get(11)?,
+        package_sha1: r.get(12)?,
     })
 }
 
@@ -574,6 +588,7 @@ mod tests {
         let all = lib.list().unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].lang_code, None);
+        assert_eq!(all[0].package_sha1, None);
         // Opening again must not fail on the existing column.
         drop(lib);
         Library::open(tmp.path()).unwrap();

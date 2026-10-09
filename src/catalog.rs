@@ -49,6 +49,8 @@ pub struct CatalogItem {
     pub image: Option<String>,
     /// `PublicationAttribute` names such as `Archive` or `Study`.
     pub attributes: Vec<String>,
+    /// Size of the unpacked contents (the manifest's `expandedSize`).
+    pub expanded_size: u64,
 }
 
 #[derive(Debug)]
@@ -351,8 +353,8 @@ impl Catalog {
         let rows = stmt.query_map(params![meps_language, class, date], |r| {
             Ok((
                 item_from_row(r)?,
-                r.get::<_, String>(14)?,
-                r.get::<_, String>(15)?,
+                r.get::<_, String>(ITEM_COLUMNS)?,
+                r.get::<_, String>(ITEM_COLUMNS + 1)?,
             ))
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -413,6 +415,9 @@ pub const DATED_DAILY_TEXT: i64 = 4;
 pub const DATED_WATCHTOWER_STUDY: i64 = 68;
 pub const DATED_MEETING_WORKBOOK: i64 = 106;
 
+/// Number of columns of [`ITEM_SELECT`]; queries that add columns read them after these.
+const ITEM_COLUMNS: usize = 15;
+
 const ITEM_SELECT: &str =
     "SELECT p.KeySymbol, p.Symbol, p.MepsLanguageId, p.IssueTagNumber, p.Year,
         p.Title, p.IssueTitle, a.Size, a.Signature, p.PublicationTypeId, p.ShortTitle,
@@ -423,7 +428,8 @@ const ITEM_SELECT: &str =
          ORDER BY i.NameFragment LIKE '%\\_sqr%' ESCAPE '\\' DESC, abs(i.Width - 270) LIMIT 1),
         (SELECT group_concat(t.Name, '|') FROM PublicationAttributeMap m2
            JOIN PublicationAttribute t ON t.Id = m2.PublicationAttributeId
-         WHERE m2.PublicationId = p.Id)
+         WHERE m2.PublicationId = p.Id),
+        a.ExpandedSize
      FROM Publication p JOIN PublicationAsset a ON a.PublicationId = p.Id";
 
 fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
@@ -447,6 +453,7 @@ fn item_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<CatalogItem> {
             .get::<_, Option<String>>(13)?
             .map(|a| a.split('|').map(str::to_owned).collect())
             .unwrap_or_default(),
+        expanded_size: r.get::<_, i64>(ITEM_COLUMNS - 1)?.max(0) as u64,
     })
 }
 
