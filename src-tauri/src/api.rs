@@ -220,6 +220,38 @@ pub struct CatalogEntry {
     pub local: Option<String>,
 }
 
+/// A downloaded publication with a newer version in the catalog.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    /// Library directory of the installed version.
+    pub dir: String,
+    /// Language code to download the update in.
+    pub lang_code: String,
+    /// Unpacked size of the installed version.
+    pub installed_size: u64,
+    /// The new version; `local` is the installed directory.
+    pub entry: CatalogEntry,
+}
+
+pub fn update_info(update: pergament::updates::Update) -> UpdateInfo {
+    UpdateInfo {
+        entry: CatalogEntry {
+            category: category_name(update.item.publication_type),
+            image_url: update
+                .item
+                .image
+                .as_ref()
+                .map(|p| format!("{MEDIA_SCHEME}://localhost/{CATALOG_IMAGES}/{p}")),
+            local: Some(update.dir.clone()),
+            item: update.item,
+        },
+        dir: update.dir,
+        lang_code: update.lang_code,
+        installed_size: update.installed_size,
+    }
+}
+
 fn entries(items: Vec<CatalogItem>, library: &Library) -> ApiResult<Vec<CatalogEntry>> {
     let local: std::collections::HashMap<(String, i64, i64), String> = library
         .list()
