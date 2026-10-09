@@ -12,7 +12,8 @@ describe.each(locales)("locale $code", (l) => {
   });
 
   it("keeps the {placeholders} of every text", () => {
-    for (const [en, text] of Object.entries(l.texts)) expect(markers(text), en).toBe(markers(en));
+    // An empty text is not translated yet and stays English.
+    for (const [en, text] of Object.entries(l.texts)) if (text !== "") expect(markers(text), en).toBe(markers(en));
   });
 
   it("keeps the leading and trailing spaces of the English text", () => {

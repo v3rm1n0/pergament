@@ -12,5 +12,7 @@ export interface Locale {
   texts: Record<string, string>;
 }
 
-/** Every translation. To add a language, create `locales/<code>.ts` and add a line here (docs/TRANSLATING.md). */
-export const locales: Locale[] = [{ code: "de", name: "Deutsch", tag: "de-DE", texts: de }];
+/** Every translation. `bun run i18n:new` adds a line here; see docs/TRANSLATING.md. */
+export const locales: Locale[] = [
+  { code: "de", name: "Deutsch", tag: "de-DE", texts: de },
+];
