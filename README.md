@@ -70,6 +70,10 @@ and checks that the libraries it needs (WebKitGTK 4.1, GTK 3, libsoup 3,
 OpenSSL, SQLite) are installed. The zip is built on Ubuntu 22.04, so it needs
 a distribution at least that recent.
 
+Playing videos needs GStreamer with an H.264 decoder (`gst-libav` on Debian
+and Ubuntu, `gstreamer1-libav` on Fedora, `gst-libav` on Arch). Without it the
+player offers to open the recording in your browser instead.
+
 To build from source there are two ways.
 
 **With Nix** (flakes enabled), straight from GitHub:
@@ -141,6 +145,9 @@ most once a day. Cover images are fetched once and cached.
 
 On Linux the app sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` (unless it is
 already set) because WebKitGTK draws garbage on some GPUs without it.
+It also sets `GST_PLUGIN_FEATURE_RANK` (unless it is already set) so GStreamer
+does not pick NVIDIA's hardware video decoders, which take the page down on
+NVIDIA under Wayland. Software decoding handles these videos fine.
 
 To run it from the source tree without installing:
 
