@@ -5,6 +5,7 @@ import { AppBar, useApp } from "@/app";
 import { api, type CatalogEntry, type DatedEntry, type DatedPage, type Meetings } from "@/lib/api";
 import { addDays, isoDate, rangeLabel, weekLabel, weekStart } from "@/lib/dates";
 import { CatalogPrompt, EntryImage, useEntryAction } from "@/components/catalog";
+import { TileMenu, entryTarget } from "@/components/tile-menu";
 import { Progress } from "@/components/ui/progress";
 import { t } from "@/lib/i18n";
 import { taskKey } from "@/app";
@@ -45,18 +46,21 @@ function WeekItem({ page, caption }: { page: DatedPage; caption?: string }) {
 
 function OtherRow({ entry, subtitle }: { entry: CatalogEntry; subtitle?: string }) {
   const { activate } = useEntryAction();
-  const { downloads } = useApp();
+  const { downloads, lang } = useApp();
   const p = downloads[taskKey(entry)];
   return (
-    <button onClick={() => void activate(entry)} className="flex w-full items-center gap-3 py-1.5 text-left">
-      <EntryImage entry={entry} className="h-14 w-14 shrink-0" />
-      <div className="min-w-0 flex-1">
-        {subtitle && <div className="truncate text-[0.8rem] text-fg/85">{entry.item.issue_title || entry.item.title}</div>}
-        <div className="truncate text-link hover:underline">{subtitle ?? entry.item.title}</div>
-        {p && <Progress className="mt-1.5" value={p.total ? (p.done / p.total) * 100 : null} />}
-      </div>
-      {entry.local ? <BookOpen size={20} strokeWidth={1.4} /> : <CloudDownload size={20} strokeWidth={1.4} />}
-    </button>
+    <div className="group relative">
+      <button onClick={() => void activate(entry)} className="flex w-full items-center gap-3 py-1.5 text-left">
+        <EntryImage entry={entry} className="h-14 w-14 shrink-0" />
+        <div className="min-w-0 flex-1">
+          {subtitle && <div className="truncate text-[0.8rem] text-fg/85">{entry.item.issue_title || entry.item.title}</div>}
+          <div className="truncate text-link hover:underline">{subtitle ?? entry.item.title}</div>
+          {p && <Progress className="mt-1.5" value={p.total ? (p.done / p.total) * 100 : null} />}
+        </div>
+        {entry.local ? <BookOpen size={20} strokeWidth={1.4} /> : <CloudDownload size={20} strokeWidth={1.4} />}
+      </button>
+      <TileMenu target={entryTarget(entry, lang)} className="right-9 top-1/2 -translate-y-1/2 text-fg drop-shadow-none" />
+    </div>
   );
 }
 

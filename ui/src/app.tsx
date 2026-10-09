@@ -63,6 +63,8 @@ interface AppContextValue {
   back: () => void;
   openTarget: (target: Target, note?: boolean) => void;
   publications: PubCard[];
+  /** Whether the library list has been read at least once. */
+  libraryReady: boolean;
   refreshPublications: () => Promise<void>;
   /** Delete a downloaded publication from the library. */
   removePublication: (dir: string, title: string) => Promise<void>;
@@ -148,6 +150,7 @@ function useSystemDark(): boolean {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [nav, dispatch] = useReducer(navReducer, initialNav);
   const [publications, setPublications] = useState<PubCard[]>([]);
+  const [libraryReady, setLibraryReady] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [fontScale, setFontScaleState] = useState(loadFontScale);
@@ -200,6 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshPublications = useCallback(async () => {
     try {
       setPublications(await api.listPublications());
+      setLibraryReady(true);
     } catch (e) {
       toast(t("Cannot read library: {error}", { error: String(e) }));
     }
@@ -458,6 +462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       back: () => dispatch({ type: "back" }),
       openTarget: (target, note) => dispatch({ type: "push", view: { name: "reader", target, note } }),
       publications,
+      libraryReady,
       refreshPublications,
       removePublication,
       toast,
@@ -517,6 +522,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       nav,
       publications,
+      libraryReady,
       refreshPublications,
       removePublication,
       toast,
