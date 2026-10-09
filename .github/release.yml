@@ -1,0 +1,5 @@
+# Settings for the release notes GitHub generates (`gh release create --generate-notes`).
+changelog:
+  exclude:
+    labels:
+      - skip-changelog

@@ -1,7 +1,8 @@
 # Publishes a GitHub release for every semantic version tag (vX.Y.Z), made by
 # scripts/release.sh. The release holds a zip with the binaries, the icons and
 # an installer (scripts/bundle-install.sh), a .sha256 file for the zip, and the
-# source code archives GitHub adds itself.
+# source code archives GitHub adds itself. The notes are the ones GitHub generates
+# from the merged pull requests, with the install instructions in front.
 name: Release
 
 on:
@@ -46,8 +47,8 @@ jobs:
       - name: Package the zip and its hash
         run: scripts/package.sh "${GITHUB_REF_NAME#v}"
 
-      - name: Write release notes
-        run: scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+      - name: Write the text in front of the release notes
+        run: scripts/release-notes.sh > notes.md
 
       - name: Publish the release
         env:
@@ -56,6 +57,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME"
           --verify-tag
           --title "Pergament ${GITHUB_REF_NAME#v}"
+          --generate-notes
           --notes-file notes.md
           target/package/*.zip
           target/package/*.zip.sha256
