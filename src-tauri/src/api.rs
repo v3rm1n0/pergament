@@ -289,6 +289,70 @@ pub fn search_entries(
     entries(catalog.search(meps, query, 200).map_err(err)?, library)
 }
 
+/// A publication in one language, for the More Languages list.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanguageEntry {
+    /// Catalog language code, e.g. `X`.
+    pub code: String,
+    pub entry: CatalogEntry,
+}
+
+/// The publication in every language of the catalog.
+pub fn languages_of(
+    catalog: &Catalog,
+    library: &Library,
+    symbol: &str,
+    issue_tag: i64,
+) -> ApiResult<Vec<LanguageEntry>> {
+    let items = catalog.languages_of(symbol, issue_tag).map_err(err)?;
+    let codes: Vec<Option<String>> = items
+        .iter()
+        .map(|i| catalog.language_code(i.meps_language).map(str::to_owned))
+        .collect();
+    Ok(entries(items, library)?
+        .into_iter()
+        .zip(codes)
+        .filter_map(|(entry, code)| Some(LanguageEntry { code: code?, entry }))
+        .collect())
+}
+
+/// `symbol_meps[_issue]`, the library directory name of a publication, as
+/// `(symbol, meps language, issue tag)`; the issue is 0 when the key has none.
+pub fn parse_pub_key(key: &str) -> Option<(String, i64, i64)> {
+    let parts: Vec<&str> = key.split('_').collect();
+    let number = |s: &str| s.parse::<i64>().ok();
+    let parsed = match parts.as_slice() {
+        [head @ .., meps, issue]
+            if !head.is_empty()
+                && issue.len() >= 6
+                && issue.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            (head.join("_"), number(meps)?, number(issue)?)
+        }
+        [head @ .., meps] if !head.is_empty() => (head.join("_"), number(meps)?, 0),
+        _ => return None,
+    };
+    Some(parsed).filter(|(symbol, _, _)| !symbol.is_empty())
+}
+
+/// Catalog entries of favorite keys in the language `meps`; keys of other
+/// languages and keys the catalog does not know are skipped.
+pub fn favorite_entries(
+    catalog: &Catalog,
+    meps: i64,
+    library: &Library,
+    keys: &[String],
+) -> ApiResult<Vec<CatalogEntry>> {
+    let items = keys
+        .iter()
+        .filter_map(|k| parse_pub_key(k))
+        .filter(|(_, m, _)| *m == meps)
+        .filter_map(|(symbol, _, issue)| catalog.find(&symbol, meps, Some(issue)).ok().flatten())
+        .collect();
+    entries(items, library)
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HomeLists {
@@ -858,6 +922,20 @@ pub fn mime_for(path: &Path) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_library_keys() {
+        assert_eq!(parse_pub_key("rsg_2"), Some(("rsg".into(), 2, 0)));
+        assert_eq!(
+            parse_pub_key("w26_2_20260800"),
+            Some(("w26".into(), 2, 20260800))
+        );
+        assert_eq!(parse_pub_key("T-ftr_2"), Some(("T-ftr".into(), 2, 0)));
+        assert_eq!(parse_pub_key("a_b_2"), Some(("a_b".into(), 2, 0)));
+        assert_eq!(parse_pub_key("nonsense"), None);
+        assert_eq!(parse_pub_key("x_y"), None);
+        assert_eq!(parse_pub_key("_2"), None);
+    }
 
     #[test]
     fn link_actions_without_library_entries() {

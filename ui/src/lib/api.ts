@@ -323,6 +323,12 @@ export interface Language {
   signLanguage: boolean;
 }
 
+/** A publication in one catalog language (`pergament_app::api::LanguageEntry`). */
+export interface LanguageEntry {
+  code: string;
+  entry: CatalogEntry;
+}
+
 export interface ImportResult {
   path: string;
   title: string | null;
@@ -359,6 +365,12 @@ export const api = {
   languages: () => invoke<Language[]>("languages"),
   catalogSearch: (lang: string, query: string) =>
     invoke<CatalogEntry[]>("catalog_search", { lang, query }),
+  /** `null` when no catalog is cached yet. */
+  catalogLanguages: (symbol: string, issueTag: number) =>
+    invoke<LanguageEntry[] | null>("catalog_languages", { symbol, issueTag }),
+  /** Catalog entries for favorite keys in `lang`; `null` when no catalog is cached yet. */
+  favoriteEntries: (lang: string, keys: string[]) =>
+    invoke<CatalogEntry[] | null>("favorite_entries", { lang, keys }),
   chapterStudy: (dir: string, book: number, chapter: number) =>
     invoke<ChapterStudy>("chapter_study", { dir, book, chapter }),
   catalogCached: () => invoke<boolean>("catalog_cached"),
