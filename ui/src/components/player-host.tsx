@@ -22,9 +22,21 @@ import { useApp } from "@/app";
 import { api } from "@/lib/api";
 import { isMediaUrl, mediaBlobUrl } from "@/lib/media";
 import { SPEEDS, formatDuration, pickSource, sizeMb, type PlayerItem, type PlayerSource } from "@/lib/player";
-import { loadMediaQuality, saveMediaQuality } from "@/lib/settings";
+import {
+  AUTO_CEILING,
+  HEALTHY_AHEAD,
+  HEALTHY_FOR_MS,
+  autoStart,
+  stepDown,
+  stepUp,
+  tooManyStalls,
+} from "@/lib/quality";
+import { loadAutoQuality, loadMediaQuality, saveAutoQuality, saveMediaQuality } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+
+/** Height of the window in device pixels, which is what a recording can use at most. */
+const windowHeight = () => Math.round(window.innerHeight * (window.devicePixelRatio || 1));
 
 /** Blob URL for a `jwmedia:` image; other URLs are used as they are. */
 function useImageUrl(src: string | null): string | undefined {
@@ -70,7 +82,10 @@ function Player({ item }: { item: PlayerItem }) {
   const { lang, view, closePlayer } = useApp();
   const [full, setFull] = useState(true);
   const [screen, setScreen] = useState(false);
-  const [source, setSource] = useState<PlayerSource | undefined>(() => pickSource(item.sources, loadMediaQuality()));
+  const [auto, setAuto] = useState(loadAutoQuality);
+  const [source, setSource] = useState<PlayerSource | undefined>(() =>
+    loadAutoQuality() ? autoStart(item.sources, windowHeight()) : pickSource(item.sources, loadMediaQuality()),
+  );
   const [speed, setSpeed] = useState(1);
   const [repeat, setRepeat] = useState(false);
   const [captions, setCaptions] = useState(false);
@@ -85,6 +100,10 @@ function Player({ item }: { item: PlayerItem }) {
   const root = useRef<HTMLDivElement>(null);
   /** Where to continue after switching quality. */
   const resume = useRef(0);
+  /** When playback ran dry, and the qualities that did not keep up (never tried again). */
+  const stalls = useRef<number[]>([]);
+  const blocked = useRef(new Set<string>());
+  const healthySince = useRef<number | null>(null);
   const poster = useImageUrl(item.poster);
 
   // Going somewhere else in the app shrinks the player to its bar.
@@ -153,12 +172,54 @@ function Player({ item }: { item: PlayerItem }) {
     resume.current = 0;
     applyCaptions(captions);
   };
-  const choose = (s: PlayerSource) => {
+  const switchTo = (s: PlayerSource) => {
     resume.current = media.current?.currentTime ?? 0;
-    const height = parseInt(s.label, 10);
-    if (height) saveMediaQuality(height);
+    stalls.current = [];
+    healthySince.current = null;
     setError(null);
     setSource(s);
+  };
+  /** The user picked a fixed quality. */
+  const choose = (s: PlayerSource) => {
+    const height = parseInt(s.label, 10);
+    if (height) saveMediaQuality(height);
+    setAuto(false);
+    switchTo(s);
+  };
+  const chooseAuto = () => {
+    saveAutoQuality();
+    setAuto(true);
+    blocked.current.clear();
+    const s = autoStart(item.sources, windowHeight());
+    if (s && s.url !== source?.url) switchTo(s);
+  };
+  /** Playback ran dry: after two stalls in a short time, drop to the next smaller quality. */
+  const onWaiting = (el: HTMLVideoElement) => {
+    if (!auto || !source || el.paused || el.seeking || el.currentTime < 1) return;
+    stalls.current = [...stalls.current, Date.now()];
+    if (!tooManyStalls(stalls.current, Date.now())) return;
+    const lower = stepDown(item.sources, source);
+    if (lower) {
+      blocked.current.add(source.url);
+      switchTo(lower);
+    }
+  };
+  /** A buffer that stays full means the connection has room for the next quality. */
+  const checkBuffer = (el: HTMLVideoElement) => {
+    if (!auto || !source || el.paused || el.seeking) return void (healthySince.current = null);
+    let ahead = 0;
+    for (let i = 0; i < el.buffered.length; i++) {
+      if (el.buffered.start(i) <= el.currentTime && el.currentTime <= el.buffered.end(i)) {
+        ahead = el.buffered.end(i) - el.currentTime;
+      }
+    }
+    if (ahead < HEALTHY_AHEAD) return void (healthySince.current = null);
+    const now = Date.now();
+    healthySince.current ??= now;
+    if (now - healthySince.current < HEALTHY_FOR_MS) return;
+    const up = stepUp(item.sources, source, Math.min(AUTO_CEILING, windowHeight()), blocked.current);
+    if (up) switchTo(up);
+    else healthySince.current = null;
   };
   const changeSpeed = (v: number) => {
     setSpeed(v);
@@ -191,10 +252,13 @@ function Player({ item }: { item: PlayerItem }) {
         <label className="flex items-center justify-between gap-3">
           {t("Quality")}
           <select
-            value={source?.url ?? ""}
-            onChange={(e) => choose(item.sources.find((s) => s.url === e.target.value)!)}
+            value={auto ? "auto" : (source?.url ?? "")}
+            onChange={(e) =>
+              e.target.value === "auto" ? chooseAuto() : choose(item.sources.find((s) => s.url === e.target.value)!)
+            }
             className={select}
           >
+            <option value="auto">{[t("Auto"), auto ? source?.label : ""].filter(Boolean).join(" · ")}</option>
             {item.sources.map((s) => (
               <option key={s.url} value={s.url}>
                 {[s.label, s.size ? sizeMb(s.size) : ""].filter(Boolean).join(" · ")}
@@ -364,7 +428,11 @@ function Player({ item }: { item: PlayerItem }) {
           loop={repeat}
           onClick={toggle}
           onLoadedMetadata={onLoaded}
-          onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+          onTimeUpdate={(e) => {
+            setTime(e.currentTarget.currentTime);
+            checkBuffer(e.currentTarget);
+          }}
+          onWaiting={(e) => onWaiting(e.currentTarget)}
           onDurationChange={(e) => setDuration(e.currentTarget.duration || 0)}
           onPlay={() => setPaused(false)}
           onPause={() => setPaused(true)}
