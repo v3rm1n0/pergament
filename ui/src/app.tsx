@@ -22,10 +22,13 @@ import { api, type CatalogEntry, type Language, type Progress, type PubCard, typ
 import type { MediaRef } from "@/lib/api";
 import type { PlayerItem } from "@/lib/player";
 import { linkedItem } from "@/lib/recording";
+import { DISPLAY_CLOSED, DISPLAY_READY, remember, sendToDisplay, type DisplayMessage } from "@/lib/display";
 import { currentView, initialNav, navReducer, type View } from "@/lib/nav";
 import {
   inLanguage,
   loadFontScale,
+  loadSecondDisplay,
+  saveSecondDisplay,
   loadLang,
   loadUiLang,
   loadTheme,
@@ -89,6 +92,13 @@ interface AppContextValue {
   /** Look up a recording that a publication links to and play it. */
   playRecording: (media: MediaRef) => Promise<void>;
   closePlayer: () => void;
+  /** The second display window and what is sent to it. */
+  display: { enabled: boolean; setEnabled: (on: boolean) => Promise<void>; send: (message: DisplayMessage) => void };
+  /** The picture in the large view, if one is open. */
+  viewer: { src: string; caption: string } | null;
+  /** Open a `jwmedia:` picture in the large view (and on the second display). */
+  showImage: (src: string, caption: string) => void;
+  closeImage: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -268,6 +278,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const names = useMemo(() => new Map(languages.map((l) => [l.code, l.vernacular])), [languages]);
 
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
+  // The second display: a window the app sends what to show; one that opens
+  // later is brought up to date with the last thing sent.
+  const [displayOn, setDisplayOn] = useState(loadSecondDisplay);
+  const displayOnRef = useRef(displayOn);
+  const lastDisplay = useRef<DisplayMessage>({ type: "idle" });
+  const turnDisplayOff = useCallback(() => {
+    saveSecondDisplay(false);
+    displayOnRef.current = false;
+    setDisplayOn(false);
+  }, []);
+  const sendDisplay = useCallback((message: DisplayMessage) => {
+    lastDisplay.current = remember(lastDisplay.current, message);
+    if (displayOnRef.current) void sendToDisplay(message);
+  }, []);
+  const setSecondDisplay = useCallback(
+    async (on: boolean) => {
+      saveSecondDisplay(on);
+      displayOnRef.current = on;
+      setDisplayOn(on);
+      try {
+        await (on ? api.openDisplay() : api.closeDisplay());
+      } catch (e) {
+        toast(t("Cannot open the second display: {error}", { error: String(e) }));
+        if (on) turnDisplayOff();
+      }
+    },
+    [toast, turnDisplayOff],
+  );
+  useEffect(() => {
+    if (loadSecondDisplay()) {
+      api.openDisplay().catch((e) => {
+        toast(t("Cannot open the second display: {error}", { error: String(e) }));
+        turnDisplayOff();
+      });
+    }
+    const ready = listen(DISPLAY_READY, () => void sendToDisplay(lastDisplay.current));
+    const closed = listen(DISPLAY_CLOSED, turnDisplayOff);
+    return () => {
+      void ready.then((f) => f());
+      void closed.then((f) => f());
+    };
+    // Runs once: it restores the setting from the last session.
+  }, []);
+
+  const [viewer, setViewer] = useState<AppContextValue["viewer"]>(null);
+  const showImage = useCallback(
+    (src: string, caption: string) => {
+      setViewer({ src, caption });
+      sendDisplay({ type: "image", src, caption });
+    },
+    [sendDisplay],
+  );
+  const closeImage = useCallback(() => {
+    setViewer(null);
+    // With a recording playing, its player takes the display back.
+    if (!playerRef.current) sendDisplay({ type: "idle" });
+  }, [sendDisplay]);
+
   const playItem = useCallback((item: PlayerItem) => setPlayer({ id: Date.now(), item }), []);
   const closePlayer = useCallback(() => setPlayer(null), []);
   const playRecording = useCallback(
@@ -327,6 +398,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       playItem,
       playRecording,
       closePlayer,
+      display: { enabled: displayOn, setEnabled: setSecondDisplay, send: sendDisplay },
+      viewer,
+      showImage,
+      closeImage,
     }),
     [
       nav,
@@ -351,6 +426,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       playItem,
       playRecording,
       closePlayer,
+      displayOn,
+      setSecondDisplay,
+      sendDisplay,
+      viewer,
+      showImage,
+      closeImage,
     ],
   );
 

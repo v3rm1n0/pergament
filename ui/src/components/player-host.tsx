@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { useApp } from "@/app";
 import { api } from "@/lib/api";
-import { isMediaUrl, mediaBlobUrl } from "@/lib/media";
+import { useImageUrl } from "@/lib/media";
+import type { PlaybackState } from "@/lib/display";
 import { SPEEDS, formatDuration, pickSource, sizeMb, type PlayerItem, type PlayerSource } from "@/lib/player";
 import {
   AUTO_CEILING,
@@ -37,23 +38,6 @@ import { t } from "@/lib/i18n";
 
 /** Height of the window in device pixels, which is what a recording can use at most. */
 const windowHeight = () => Math.round(window.innerHeight * (window.devicePixelRatio || 1));
-
-/** Blob URL for a `jwmedia:` image; other URLs are used as they are. */
-function useImageUrl(src: string | null): string | undefined {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!src) return setUrl(undefined);
-    if (!isMediaUrl(src)) return setUrl(src);
-    let live = true;
-    mediaBlobUrl(src)
-      .then((u) => live && setUrl(u))
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [src]);
-  return url;
-}
 
 const iconButton = "flex h-8 w-8 items-center justify-center hover:bg-white/15";
 const chip = "flex items-center gap-1 px-2 py-1 hover:bg-white/15 aria-pressed:bg-white/20 aria-pressed:text-accent";
@@ -79,7 +63,7 @@ export function PlayerHost() {
 }
 
 function Player({ item }: { item: PlayerItem }) {
-  const { lang, view, closePlayer } = useApp();
+  const { lang, view, closePlayer, display, viewer } = useApp();
   const [full, setFull] = useState(true);
   const [screen, setScreen] = useState(false);
   const [auto, setAuto] = useState(loadAutoQuality);
@@ -105,6 +89,48 @@ function Player({ item }: { item: PlayerItem }) {
   const blocked = useRef(new Set<string>());
   const healthySince = useRef<number | null>(null);
   const poster = useImageUrl(item.poster);
+
+  // With a second display open, the recording plays there too and this window
+  // is the remote control: its own sound is off so it is not heard twice. An
+  // image in the large view takes the display over until it is closed.
+  const mirror = display.enabled && !viewer;
+  const viewerRef = useRef(viewer);
+  viewerRef.current = viewer;
+  const lastSync = useRef(0);
+  const playback = (): PlaybackState => ({
+    time: resume.current > 0 ? resume.current : (media.current?.currentTime ?? 0),
+    paused: media.current?.paused ?? false,
+    rate: speed,
+    volume,
+    muted,
+    captions,
+  });
+  const sendState = () => display.send({ type: "media-state", ...playback() });
+  useEffect(() => {
+    if (!mirror || !source) return;
+    display.send({
+      type: "media",
+      url: source.url,
+      kind: item.kind,
+      poster: item.poster,
+      subtitles: source.subtitles,
+      ...playback(),
+    });
+    // A new display content: when it opens, or when the quality changes the file.
+  }, [mirror, source?.url]);
+  useEffect(() => {
+    if (mirror) sendState();
+  }, [speed, volume, muted, captions]);
+  useEffect(() => {
+    if (media.current) media.current.muted = mirror || muted;
+  }, [mirror, muted, source?.url]);
+  // Closing the player hands the display back to the year text.
+  useEffect(
+    () => () => {
+      if (!viewerRef.current) display.send({ type: "idle" });
+    },
+    [],
+  );
 
   // Going somewhere else in the app shrinks the player to its bar.
   const shownView = useRef(view);
@@ -146,7 +172,7 @@ function Player({ item }: { item: PlayerItem }) {
 
   // Keys work while the recording fills the content area and nothing is being typed.
   useEffect(() => {
-    if (!full) return;
+    if (!full || viewer) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, select, textarea")) return;
@@ -161,7 +187,7 @@ function Player({ item }: { item: PlayerItem }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [full, menu, toggle, seekBy]);
+  }, [full, menu, viewer, toggle, seekBy]);
 
   const onLoaded = () => {
     const el = media.current;
@@ -228,16 +254,9 @@ function Player({ item }: { item: PlayerItem }) {
   const changeVolume = (v: number) => {
     setVolume(v);
     setMuted(v === 0);
-    if (media.current) {
-      media.current.volume = v;
-      media.current.muted = v === 0;
-    }
+    if (media.current) media.current.volume = v;
   };
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    if (media.current) media.current.muted = next;
-  };
+  const toggleMute = () => setMuted((m) => !m);
   const onPlayError = () => setError(t("This system cannot play the recording here. Open it in your browser instead."));
   const remote = source?.url.startsWith("https://") ?? false;
   const label = `${remote ? t("Streaming") : t("Playing")} · ${item.title}`;
@@ -431,11 +450,23 @@ function Player({ item }: { item: PlayerItem }) {
           onTimeUpdate={(e) => {
             setTime(e.currentTarget.currentTime);
             checkBuffer(e.currentTarget);
+            // The display corrects itself when it drifts, so this need not be often.
+            if (mirror && Date.now() - lastSync.current > 2000) {
+              lastSync.current = Date.now();
+              sendState();
+            }
           }}
           onWaiting={(e) => onWaiting(e.currentTarget)}
           onDurationChange={(e) => setDuration(e.currentTarget.duration || 0)}
-          onPlay={() => setPaused(false)}
-          onPause={() => setPaused(true)}
+          onPlay={() => {
+            setPaused(false);
+            if (mirror) sendState();
+          }}
+          onPause={() => {
+            setPaused(true);
+            if (mirror) sendState();
+          }}
+          onSeeked={() => mirror && sendState()}
           onError={onPlayError}
           className={cn("h-full w-full bg-black object-contain", item.kind === "audio" && "opacity-0")}
         >

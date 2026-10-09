@@ -5,7 +5,7 @@ import { BookOpen, ChevronLeft, ChevronRight, CloudDownload } from "lucide-react
 import { taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Page, type Target } from "@/lib/api";
 import { citedBy, extractParagraphs, markCited, splitPage } from "@/lib/page";
-import { hydrateMedia } from "@/lib/media";
+import { clickedImage, hydrateMedia } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { EntryImage, mb } from "@/components/catalog";
 import { Progress } from "@/components/ui/progress";
@@ -69,7 +69,7 @@ export function ReferencePane({
 }
 
 function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "page" }>; onFollow: (href: string) => void }) {
-  const { openTarget, publications } = useApp();
+  const { openTarget, publications, showImage } = useApp();
   const ref = useRef<HTMLDivElement>(null);
   // A publication reference shows only the cited paragraphs, like verses do.
   const { body, onlyCited } = useMemo(() => {
@@ -93,6 +93,11 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
   }, [body, onlyCited, pref.href, pref.page.fragment]);
 
   const onClick = (e: ReactMouseEvent) => {
+    const picture = clickedImage(e.target);
+    if (picture) {
+      showImage(picture.src, picture.caption);
+      return;
+    }
     const a = (e.target as HTMLElement).closest("a");
     if (!a) return;
     e.preventDefault();

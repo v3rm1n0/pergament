@@ -143,3 +143,12 @@ export function loadAutoQuality(): boolean {
 export function saveAutoQuality() {
   write("mediaQuality", "auto");
 }
+
+/** Whether the second display window is open. */
+export function loadSecondDisplay(): boolean {
+  return read("secondDisplay") === "1";
+}
+
+export function saveSecondDisplay(on: boolean) {
+  write("secondDisplay", on ? "1" : "0");
+}
