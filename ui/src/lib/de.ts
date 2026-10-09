@@ -202,4 +202,11 @@ export const de: Record<string, string> = {
   About: "Info",
   "Pergament is an unofficial reader for publications you import or download yourself, for personal use. It is not affiliated with Jehovah's Witnesses or the Watch Tower Bible and Tract Society and contains no publication content. No telemetry.":
     "Pergament ist ein inoffizieller Leser für Publikationen, die du selbst importierst oder herunterlädst, zum persönlichen Gebrauch. Es steht in keiner Verbindung zu Jehovas Zeugen oder zur Wachtturm-Bibel- und Traktat-Gesellschaft und enthält keine Publikationsinhalte. Keine Telemetrie.",
+  // Media player
+  Recording: "Aufnahme",
+  Quality: "Qualität",
+  "Open in browser": "Im Browser öffnen",
+  "This recording is not available.": "Diese Aufnahme ist nicht verfügbar.",
+  "This system cannot play the recording here. Open it in your browser instead.":
+    "Dieses System kann die Aufnahme hier nicht abspielen. Öffne sie stattdessen im Browser.",
 };

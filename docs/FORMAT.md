@@ -248,6 +248,21 @@ They support `Range` requests (`206` with `content-range`, checked byte for
 byte). An unknown publication returns HTTP `400` with
 `[{"id": …, "title": "Bad Request", "status": 400}]`. [own]
 
+### Recordings (pub-media MP4 and MP3)
+
+Videos and audio are not inside a `.jwpub`. Content links to them as
+`https://www.jw.org/finder?lank=pub-{KeySymbol}[_{YYYYMM}]_{track}_{VIDEO|AUDIO}&wtlocale={CODE}`
+(`pub-mwbv_202609_1_VIDEO`, undated `pub-jwb-098_7_VIDEO`). The `Multimedia`
+table has matching rows without a `FilePath`: `MimeType` `video/mp4`,
+`KeySymbol`, `Track`, `IssueTagNumber`, `MepsLanguageIndex`. [own]
+
+`GET https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub={KeySymbol}&track={N}&fileformat=MP4&alllangs=0&langwritten={CODE}[&issue={YYYYMM}]`
+(`fileformat=MP3` for audio) returns `files.{CODE}.MP4[]` with one entry per
+quality: `title`, `label` (`240p`, `360p`, …), `mimetype`, `filesize`,
+`duration` (seconds), `frameHeight`, `file.url` (on `cfp2.jw-cdn.org`),
+`trackImage.url` (poster) and `subtitles.url` (WebVTT). Pergament streams
+`file.url` in the app and stores nothing; subtitles are not used yet. [own]
+
 ## Dated texts inside publications
 
 Publications carry their own `DatedText` table: `DocumentId`, `Link`,
@@ -324,7 +339,7 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   `data-vlid`.
 - `BibleCitation.MarginalClassification`, `SortPosition`.
 - The suffix in publication links like `jwpub://p/X:1001070144/1-1`.
-- `VerseMultimediaMap` (media attached to verses) is not rendered yet.
+- `VerseMultimediaMap` (media attached to verses) and the Bible book intro videos (`DocumentMultimedia`) are not shown yet; only recordings linked from the text play.
 - Full list of `Document.Class`/`Type` values across other publication types.
 - `contentFormat` values other than `z-a`.
 - Whether older `schemaVersion`s (e.g. 8 in [jwapi]) differ in a way that matters.

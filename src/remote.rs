@@ -9,6 +9,7 @@ use serde::Deserialize;
 
 use crate::catalog::CatalogItem;
 use crate::library::{Entry, Library};
+use crate::links::{MediaKind, MediaRef};
 use crate::net::{Client, Expected, encode_query};
 use crate::{Error, Result};
 
@@ -94,6 +95,123 @@ pub fn jwpub_links(client: &Client, req: &Request<'_>) -> Result<Vec<PubMediaFil
         .flat_map(|(_, files)| files)
         .collect())
 }
+
+#[derive(Debug, Deserialize)]
+struct MediaResponse {
+    #[serde(default)]
+    files: HashMap<String, HashMap<String, Vec<RawMediaFile>>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawMediaFile {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    mimetype: String,
+    #[serde(default)]
+    filesize: Option<u64>,
+    #[serde(default)]
+    duration: Option<f64>,
+    #[serde(default)]
+    frame_height: Option<u32>,
+    file: PubMediaFileRef,
+    #[serde(default)]
+    track_image: Option<ImageRef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ImageRef {
+    #[serde(default)]
+    url: String,
+}
+
+/// One playable rendition of a recording.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaFile {
+    pub title: String,
+    /// Quality such as `360p`; empty for audio.
+    pub label: String,
+    pub mime: String,
+    pub url: String,
+    pub size: Option<u64>,
+    /// Length in seconds.
+    pub duration: Option<f64>,
+    /// Still image to show before playback.
+    pub poster: Option<String>,
+}
+
+/// pub-media URL for the MP4 or MP3 files of one track.
+pub fn media_url(media: &MediaRef) -> Result<String> {
+    if !valid_token(&media.pub_symbol) || !valid_token(&media.lang_code) {
+        return Err(Error::NotFound(format!(
+            "invalid recording: {:?} {:?}",
+            media.pub_symbol, media.lang_code
+        )));
+    }
+    let format = match media.kind {
+        MediaKind::Video => "MP4",
+        MediaKind::Audio => "MP3",
+    };
+    let mut url = format!(
+        "{PUB_MEDIA_URL}?output=json&pub={}&fileformat={format}&alllangs=0&langwritten={}&track={}",
+        encode_query(&media.pub_symbol),
+        encode_query(&media.lang_code),
+        media.track
+    );
+    if let Some(issue) = media.issue.as_deref() {
+        url.push_str(&format!("&issue={}", encode_query(issue)));
+    }
+    Ok(url)
+}
+
+/// Look up the renditions of a recording, smallest first. Only files on the
+/// allowed hosts are returned; the player streams them, nothing is stored.
+pub fn media_links(client: &Client, media: &MediaRef) -> Result<Vec<MediaFile>> {
+    let resp: MediaResponse = client.get_json(&media_url(media)?).map_err(|e| match e {
+        Error::Http(msg) if msg.contains("HTTP 400") || msg.contains("HTTP 404") => {
+            Error::NotFound(format!(
+                "{} track {} is not available in {}",
+                media.pub_symbol, media.track, media.lang_code
+            ))
+        }
+        e => e,
+    })?;
+    let prefix = match media.kind {
+        MediaKind::Video => "video/",
+        MediaKind::Audio => "audio/",
+    };
+    let mut files: Vec<(u32, MediaFile)> = resp
+        .files
+        .into_iter()
+        .filter(|(lang, _)| lang.eq_ignore_ascii_case(&media.lang_code))
+        .flat_map(|(_, formats)| formats.into_values().flatten())
+        .filter(|f| f.mimetype.starts_with(prefix) && client.check_url(&f.file.url).is_ok())
+        .map(|f| {
+            let poster = f
+                .track_image
+                .map(|i| i.url)
+                .filter(|u| client.check_url(u).is_ok());
+            (
+                f.frame_height.unwrap_or(0),
+                MediaFile {
+                    title: f.title,
+                    label: f.label,
+                    mime: f.mimetype,
+                    url: f.file.url,
+                    size: f.filesize,
+                    duration: f.duration,
+                    poster,
+                },
+            )
+        })
+        .collect();
+    files.sort_by_key(|(height, f)| (*height, f.size));
+    Ok(files.into_iter().map(|(_, f)| f).collect())
+}
+
 
 /// Download a publication and import it. `catalog_item`, when known, adds a
 /// SHA-1 and size check and is used to confirm the imported publication.
@@ -209,5 +327,48 @@ mod tests {
         let f = &r.files["X"]["JWPUB"][0];
         assert_eq!(f.filesize, Some(2861525));
         assert_eq!(f.file.checksum.as_deref(), Some("3f4a"));
+    }
+
+    fn media_ref(issue: Option<&str>, kind: MediaKind) -> MediaRef {
+        MediaRef {
+            pub_symbol: "mwbv".into(),
+            issue: issue.map(str::to_owned),
+            track: 3,
+            kind,
+            lang_code: "X".into(),
+        }
+    }
+
+    #[test]
+    fn media_urls() {
+        assert_eq!(
+            media_url(&media_ref(Some("202609"), MediaKind::Video)).unwrap(),
+            "https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=mwbv&fileformat=MP4&alllangs=0&langwritten=X&track=3&issue=202609"
+        );
+        assert!(
+            media_url(&media_ref(None, MediaKind::Audio))
+                .unwrap()
+                .contains("fileformat=MP3")
+        );
+        let mut bad = media_ref(None, MediaKind::Video);
+        bad.pub_symbol = "a&b".into();
+        assert!(media_url(&bad).is_err());
+    }
+
+    #[test]
+    fn parses_media_response() {
+        let json = r#"{"files":{"X":{"MP4":[{"title":"T","label":"240p","mimetype":"video/mp4",
+            "filesize":10,"duration":409.7,"frameHeight":234,
+            "file":{"url":"https://cfp2.jw-cdn.org/a/x_r240P.mp4","checksum":"c"},
+            "trackImage":{"url":"https://cfp2.jw-cdn.org/a/x.jpg"},"subtitles":{"url":"u"}}]}}}"#;
+        let r: MediaResponse = serde_json::from_str(json).unwrap();
+        let f = &r.files["X"]["MP4"][0];
+        assert_eq!(f.label, "240p");
+        assert_eq!(f.frame_height, Some(234));
+        assert_eq!(f.duration, Some(409.7));
+        assert_eq!(
+            f.track_image.as_ref().map(|i| i.url.as_str()),
+            Some("https://cfp2.jw-cdn.org/a/x.jpg")
+        );
     }
 }
