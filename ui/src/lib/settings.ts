@@ -1,4 +1,4 @@
-import type { UiLangSetting } from "@/lib/i18n";
+import { isUiLang, type UiLangSetting } from "@/lib/i18n";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -57,7 +57,7 @@ export function saveLang(code: string) {
 
 export function loadUiLang(): UiLangSetting {
   const l = read("uiLang");
-  return l === "en" || l === "de" ? l : "system";
+  return l && isUiLang(l) ? l : "system";
 }
 
 export function saveUiLang(lang: UiLangSetting) {

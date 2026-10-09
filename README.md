@@ -161,7 +161,8 @@ missing for Debian, Fedora and Arch. It also runs straight from the web
 
 The publication language menu sits in the top right corner. The interface
 is available in English and German (Settings, by default it follows the
-system language), and there is a light and a dark theme.
+system language), and there is a light and a dark theme. To add another
+language see [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 Home lists, categories and meetings come from jw.org's public catalog, about
 58 MB. It is downloaded only when you ask for it and checked for updates at

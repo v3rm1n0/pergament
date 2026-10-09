@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { de } from "@/lib/de";
+import { de } from "@/locales/de";
 import { ago } from "@/lib/dates";
 import { resolveUiLang, setUiLang, t } from "@/lib/i18n";
 
@@ -8,7 +8,7 @@ afterEach(() => setUiLang("en"));
 describe("i18n", () => {
   it("follows the browser locale unless set", () => {
     expect(resolveUiLang("system", "de-AT")).toBe("de");
-    expect(resolveUiLang("system", "fr-FR")).toBe("en");
+    expect(resolveUiLang("system", "ja-JP")).toBe("en");
     expect(resolveUiLang("en", "de-DE")).toBe("en");
     expect(resolveUiLang("de", "en-US")).toBe("de");
   });
