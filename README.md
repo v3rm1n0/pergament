@@ -239,13 +239,18 @@ tool `pergament`. `nix run .#pergament` starts the app.
 
 ## Releases
 
-Versions follow [semantic versioning](https://semver.org). To release, run
-`scripts/release.sh X.Y.Z` on a clean `main` inside `nix develop`. It runs
-the checks, sets the version in `Cargo.toml`, `src-tauri/Cargo.toml`,
-`package.json` and `tauri.conf.json`, commits, tags `vX.Y.Z` and pushes.
-The tag starts a GitHub workflow that publishes the release with notes made
-from the commit messages since the last tag. A release contains the source
-code only.
+Versions follow [semantic versioning](https://semver.org). Nothing is pushed to
+`main` directly: changes come in through pull requests, and so does a release.
+On a clean, up-to-date `main` inside `nix develop`, run
+`scripts/release.sh X.Y.Z`. It runs the checks, sets the version in
+`Cargo.toml`, `src-tauri/Cargo.toml`, `package.json` and `tauri.conf.json` on
+a branch `release/vX.Y.Z` and opens a pull request. Once that is merged, run
+`scripts/release.sh --tag X.Y.Z` on `main`: it tags `vX.Y.Z` and pushes the
+tag. The tag starts a GitHub workflow that publishes the release with the
+Linux zip and its checksum. The release notes are the ones GitHub generates
+from the merged pull requests since the last release, so give each pull
+request a title that reads well as a line in them. The install instructions
+are put in front.
 
 ## License
 
