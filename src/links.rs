@@ -138,7 +138,9 @@ fn parse_media(uri: &str) -> Option<MediaRef> {
         Some(track) => (Some(second), track),
         None => (None, second),
     };
-    if issue.is_some_and(|i| !(i.len() == 6 || i.len() == 8) || !i.bytes().all(|b| b.is_ascii_digit())) {
+    if issue
+        .is_some_and(|i| !(i.len() == 6 || i.len() == 8) || !i.bytes().all(|b| b.is_ascii_digit()))
+    {
         return None;
     }
     let lang = lang.filter(|l| token(l))?;
