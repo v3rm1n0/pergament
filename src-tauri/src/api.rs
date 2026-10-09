@@ -7,7 +7,9 @@ use pergament::catalog::{
     Catalog, CatalogItem, DATED_DAILY_TEXT, DATED_MEETING_WORKBOOK, DATED_WATCHTOWER_STUDY,
     LIST_MEETINGS, LIST_TEACHING_TOOLBOX, category_name, safe_image_path,
 };
-use pergament::links::{Link, MediaRef};
+use pergament::library::MediaEntry;
+use pergament::links::{Link, MediaKind, MediaRef};
+use pergament::mediator;
 use pergament::navigate::{self, Page, Target, TargetKind};
 use pergament::reader::{BibleBook, TocNode};
 use pergament::render::media_name;
@@ -632,6 +634,72 @@ pub fn catalog_image_path(cache: &Path, path: &str) -> Option<(String, PathBuf)>
     safe_image_path(rel).then(|| (rel.to_owned(), cache.join("catalog-images").join(rel)))
 }
 
+/// First path segment under which media catalog images are served.
+pub const CMS_IMAGES: &str = "cms";
+
+/// `jwmedia:` URL of a media catalog image (path below `mediator::IMAGE_BASE`).
+pub fn cms_image_url(rel: &str) -> String {
+    format!("{MEDIA_SCHEME}://localhost/{CMS_IMAGES}/{rel}")
+}
+
+/// Cache path for a media catalog image request path `/cms/p/x/y.jpg`.
+pub fn cms_image_path(cache: &Path, path: &str) -> Option<(String, PathBuf)> {
+    let rel = path
+        .trim_start_matches('/')
+        .strip_prefix(CMS_IMAGES)?
+        .strip_prefix('/')?;
+    mediator::safe_image_path(rel).then(|| (rel.to_owned(), cache.join("cms-images").join(rel)))
+}
+
+/// The remote image behind a request path: the URL to fetch and where it is cached.
+pub fn remote_image(cache: &Path, path: &str) -> Option<(String, PathBuf)> {
+    if let Some((rel, file)) = catalog_image_path(cache, path) {
+        return Some((format!("{}{rel}", pergament::catalog::IMAGE_BASE), file));
+    }
+    let (rel, file) = cms_image_path(cache, path)?;
+    Some((format!("{}{rel}", mediator::IMAGE_BASE), file))
+}
+
+/// A downloaded recording, with the paths the player needs.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaDownload {
+    pub id: i64,
+    pub key: String,
+    pub lang_code: String,
+    pub title: String,
+    pub kind: MediaKind,
+    pub label: String,
+    pub size: i64,
+    pub duration: Option<f64>,
+    /// `jwmedia:` URL of the thumbnail.
+    pub image: Option<String>,
+    /// Absolute path of the video or audio file.
+    pub path: String,
+    /// Absolute path of the WebVTT captions.
+    pub subtitle_path: Option<String>,
+    pub downloaded_at: i64,
+}
+
+pub fn media_download(library: &Library, e: MediaEntry) -> MediaDownload {
+    let dir = library.media_dir();
+    let path = |f: &str| dir.join(f).to_string_lossy().into_owned();
+    MediaDownload {
+        id: e.id,
+        path: path(&e.file_name),
+        subtitle_path: e.subtitle_file.as_deref().map(path),
+        image: e.image.as_deref().map(cms_image_url),
+        key: e.key,
+        lang_code: e.lang_code,
+        title: e.title,
+        kind: e.kind,
+        label: e.label,
+        size: e.size,
+        duration: e.duration,
+        downloaded_at: e.downloaded_at,
+    }
+}
+
 /// What the frontend should do with a clicked link.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -798,6 +866,35 @@ mod tests {
             "/catalog",
         ] {
             assert_eq!(catalog_image_path(cache, bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn cms_image_paths() {
+        let cache = Path::new("/c");
+        assert_eq!(
+            remote_image(cache, "/cms/p/jwb-141/univ/art/x_wss_sm.jpg"),
+            Some((
+                "https://cms-imgp.jw-cdn.org/img/p/jwb-141/univ/art/x_wss_sm.jpg".into(),
+                PathBuf::from("/c/cms-images/p/jwb-141/univ/art/x_wss_sm.jpg")
+            ))
+        );
+        assert_eq!(
+            remote_image(cache, "/catalog/images/ab/x.jpg").map(|(u, _)| u),
+            Some("https://app.jw-cdn.org/catalogs/publications/images/ab/x.jpg".into())
+        );
+        assert_eq!(
+            cms_image_url("p/a/b.jpg"),
+            "jwmedia://localhost/cms/p/a/b.jpg"
+        );
+        for bad in [
+            "/cms/p/../x.jpg",
+            "/cms/x.jpg",
+            "/cms/p/a/b.exe",
+            "/cmsx/p/a/b.jpg",
+            "/cms",
+        ] {
+            assert_eq!(remote_image(cache, bad), None, "{bad}");
         }
     }
 

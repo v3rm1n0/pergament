@@ -11,6 +11,7 @@ use pergament::Library;
 use pergament::catalog::{Catalog, CatalogItem};
 use pergament::languages::Language;
 use pergament::links::{Link, MediaRef};
+use pergament::mediator;
 use pergament::navigate::{Page, Target};
 use pergament::net::{Client, HttpConfig};
 use pergament::remote::{self, Request};
@@ -109,6 +110,89 @@ async fn media_links(media: MediaRef) -> ApiResult<Vec<remote::MediaFile>> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// How long a cached media category is used before it is fetched again.
+const MEDIA_CATEGORY_TTL: Duration = Duration::from_secs(6 * 3600);
+
+/// A video or audio category in a language, with thumbnails as `jwmedia:` URLs.
+/// `detailed` includes the recordings of subcategories.
+#[tauri::command]
+async fn media_category(
+    app: AppHandle,
+    lang: String,
+    key: String,
+    detailed: bool,
+) -> ApiResult<mediator::Category> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = Client::new(HttpConfig::default());
+        let cache = app.state::<AppState>().cache.clone();
+        let mut category =
+            mediator::category(&client, &cache, &lang, &key, detailed, MEDIA_CATEGORY_TTL)
+                .map_err(|e| e.to_string())?;
+        category.map_images(&api::cms_image_url);
+        Ok(category)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Download one quality of a recording from a category into the library.
+#[tauri::command]
+async fn download_media(
+    app: AppHandle,
+    lang: String,
+    category: String,
+    detailed: bool,
+    key: String,
+    label: String,
+) -> ApiResult<api::MediaDownload> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let client = Client::new(HttpConfig::default());
+        let found = mediator::category(
+            &client,
+            &state.cache,
+            &lang,
+            &category,
+            detailed,
+            MEDIA_CATEGORY_TTL,
+        )
+        .map_err(|e| e.to_string())?;
+        let media = found
+            .find(&key)
+            .ok_or_else(|| format!("{key} is not in {category}"))?;
+        // A separate handle, so rendering is not blocked while the file downloads.
+        let lib = Library::open(&state.root).map_err(|e| e.to_string())?;
+        let entry = remote::download_media(
+            &client,
+            &lib,
+            &lang,
+            media,
+            &label,
+            &mut progress(&app, &format!("media:{key}")),
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(api::media_download(&lib, entry))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn media_downloads(state: State<'_, AppState>) -> ApiResult<Vec<api::MediaDownload>> {
+    let lib = state.lib()?;
+    let list = lib.list_media().map_err(|e| e.to_string())?;
+    Ok(list
+        .into_iter()
+        .map(|e| api::media_download(&lib, e))
+        .collect())
+}
+
+#[tauri::command]
+fn remove_media(state: State<'_, AppState>, id: i64) -> ApiResult<()> {
+    state.lib()?.remove_media(id).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Open an http(s) link in the browser. Anything else is refused.
@@ -532,20 +616,19 @@ async fn download_publication(
     .map_err(|e| e.to_string())?
 }
 
-/// Whether serving `path` requires a network fetch (an uncached catalog image).
+/// Whether serving `path` requires a network fetch (an uncached remote image).
 fn needs_fetch(app: &AppHandle, path: &str) -> bool {
-    api::catalog_image_path(&app.state::<AppState>().cache, path).is_some_and(|(_, f)| !f.is_file())
+    api::remote_image(&app.state::<AppState>().cache, path).is_some_and(|(_, f)| !f.is_file())
 }
 
-/// Catalog images are fetched once (rate limited) and cached; publication
+/// Catalog and media images are fetched once (rate limited) and cached; publication
 /// images are read from the library.
 fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
     let state = app.state::<AppState>();
-    let file = match api::catalog_image_path(&state.cache, path) {
-        Some((rel, cached)) => {
+    let file = match api::remote_image(&state.cache, path) {
+        Some((url, cached)) => {
             if !cached.is_file() {
                 let fetched = state.image_client.lock().ok().and_then(|client| {
-                    let url = format!("{}{rel}", pergament::catalog::IMAGE_BASE);
                     let mut ignore = |_: u64, _: Option<u64>| {};
                     client
                         .download(&url, &cached, &Default::default(), &mut ignore)
@@ -607,6 +690,8 @@ pub fn run() {
         .or_else(|| dirs::cache_dir().map(|d| pergament::library::app_dir(&d)))
         .expect("no cache directory (set XDG_CACHE_HOME or PERGAMENT_CACHE)");
     let library = Library::open(&root).expect("cannot open library");
+    std::fs::create_dir_all(library.media_dir()).expect("cannot create media directory");
+    let media_dir = library.media_dir();
     let user = UserData::open(root.join(userdata::DB_NAME)).expect("cannot open user data");
 
     tauri::Builder::default()
@@ -623,6 +708,13 @@ pub fn run() {
                 max_retries: 2,
                 ..HttpConfig::default()
             })),
+        })
+        .setup(move |app| {
+            // Downloaded recordings are played through the asset protocol, which
+            // supports range requests; only the media folder is reachable.
+            app.asset_protocol_scope()
+                .allow_directory(&media_dir, true)?;
+            Ok(())
         })
         .register_asynchronous_uri_scheme_protocol(api::MEDIA_SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -641,6 +733,10 @@ pub fn run() {
             link_action,
             open_external,
             media_links,
+            media_category,
+            download_media,
+            media_downloads,
+            remove_media,
             remove_publication,
             import_files,
             catalog_search,
