@@ -34,6 +34,13 @@ export const de: Record<string, string> = {
   "Teaching Toolbox": "Werkzeug zum Lehren",
   "Add to favorites": "Zu Favoriten hinzufügen",
   "Remove from favorites": "Aus Favoriten entfernen",
+  "Share Link": "Link teilen",
+  "More Languages": "Weitere Sprachen",
+  "Add to Favorites": "Zu Favoriten hinzufügen",
+  "Remove from Favorites": "Aus Favoriten entfernen",
+  "Link copied": "Link kopiert",
+  "Copy failed: {error}": "Kopieren fehlgeschlagen: {error}",
+  "Load the catalog to see more languages.": "Lade den Katalog, um weitere Sprachen zu sehen.",
 
   // Library
   Publications: "Publikationen",
