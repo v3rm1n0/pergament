@@ -73,7 +73,7 @@ export const de: Record<string, string> = {
   Programs: "Programme",
   Index: "Index",
   Guidelines: "Richtlinien",
-  Curriculum: "Lehrplan",
+  Curriculum: "Lehrpläne",
   Outlines: "Vortragsgliederungen",
   Other: "Sonstiges",
   Yearbooks: "Jahrbücher",
