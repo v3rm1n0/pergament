@@ -4,12 +4,14 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 
 use crate::catalog::CatalogItem;
-use crate::library::{Entry, Library};
+use crate::library::{Entry, Library, MediaEntry, media_stem};
 use crate::links::{MediaKind, MediaRef};
+use crate::mediator::Media;
 use crate::net::{Client, Expected, encode_query};
 use crate::{Error, Result};
 
@@ -284,6 +286,79 @@ pub fn download(
     Ok(entry)
 }
 
+/// File extension for a recording's MIME type, if it is one we save.
+fn media_extension(mime: &str) -> Option<&'static str> {
+    match mime {
+        "video/mp4" => Some("mp4"),
+        "audio/mpeg" => Some("mp3"),
+        "audio/mp4" | "audio/x-m4a" => Some("m4a"),
+        _ => None,
+    }
+}
+
+/// Download one rendition of a recording (and its captions, if any) into the
+/// library. The video or audio file is verified against the size and MD5 from
+/// the catalog. Downloading another quality of the same recording replaces it.
+pub fn download_media(
+    client: &Client,
+    library: &Library,
+    lang_code: &str,
+    media: &Media,
+    label: &str,
+    progress: &mut dyn FnMut(u64, Option<u64>),
+) -> Result<MediaEntry> {
+    let file = media
+        .files
+        .iter()
+        .find(|f| f.label == label)
+        .ok_or_else(|| Error::NotFound(format!("{} in {label}", media.title)))?;
+    client.check_url(&file.url)?;
+    let ext = media_extension(&file.mime)
+        .ok_or_else(|| Error::NotFound(format!("cannot save {}", file.mime)))?;
+
+    let stem = media_stem(&media.key, lang_code, label);
+    let name = format!("{stem}.{ext}");
+    let dest = library.media_dir().join(&name);
+    let expected = Expected {
+        size: file.size,
+        md5: file.md5.clone(),
+        sha1: None,
+    };
+    client.download(&file.url, &dest, &expected, progress)?;
+
+    // Captions are optional: a failure leaves the recording without them.
+    let subtitle_file = file.subtitles.as_deref().and_then(|url| {
+        let name = format!("{stem}.vtt");
+        let path = library.media_dir().join(&name);
+        client.check_url(url).ok()?;
+        let mut ignore = |_: u64, _: Option<u64>| {};
+        let saved = client
+            .download(url, &path, &Expected::default(), &mut ignore)
+            .is_ok();
+        if !saved {
+            let _ = fs::remove_file(crate::net::part_path(&path));
+        }
+        saved.then_some(name)
+    });
+
+    library.add_media(&MediaEntry {
+        id: 0,
+        key: media.key.clone(),
+        lang_code: lang_code.to_owned(),
+        title: media.title.clone(),
+        kind: media.kind,
+        label: label.to_owned(),
+        file_name: name,
+        subtitle_file,
+        size: i64::try_from(fs::metadata(&dest)?.len()).unwrap_or(i64::MAX),
+        duration: file.duration.or(media.duration),
+        image: media.image.clone(),
+        downloaded_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(0)),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -381,5 +456,12 @@ mod tests {
             f.track_image.as_ref().map(|i| i.url.as_str()),
             Some("https://cfp2.jw-cdn.org/a/x.jpg")
         );
+    }
+
+    #[test]
+    fn saved_extensions() {
+        assert_eq!(media_extension("video/mp4"), Some("mp4"));
+        assert_eq!(media_extension("audio/mpeg"), Some("mp3"));
+        assert_eq!(media_extension("text/html"), None);
     }
 }
