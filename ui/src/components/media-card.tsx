@@ -129,7 +129,10 @@ export function DownloadButton({
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         title={saved ? t("Downloaded") : t("Download")}
-        onClick={(e) => setAnchor((a) => (a ? null : e.currentTarget.getBoundingClientRect()))}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAnchor((a) => (a ? null : rect));
+        }}
       >
         {saved ? (
           <Check size={20} strokeWidth={1.8} className={icon} />
