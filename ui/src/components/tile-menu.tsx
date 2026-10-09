@@ -158,7 +158,8 @@ export function TileMenu({
         title={t("More")}
         onClick={(e) => {
           e.stopPropagation();
-          setAnchor((a) => (a ? null : e.currentTarget.getBoundingClientRect()));
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAnchor((a) => (a ? null : rect));
         }}
         className={cn(
           "absolute right-1 top-1 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)] focus-visible:opacity-100 group-hover:opacity-100",
