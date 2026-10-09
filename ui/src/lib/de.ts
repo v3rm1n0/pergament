@@ -209,4 +209,20 @@ export const de: Record<string, string> = {
   "This recording is not available.": "Diese Aufnahme ist nicht verfügbar.",
   "This system cannot play the recording here. Open it in your browser instead.":
     "Dieses System kann die Aufnahme hier nicht abspielen. Öffne sie stattdessen im Browser.",
+  // Video and audio
+  Video: "Video",
+  Audio: "Audio",
+  Subtitles: "Untertitel",
+  Speed: "Geschwindigkeit",
+  Normal: "Normal",
+  Repeat: "Wiederholen",
+  Download: "Herunterladen",
+  Downloading: "Wird heruntergeladen",
+  "Download {label} ({size})": "{label} herunterladen ({size})",
+  "Downloaded {title}": "{title} heruntergeladen",
+  "Remove download": "Download entfernen",
+  "Cannot load the recordings: {error}": "Die Aufnahmen können nicht geladen werden: {error}",
+  "Try again": "Erneut versuchen",
+  "Nothing here yet.": "Hier gibt es noch nichts.",
+  Recordings: "Aufnahmen",
 };

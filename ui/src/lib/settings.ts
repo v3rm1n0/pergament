@@ -123,3 +123,13 @@ export function loadParallel(): string[] | null {
 export function saveParallel(dirs: string[]) {
   write("parallelBibles", JSON.stringify(dirs));
 }
+
+/** Highest video height (in pixels) picked by default; larger files stream slowly. */
+export function loadMediaQuality(): number {
+  const n = Number(read("mediaQuality"));
+  return n >= 144 && n <= 2160 ? n : 480;
+}
+
+export function saveMediaQuality(height: number) {
+  write("mediaQuality", String(height));
+}
