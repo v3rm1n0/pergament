@@ -11,6 +11,11 @@ const TYPES: Record<string, string> = {
 };
 
 const blobs = new Map<string, Promise<string>>();
+const resolved = new Map<string, string>();
+
+/** Blob URL of a `jwmedia:` image that was loaded before, available without waiting. */
+export const cachedBlobUrl = (src: string | null | undefined): string | undefined =>
+  isMediaUrl(src) ? resolved.get(src) : undefined;
 
 export const isMediaUrl = (src: string | null | undefined): src is string => !!src && src.startsWith("jwmedia:");
 
@@ -22,7 +27,11 @@ export function mediaBlobUrl(src: string): Promise<string> {
   let blob = blobs.get(src);
   if (!blob) {
     const ext = src.split(".").pop()?.toLowerCase() ?? "";
-    blob = api.media(src).then((bytes) => URL.createObjectURL(new Blob([bytes], { type: TYPES[ext] })));
+    blob = api.media(src).then((bytes) => {
+      const url = URL.createObjectURL(new Blob([bytes], { type: TYPES[ext] }));
+      resolved.set(src, url);
+      return url;
+    });
     blob.catch(() => blobs.delete(src));
     blobs.set(src, blob);
   }
