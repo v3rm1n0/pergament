@@ -32,9 +32,8 @@ git fetch --quiet --tags origin
 ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null || die "$tag exists already"
 
 if [[ $mode == tag ]]; then
+    # However the pull request was merged (merge commit, squash or rebase), main then carries the version.
     scripts/versions.sh "$version" >/dev/null || die "main does not carry version $version; merge the release pull request first"
-    [[ $(git log -1 --format=%s) == "chore: release $tag" ]] ||
-        die "the newest commit on main is not \"chore: release $tag\"; merge the release pull request first"
     git tag -a "$tag" -m "Pergament $version"
     git push origin "$tag"
     echo "release: pushed $tag; the release workflow publishes it"
