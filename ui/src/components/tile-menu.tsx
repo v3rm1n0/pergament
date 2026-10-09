@@ -81,8 +81,8 @@ function LanguagePicker({ target, onClose }: { target: PubTarget; onClose: () =>
 
   const pick = async ({ code, entry }: LanguageEntry) => {
     onClose();
-    const dir = entry.local ?? (await download(entry, code));
-    if (dir) push({ name: "publication", dir });
+    if (entry.local) push({ name: "publication", dir: entry.local });
+    else await download(entry, code);
   };
 
   return (

@@ -33,7 +33,7 @@ export function EntryImage({ entry, className }: { entry: CatalogEntry; classNam
   );
 }
 
-/** Opens a downloaded entry or starts its download. */
+/** Opens a downloaded entry, or downloads it without opening it. */
 export function useEntryAction() {
   const { push, download, downloads } = useApp();
   return {
@@ -44,8 +44,7 @@ export function useEntryAction() {
         return;
       }
       if (downloads[taskKey(e)]) return;
-      const dir = await download(e);
-      if (dir) push({ name: "publication", dir });
+      await download(e);
     },
   };
 }
