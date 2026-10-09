@@ -7,14 +7,14 @@ import { isoDate, longDate } from "@/lib/dates";
 import { themeScripture } from "@/lib/page";
 import { inLanguage, loadFavorites } from "@/lib/settings";
 import { t } from "@/lib/i18n";
-import { CatalogPrompt, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
+import { CatalogPrompt, CoverCaption, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
 
 function FavoriteTile({ pub }: { pub: PubCard }) {
   const { push } = useApp();
   return (
     <button
       onClick={() => push({ name: "publication", dir: pub.dir })}
-      className="w-[88px] text-left"
+      className="group w-[88px] text-left"
       title={pub.title}
     >
       {pub.cover ? (
@@ -24,7 +24,7 @@ function FavoriteTile({ pub }: { pub: PubCard }) {
           <BookOpen size={28} strokeWidth={1.2} />
         </div>
       )}
-      <div className="mt-1 line-clamp-2 text-[0.68rem] leading-tight">{pub.shortTitle ?? pub.title}</div>
+      <CoverCaption>{pub.shortTitle ?? pub.title}</CoverCaption>
     </button>
   );
 }

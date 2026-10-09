@@ -60,6 +60,15 @@ function ProgressOverlay({ entry }: { entry: CatalogEntry }) {
   );
 }
 
+/** Caption box of a cover tile, always the same size so the tiles line up. */
+export function CoverCaption({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-1 h-[1.8rem] overflow-hidden text-[0.68rem] leading-tight group-hover:underline">
+      <div className="line-clamp-2">{children}</div>
+    </div>
+  );
+}
+
 /** Square cover tile with a caption, as in the Teaching Toolbox. */
 export function CoverTile({ entry, label }: { entry: CatalogEntry; label?: string }) {
   const { activate } = useEntryAction();
@@ -76,9 +85,7 @@ export function CoverTile({ entry, label }: { entry: CatalogEntry; label?: strin
         )}
         <ProgressOverlay entry={entry} />
       </div>
-      <div className="mt-1 line-clamp-3 text-[0.68rem] leading-tight group-hover:underline">
-        {label ?? entry.item.short_title ?? entry.item.title}
-      </div>
+      <CoverCaption>{label ?? entry.item.short_title ?? entry.item.title}</CoverCaption>
     </button>
   );
 }
