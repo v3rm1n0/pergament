@@ -91,7 +91,7 @@ function LanguagePicker({ target, onClose }: { target: PubTarget; onClose: () =>
       <div
         role="dialog"
         aria-label={t("More Languages")}
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[70vh] w-[320px] -translate-x-1/2 -translate-y-1/2 flex-col bg-surface shadow-xl ring-1 ring-line"
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[70vh] w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col bg-rail shadow-xl ring-1 ring-line"
       >
         <div className="p-3">
           <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search languages")} />
