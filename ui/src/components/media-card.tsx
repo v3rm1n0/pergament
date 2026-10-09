@@ -6,6 +6,7 @@ import { api, type Media, type MediaDownload, type Progress } from "@/lib/api";
 import { formatDuration, sizeMb } from "@/lib/player";
 import { cn } from "@/lib/utils";
 import { Menu, menuItem } from "@/components/menu";
+import { TileMenu } from "@/components/tile-menu";
 import { MediaImg } from "@/components/media-img";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { t } from "@/lib/i18n";
@@ -201,8 +202,9 @@ interface CardProps {
 
 /** A video: wide thumbnail with its length, title below. Click streams it. */
 export function MediaCard({ media, from, store, onPlay }: CardProps) {
+  const { lang } = useApp();
   return (
-    <div className="w-[176px] shrink-0">
+    <div className="group w-[176px] shrink-0">
       <div className="relative">
         <button onClick={onPlay} title={media.title} aria-label={media.title} className="block w-full">
           <Thumb src={media.image} className="aspect-video w-full" />
@@ -213,6 +215,7 @@ export function MediaCard({ media, from, store, onPlay }: CardProps) {
           </span>
         )}
         <DownloadButton media={media} from={from} store={store} className="absolute bottom-1 right-1" />
+        <TileMenu target={{ kind: "media", key: media.key, langCode: lang }} />
       </div>
       <button onClick={onPlay} className="mt-1.5 line-clamp-2 text-left text-[0.78rem] leading-snug hover:underline">
         {media.title}
@@ -223,8 +226,9 @@ export function MediaCard({ media, from, store, onPlay }: CardProps) {
 
 /** An audio recording: square cover, title and length in one row. */
 export function MediaRow({ media, from, store, onPlay }: CardProps) {
+  const { lang } = useApp();
   return (
-    <div className="flex items-center gap-3 bg-tile pr-3 hover:brightness-110">
+    <div className="group relative flex items-center gap-3 bg-tile pr-3 hover:brightness-110">
       <button onClick={onPlay} title={media.title} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Thumb square src={media.image} className="h-14 w-14 shrink-0" />
         <span className="min-w-0">
@@ -233,6 +237,10 @@ export function MediaRow({ media, from, store, onPlay }: CardProps) {
         </span>
       </button>
       <DownloadButton media={media} from={from} store={store} className="text-fg [&_svg]:text-current [&_svg]:drop-shadow-none" />
+      <TileMenu
+        target={{ kind: "media", key: media.key, langCode: lang }}
+        className="right-12 top-1/2 -translate-y-1/2 text-fg drop-shadow-none"
+      />
     </div>
   );
 }
@@ -249,7 +257,7 @@ export function DownloadedCard({
 }) {
   const [confirming, setConfirming] = useState(false);
   return (
-    <div className="flex items-center gap-3 bg-tile pr-3">
+    <div className="group relative flex items-center gap-3 bg-tile pr-3">
       <button onClick={onPlay} title={item.title} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Thumb square={item.kind === "audio"} src={item.image} className="h-14 w-24 shrink-0" />
         <span className="min-w-0">
@@ -275,6 +283,10 @@ export function DownloadedCard({
           <Trash2 size={17} />
         </button>
       )}
+      <TileMenu
+        target={{ kind: "media", key: item.key, langCode: item.langCode }}
+        className="right-12 top-1/2 -translate-y-1/2 text-fg drop-shadow-none"
+      />
     </div>
   );
 }

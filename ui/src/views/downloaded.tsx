@@ -1,9 +1,10 @@
 import { MediaImg } from "@/components/media-img";
 import { useState } from "react";
-import { BookOpen, CloudDownload, FolderInput, Trash2 } from "lucide-react";
+import { BookOpen, CloudDownload, FolderInput } from "lucide-react";
 import { useApp } from "@/app";
 import { api, type PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { TileMenu, cardTarget } from "@/components/tile-menu";
 import { groupByCategory } from "@/lib/types";
 import { t } from "@/lib/i18n";
 
@@ -28,7 +29,7 @@ function Cover({ pub }: { pub: PubCard }) {
 }
 
 function PubTile({ pub }: { pub: PubCard }) {
-  const { push, refreshPublications, toast } = useApp();
+  const { push, refreshPublications, toast, lang } = useApp();
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="group relative flex flex-col overflow-hidden bg-surface shadow-sm ring-1 ring-line">
@@ -43,39 +44,29 @@ function PubTile({ pub }: { pub: PubCard }) {
           </div>
         </div>
       </button>
-      <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {confirming ? (
-          <div className="flex gap-1 rounded bg-surface p-1 shadow">
-            <Button
-              size="sm"
-              onClick={async () => {
-                try {
-                  await api.removePublication(pub.dir);
-                  toast(t("Removed {title}", { title: pub.shortTitle ?? pub.title }));
-                } catch (e) {
-                  toast(t("Remove failed: {error}", { error: String(e) }));
-                }
-                await refreshPublications();
-              }}
-            >
-              {t("Remove")}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>
-              {t("Cancel")}
-            </Button>
-          </div>
-        ) : (
+      {confirming ? (
+        <div className="absolute right-1.5 top-1.5 flex gap-1 rounded bg-surface p-1 shadow">
           <Button
-            size="icon"
-            variant="outline"
-            className="h-8 w-8"
-            title={t("Remove from library")}
-            onClick={() => setConfirming(true)}
+            size="sm"
+            onClick={async () => {
+              try {
+                await api.removePublication(pub.dir);
+                toast(t("Removed {title}", { title: pub.shortTitle ?? pub.title }));
+              } catch (e) {
+                toast(t("Remove failed: {error}", { error: String(e) }));
+              }
+              await refreshPublications();
+            }}
           >
-            <Trash2 size={15} />
+            {t("Remove")}
           </Button>
-        )}
-      </div>
+          <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>
+            {t("Cancel")}
+          </Button>
+        </div>
+      ) : (
+        <TileMenu target={cardTarget(pub, lang)} onRemove={() => setConfirming(true)} />
+      )}
     </div>
   );
 }

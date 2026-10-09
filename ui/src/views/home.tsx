@@ -7,6 +7,7 @@ import { isoDate, longDate } from "@/lib/dates";
 import { themeScripture } from "@/lib/page";
 import { inLanguage } from "@/lib/settings";
 import { t } from "@/lib/i18n";
+import { TileMenu, cardTarget } from "@/components/tile-menu";
 import { CatalogPrompt, CoverCaption, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
 
 /** First row of the Teaching Toolbox: brochures, books, then the current magazines. Everything else, such as tracts, follows on the next row. */
@@ -25,22 +26,25 @@ function toolboxRows(entries: CatalogEntry[]): CatalogEntry[][][] {
 }
 
 function FavoriteTile({ pub }: { pub: PubCard }) {
-  const { push } = useApp();
+  const { push, lang } = useApp();
   return (
-    <button
-      onClick={() => push({ name: "publication", dir: pub.dir })}
-      className="group w-[88px] text-left"
-      title={pub.title}
-    >
-      {pub.cover ? (
-        <MediaImg src={pub.cover} alt="" className="h-[88px] w-[88px] object-cover" draggable={false} />
-      ) : (
-        <div className="flex h-[88px] w-[88px] items-center justify-center bg-tile">
-          <BookOpen size={28} strokeWidth={1.2} />
-        </div>
-      )}
-      <CoverCaption>{pub.shortTitle ?? pub.title}</CoverCaption>
-    </button>
+    <div className="group relative w-[88px]">
+      <button
+        onClick={() => push({ name: "publication", dir: pub.dir })}
+        className="w-full text-left"
+        title={pub.title}
+      >
+        {pub.cover ? (
+          <MediaImg src={pub.cover} alt="" className="h-[88px] w-[88px] object-cover" draggable={false} />
+        ) : (
+          <div className="flex h-[88px] w-[88px] items-center justify-center bg-tile">
+            <BookOpen size={28} strokeWidth={1.2} />
+          </div>
+        )}
+        <CoverCaption>{pub.shortTitle ?? pub.title}</CoverCaption>
+      </button>
+      <TileMenu target={cardTarget(pub, lang)} />
+    </div>
   );
 }
 
@@ -49,6 +53,22 @@ export function HomeView() {
   const [lists, setLists] = useState<HomeLists | null | undefined>(undefined);
   const { activate } = useEntryAction();
   const favoritePubs = inLanguage(publications, lang).filter((p) => favorites.includes(p.dir));
+  // Favorites that are not downloaded come from the catalog, if one is cached.
+  const missingKeys = favorites.filter((k) => !publications.some((p) => p.dir === k));
+  const [extra, setExtra] = useState<CatalogEntry[]>([]);
+  useEffect(() => {
+    if (missingKeys.length === 0) return setExtra([]);
+    let live = true;
+    api
+      .favoriteEntries(lang, missingKeys)
+      .then((r) => live && setExtra((r ?? []).filter((e) => !e.local)))
+      .catch(() => live && setExtra([]));
+    return () => {
+      live = false;
+    };
+    // The keys array is rebuilt on every render; its content is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, catalogVersion, missingKeys.join("|")]);
 
   useEffect(() => {
     let live = true;
@@ -106,15 +126,18 @@ export function HomeView() {
         )}
         <div className="px-5 pb-10">
           <SectionTitle>Favorites</SectionTitle>
-          {favoritePubs.length > 0 ? (
+          {favoritePubs.length + extra.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {favoritePubs.map((p) => (
                 <FavoriteTile key={p.dir} pub={p} />
               ))}
+              {extra.map((e) => (
+                <CoverTile key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
+              ))}
             </div>
           ) : (
             <div className="flex h-[88px] w-[264px] items-center justify-center gap-2 px-6 text-center text-sm text-fg/80 ring-1 ring-line">
-              <Star size={16} className="shrink-0" /> {t("Add favorites with the star in a publication")}
+              <Star size={16} className="shrink-0" /> {t("Add favorites with the menu of a tile")}
             </div>
           )}
 
