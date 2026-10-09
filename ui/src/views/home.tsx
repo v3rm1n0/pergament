@@ -5,7 +5,7 @@ import { AppBar, SectionTitle, useApp } from "@/app";
 import { api, type CatalogEntry, type DatedPage, type HomeLists, type PubCard } from "@/lib/api";
 import { isoDate, longDate } from "@/lib/dates";
 import { themeScripture } from "@/lib/page";
-import { inLanguage, loadFavorites } from "@/lib/settings";
+import { inLanguage } from "@/lib/settings";
 import { t } from "@/lib/i18n";
 import { CatalogPrompt, CoverCaption, CoverTile, EntryCard, useEntryAction } from "@/components/catalog";
 
@@ -45,10 +45,9 @@ function FavoriteTile({ pub }: { pub: PubCard }) {
 }
 
 export function HomeView() {
-  const { lang, languageName, publications, catalogVersion, toast, push } = useApp();
+  const { lang, languageName, publications, catalogVersion, favorites, toast, push } = useApp();
   const [lists, setLists] = useState<HomeLists | null | undefined>(undefined);
   const { activate } = useEntryAction();
-  const favorites = loadFavorites();
   const favoritePubs = inLanguage(publications, lang).filter((p) => favorites.includes(p.dir));
 
   useEffect(() => {

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileText, Star } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
-import { loadFavorites, toggleFavorite } from "@/lib/settings";
 import { api, documentTarget, type PubDetail, type TocNode } from "@/lib/api";
 import { bookShade, booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { cn } from "@/lib/utils";
@@ -96,9 +95,10 @@ function DocList({ dir, nodes }: { dir: string; nodes: TocNode[] }) {
 
 /** Star in the top bar that adds the publication to the Home favorites. */
 function FavoriteButton({ dir }: { dir: string }) {
-  const [on, setOn] = useState(() => loadFavorites().includes(dir));
+  const { favorites, toggleFavorite } = useApp();
+  const on = favorites.includes(dir);
   return (
-    <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => setOn(toggleFavorite(dir).includes(dir))}>
+    <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => toggleFavorite(dir)}>
       <Star size={21} strokeWidth={1.5} className={on ? "fill-accent text-accent" : undefined} />
     </BarButton>
   );
