@@ -45,9 +45,10 @@ function PubTile({ pub }: { pub: PubCard }) {
         </div>
       </button>
       {confirming ? (
-        <div className="absolute right-1.5 top-1.5 flex gap-1 rounded bg-surface p-1 shadow">
+        <div className="absolute inset-x-1.5 top-1.5 flex gap-1 rounded bg-rail p-1 shadow ring-1 ring-line">
           <Button
             size="sm"
+            className="min-w-0 flex-1 px-2"
             onClick={async () => {
               try {
                 await api.removePublication(pub.dir);
@@ -60,7 +61,7 @@ function PubTile({ pub }: { pub: PubCard }) {
           >
             {t("Remove")}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>
+          <Button size="sm" variant="outline" className="min-w-0 flex-1 px-2" onClick={() => setConfirming(false)}>
             {t("Cancel")}
           </Button>
         </div>
