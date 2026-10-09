@@ -677,6 +677,42 @@ async fn catalog_search(
     .map_err(|e| e.to_string())?
 }
 
+/// The publication in every catalog language; `None` when no catalog is cached.
+#[tauri::command]
+async fn catalog_languages(
+    app: AppHandle,
+    symbol: String,
+    issue_tag: i64,
+) -> ApiResult<Option<Vec<api::LanguageEntry>>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(catalog) = cached_catalog(&app)? else {
+            return Ok(None);
+        };
+        let catalog = catalog.lock().map_err(|e| e.to_string())?;
+        let state = app.state::<AppState>();
+        let lib = state.lib()?;
+        api::languages_of(&catalog, &lib, &symbol, issue_tag).map(Some)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Catalog entries of favorite keys; `None` when no catalog is cached.
+#[tauri::command]
+async fn favorite_entries(
+    app: AppHandle,
+    lang: String,
+    keys: Vec<String>,
+) -> ApiResult<Option<Vec<api::CatalogEntry>>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        with_catalog(&app, &lang, |c, meps, lib| {
+            api::favorite_entries(c, meps, lib, &keys)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn download_publication(
     app: AppHandle,
@@ -856,6 +892,8 @@ pub fn run() {
             remove_publication,
             import_files,
             catalog_search,
+            catalog_languages,
+            favorite_entries,
             languages,
             chapter_study,
             research_verses,
