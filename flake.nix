@@ -114,7 +114,16 @@
             wrapGAppsHook3
             copyDesktopItems
           ];
-          buildInputs = [ pkgs.sqlite ] ++ tauriLibs;
+          buildInputs = [ pkgs.sqlite ] ++ tauriLibs
+            # WebKitGTK plays media through GStreamer; the recordings are H.264/AAC MP4,
+            # which needs the libav decoders.
+            ++ (with pkgs.gst_all_1; [
+              gstreamer
+              gst-plugins-base
+              gst-plugins-good
+              gst-plugins-bad
+              gst-libav
+            ]);
 
           preBuild = ''
             cp -r ${finalAttrs.nodeModules} node_modules
@@ -197,7 +206,18 @@
             hexyl
           ];
 
-          buildInputs = [ pkgs.sqlite ] ++ tauriLibs;
+          buildInputs =
+            [ pkgs.sqlite ]
+            ++ tauriLibs
+            # WebKitGTK plays media through GStreamer. The recordings are H.264/AAC
+            # MP4, which needs the libav decoders.
+            ++ (with pkgs.gst_all_1; [
+              gstreamer
+              gst-plugins-base
+              gst-plugins-good
+              gst-plugins-bad
+              gst-libav
+            ]);
 
           RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
           RUST_BACKTRACE = "1";
