@@ -223,6 +223,14 @@ Series (ijw…), 30 Meeting Workbooks (mwb), 31 Programs (CA-…, CO-…).
 (sjj, es27, rsg, gwt, mwb 2027-01 on 2026-10-05).
 Type 12 is the 2017 branch circuit assembly program (`CA-brpgm17`) in other languages and is listed with Programs. Attributes split the types further: `Archive` (older publications), `Yearbook`, `Examining the Scriptures`, `Kingdom News`, `Convention`, `Circuit Assembly`, and `Study`/`Public` for the Watchtower from 2008.
 
+**Updates.** A downloaded publication has a newer version when the catalog's
+`PublicationAsset.Signature` (SHA-1 of the `.jwpub` file) differs from the
+SHA-1 of the file it was imported from, which the library records since it
+imports. Older entries only have their unpacked files: their total size equals
+`PublicationAsset.ExpandedSize` (17 of 19 installed publications matched
+exactly; the others were missing from the catalog or out of date), so a
+different size means an update. [own]
+
 The catalog has **no language table**. Pergament derives MEPS-id →
 language-code pairs from language-specific image names
 (`…_{CODE}_cvr.jpg` etc.), taking the most frequent code per

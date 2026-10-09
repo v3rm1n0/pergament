@@ -18,7 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { api, type CatalogEntry, type Language, type Progress, type PubCard, type Target } from "@/lib/api";
+import { api, type CatalogEntry, type Language, type Progress, type PubCard, type Target, type UpdateInfo } from "@/lib/api";
 import type { MediaRef } from "@/lib/api";
 import type { PlayerItem } from "@/lib/player";
 import { linkedItem } from "@/lib/recording";
@@ -28,7 +28,9 @@ import {
   inLanguage,
   loadFontScale,
   loadSecondDisplay,
+  loadUpdateCheck,
   saveSecondDisplay,
+  saveUpdateCheck,
   loadLang,
   loadUiLang,
   loadTheme,
@@ -77,8 +79,20 @@ interface AppContextValue {
   languageName: (code: string) => string;
   /** Running downloads by `taskKey`. */
   downloads: Record<string, Progress>;
-  /** Download and import a catalog publication; resolves to its directory. */
-  download: (entry: CatalogEntry) => Promise<string | null>;
+  /** Download and import a catalog publication; resolves to its directory. `lang` defaults to the publication language. */
+  download: (entry: CatalogEntry, lang?: string) => Promise<string | null>;
+  /** Newer versions of downloaded publications, found by checking the catalog. */
+  updates: {
+    items: UpdateInfo[];
+    checking: boolean;
+    /** Whether the catalog is checked at startup. */
+    enabled: boolean;
+    setEnabled: (on: boolean) => void;
+    /** Check now; `false` when there is no catalog to check against. */
+    check: () => Promise<boolean>;
+    update: (u: UpdateInfo) => Promise<void>;
+    updateAll: () => Promise<void>;
+  };
   /** Bumped whenever the catalog was (re)loaded or the library changed. */
   catalogVersion: number;
   loadCatalog: () => Promise<void>;
@@ -209,11 +223,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const langRef = useRef(lang);
   langRef.current = lang;
   const download = useCallback(
-    async (entry: CatalogEntry) => {
+    async (entry: CatalogEntry, lang?: string) => {
       const key = taskKey(entry);
       setDownloads((d) => ({ ...d, [key]: { task: key, done: 0, total: entry.item.size } }));
       try {
-        const dir = await api.downloadPublication(entry.item, langRef.current);
+        const dir = await api.downloadPublication(entry.item, lang ?? langRef.current);
         toast(t("Imported {title}", { title: entry.item.issue_title || entry.item.title }));
         await refreshPublications();
         setCatalogVersion((v) => v + 1);
@@ -231,14 +245,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [refreshPublications, toast],
   );
 
+  // Updates: the catalog lists a different version of a downloaded publication.
+  const [updateItems, setUpdateItems] = useState<UpdateInfo[]>([]);
+  const updateItemsRef = useRef(updateItems);
+  updateItemsRef.current = updateItems;
+  const [checking, setChecking] = useState(false);
+  const [updateCheck, setUpdateCheck] = useState(loadUpdateCheck);
+  const checkUpdates = useCallback(async (): Promise<boolean> => {
+    setChecking(true);
+    try {
+      const found = await api.checkUpdates();
+      if (found === null) return false;
+      setUpdateItems(found);
+      // The catalog may have been refreshed by the check.
+      setCatalogVersion((v) => v + 1);
+      return true;
+    } catch (e) {
+      toast(t("Update check failed: {error}", { error: String(e) }));
+      return false;
+    } finally {
+      setChecking(false);
+    }
+  }, [toast]);
+  const updateOne = useCallback(
+    async (u: UpdateInfo) => {
+      const dir = await download(u.entry, u.langCode);
+      if (dir) setUpdateItems((items) => items.filter((x) => x.dir !== u.dir));
+    },
+    [download],
+  );
+  const updateAll = useCallback(async () => {
+    for (const u of updateItemsRef.current) await updateOne(u);
+  }, [updateOne]);
+  // Once at startup, if the catalog is cached already and the setting allows it.
+  const startupChecked = useRef(false);
+  useEffect(() => {
+    if (startupChecked.current || !loadUpdateCheck()) return;
+    startupChecked.current = true;
+    setChecking(true);
+    api
+      .checkUpdates()
+      .then((found) => {
+        if (!found) return;
+        setUpdateItems(found);
+        if (found.length > 0) {
+          toast(
+            found.length === 1
+              ? t("1 publication update is available")
+              : t("{count} publication updates are available", { count: found.length }),
+            { label: t("Show"), run: () => dispatch({ type: "push", view: { name: "library", tab: "updates" } }) },
+          );
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setChecking(false));
+  }, [toast]);
+
   const loadCatalog = useCallback(async () => {
     try {
       await api.loadCatalog();
       setCatalogVersion((v) => v + 1);
+      // A catalog that was just loaded can tell what has updates.
+      void checkUpdates();
     } catch (e) {
       toast(t("Catalog: {error}", { error: String(e) }));
     }
-  }, [toast]);
+  }, [toast, checkUpdates]);
 
   const createBackup = useCallback(async () => {
     const path = await saveDialog({
@@ -389,6 +461,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       languageName: (code) => names.get(code) ?? code,
       downloads,
       download,
+      updates: {
+        items: updateItems,
+        checking,
+        enabled: updateCheck,
+        setEnabled: (on) => {
+          saveUpdateCheck(on);
+          setUpdateCheck(on);
+        },
+        check: checkUpdates,
+        update: updateOne,
+        updateAll,
+      },
       catalogVersion,
       loadCatalog,
       userVersion,
@@ -417,6 +501,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       names,
       downloads,
       download,
+      updateItems,
+      checking,
+      updateCheck,
+      checkUpdates,
+      updateOne,
+      updateAll,
       catalogVersion,
       loadCatalog,
       userVersion,
@@ -583,18 +673,21 @@ export function Rail() {
 export function BarButton({
   label,
   onClick,
+  disabled,
   children,
 }: {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       title={t(label)}
       aria-label={t(label)}
+      disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-11 items-center justify-center text-fg/85 hover:bg-black/5 hover:text-fg dark:hover:bg-white/10"
+      className="flex h-10 w-11 items-center justify-center text-fg/85 hover:bg-black/5 hover:text-fg disabled:opacity-40 dark:hover:bg-white/10"
     >
       {children}
     </button>

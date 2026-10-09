@@ -23,7 +23,7 @@ export function SettingsView() {
   useEffect(() => {
     getVersion().then(setVersion, () => undefined);
   }, []);
-  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup, display } = useApp();
+  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup, display, updates } = useApp();
   return (
     <>
       <AppBar title={t("Settings")} />
@@ -78,6 +78,23 @@ export function SettingsView() {
               <span className="w-12 text-sm text-muted">{Math.round(fontScale * 100)} %</span>
             </div>
             <p className="reader mt-4 max-w-xl text-fg">{t("In the beginning God created the heavens and the earth.")}</p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Updates")}</h2>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={updates.enabled}
+                onChange={(e) => updates.setEnabled(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-[var(--accent)]"
+              />
+              <span>{t("Check for publication updates at startup")}</span>
+            </label>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              {t(
+                "Compares your downloaded publications with the catalog, which is refreshed at most once a day, and only if you have loaded the catalog before. Nothing is downloaded until you update.",
+              )}
+            </p>
           </section>
           <section>
             <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Second display")}</h2>

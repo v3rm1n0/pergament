@@ -152,3 +152,12 @@ export function loadSecondDisplay(): boolean {
 export function saveSecondDisplay(on: boolean) {
   write("secondDisplay", on ? "1" : "0");
 }
+
+/** Whether the catalog is checked for updates to downloaded publications at startup. */
+export function loadUpdateCheck(): boolean {
+  return read("updateCheck") !== "0";
+}
+
+export function saveUpdateCheck(on: boolean) {
+  write("updateCheck", on ? "1" : "0");
+}
