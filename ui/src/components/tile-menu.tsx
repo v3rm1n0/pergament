@@ -4,6 +4,7 @@ import { useApp } from "@/app";
 import { api, type CatalogEntry, type Language, type LanguageEntry, type PubCard } from "@/lib/api";
 import { loadLanguages } from "@/components/language-menu";
 import { Menu, menuItem } from "@/components/menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { mediaLink, pubKey, publicationLink } from "@/lib/share";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,9 @@ export interface PubTarget {
   issueTag: number;
   mepsLanguage: number;
   langCode: string;
+  /** Library directory when downloaded. */
+  local: string | null;
+  title: string;
 }
 export interface MediaTarget {
   kind: "media";
@@ -30,6 +34,8 @@ export const entryTarget = (e: CatalogEntry, lang: string): PubTarget => ({
   issueTag: e.item.issue_tag,
   mepsLanguage: e.item.meps_language,
   langCode: lang,
+  local: e.local,
+  title: e.item.issue_title || e.item.title,
 });
 
 /** The menu target of a downloaded publication. */
@@ -39,6 +45,8 @@ export const cardTarget = (p: PubCard, lang: string): PubTarget => ({
   issueTag: Number(p.issueTag) || 0,
   mepsLanguage: p.mepsLanguage,
   langCode: p.langCode ?? lang,
+  local: p.dir,
+  title: p.shortTitle ?? p.title,
 });
 
 /** Languages a publication is available in; picking one opens it, downloading it first if needed. */
@@ -117,20 +125,47 @@ function LanguagePicker({ target, onClose }: { target: PubTarget; onClose: () =>
   );
 }
 
+/** Asks before a downloaded publication is deleted. */
+function RemoveConfirm({ title, onConfirm, onClose }: { title: string; onConfirm: () => void; onClose: () => void }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onClose]);
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div
+        role="alertdialog"
+        aria-label={t("Remove from library")}
+        className="fixed left-1/2 top-1/2 z-50 flex w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 bg-rail p-4 shadow-xl ring-1 ring-line"
+      >
+        <p className="text-sm">{t("Remove {title} from the library?", { title })}</p>
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={onClose}>
+            {t("Cancel")}
+          </Button>
+          <Button size="sm" autoFocus onClick={onConfirm}>
+            {t("Remove")}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /** The 3-dots button of a tile and its menu. The tile must be `group relative`; this sits in its top-right corner. */
 export function TileMenu({
   target,
-  onRemove,
   className,
 }: {
   target: TileTarget;
-  /** Adds a Remove entry (downloaded publications). */
-  onRemove?: () => void;
   className?: string;
 }) {
-  const { toast, favorites, toggleFavorite } = useApp();
+  const { toast, favorites, toggleFavorite, removePublication } = useApp();
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [picking, setPicking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const close = useCallback(() => setAnchor(null), []);
   const key = target.kind === "pub" ? pubKey(target.symbol, target.mepsLanguage, target.issueTag) : null;
   const favorite = key != null && favorites.includes(key);
@@ -198,13 +233,13 @@ export function TileMenu({
               {favorite ? t("Remove from Favorites") : t("Add to Favorites")}
             </button>
           )}
-          {onRemove && (
+          {target.kind === "pub" && target.local && (
             <button
               role="menuitem"
               className={menuItem}
               onClick={() => {
                 close();
-                onRemove();
+                setConfirming(true);
               }}
             >
               {t("Remove")}
@@ -213,6 +248,16 @@ export function TileMenu({
         </Menu>
       )}
       {picking && target.kind === "pub" && <LanguagePicker target={target} onClose={() => setPicking(false)} />}
+      {confirming && target.kind === "pub" && target.local && (
+        <RemoveConfirm
+          title={target.title}
+          onClose={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            void removePublication(target.local!, target.title);
+          }}
+        />
+      )}
     </>
   );
 }

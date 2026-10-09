@@ -50,6 +50,7 @@ export const de: Record<string, string> = {
   Remove: "Entfernen",
   Cancel: "Abbrechen",
   "Remove from library": "Aus der Bibliothek entfernen",
+  "Remove {title} from the library?": "{title} aus der Bibliothek entfernen?",
   "Removed {title}": "{title} entfernt",
   "Remove failed: {error}": "Entfernen fehlgeschlagen: {error}",
   "Nothing downloaded in this language": "In dieser Sprache ist nichts heruntergeladen",

@@ -64,6 +64,8 @@ interface AppContextValue {
   openTarget: (target: Target, note?: boolean) => void;
   publications: PubCard[];
   refreshPublications: () => Promise<void>;
+  /** Delete a downloaded publication from the library. */
+  removePublication: (dir: string, title: string) => Promise<void>;
   toast: (text: string, action?: Toast["action"]) => void;
   theme: Theme;
   setTheme: (t: Theme) => void;
@@ -206,6 +208,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshPublications();
   }, [refreshPublications]);
+
+  const removePublication = useCallback(
+    async (dir: string, title: string) => {
+      try {
+        await api.removePublication(dir);
+        toast(t("Removed {title}", { title }));
+      } catch (e) {
+        toast(t("Remove failed: {error}", { error: String(e) }));
+      }
+      await refreshPublications();
+      // Catalog tiles show whether a publication is downloaded.
+      setCatalogVersion((v) => v + 1);
+    },
+    [refreshPublications, toast],
+  );
 
   const importFiles = useCallback(async () => {
     const picked = await openDialog({
@@ -442,6 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openTarget: (target, note) => dispatch({ type: "push", view: { name: "reader", target, note } }),
       publications,
       refreshPublications,
+      removePublication,
       toast,
       theme,
       setTheme: (t) => {
@@ -500,6 +518,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       nav,
       publications,
       refreshPublications,
+      removePublication,
       toast,
       theme,
       dark,
