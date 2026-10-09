@@ -381,6 +381,21 @@ pub fn parse_content_range_start(v: &str) -> Option<u64> {
 }
 
 /// Check size, MD5 and SHA-1 of a file against `expected`.
+/// SHA-1 (hex) of a file.
+pub fn file_sha1(path: &Path) -> Result<String> {
+    let mut f = File::open(path)?;
+    let mut sha1 = Sha1::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        sha1.update(&buf[..n]);
+    }
+    Ok(hex::encode(sha1.finalize()))
+}
+
 pub fn verify_file(path: &Path, expected: &Expected) -> Result<()> {
     let mut f = File::open(path)?;
     let mut md5 = Md5::new();

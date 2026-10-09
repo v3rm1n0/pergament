@@ -11,7 +11,7 @@ fn build(path: &std::path::Path) {
              Symbol TEXT NOT NULL, KeySymbol TEXT);
          CREATE TABLE PublicationAsset (Id INTEGER PRIMARY KEY, PublicationId INTEGER NOT NULL,
              MepsLanguageId INTEGER NOT NULL, Signature TEXT NOT NULL, Size INTEGER NOT NULL,
-             MimeType TEXT, CatalogedOn TEXT);
+             MimeType TEXT, CatalogedOn TEXT, ExpandedSize INTEGER NOT NULL DEFAULT 0);
          CREATE TABLE ImageAsset (Id INTEGER PRIMARY KEY, NameFragment TEXT NOT NULL,
              Width INTEGER NOT NULL DEFAULT 270, Height INTEGER NOT NULL DEFAULT 270);
          CREATE TABLE DatedText (Class INTEGER, Start TEXT, End TEXT, PublicationId INTEGER);
@@ -70,13 +70,15 @@ fn build(path: &std::path::Path) {
         )
         .unwrap();
         c.execute(
-            "INSERT INTO PublicationAsset VALUES (?1, ?1, ?2, ?3, ?4, 'application/x-jwpub', ?5)",
+            "INSERT INTO PublicationAsset
+                 VALUES (?1, ?1, ?2, ?3, ?4, 'application/x-jwpub', ?5, ?6)",
             params![
                 id,
                 lang,
                 format!("{id:040}"),
                 1000 * id,
-                format!("2026-10-0{id}T00:00:00+00:00")
+                format!("2026-10-0{id}T00:00:00+00:00"),
+                2000 * id
             ],
         )
         .unwrap();
@@ -160,6 +162,13 @@ fn find_by_key_or_dated_symbol() {
         20250900
     );
     assert!(c.find("nwtsty", 0, None).unwrap().is_none());
+}
+
+#[test]
+fn items_carry_the_unpacked_size() {
+    let (_t, c) = open();
+    let item = c.find("wp", 2, None).unwrap().unwrap();
+    assert_eq!(item.expanded_size, 2 * item.size);
 }
 
 #[test]
