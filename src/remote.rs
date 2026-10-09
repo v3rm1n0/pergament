@@ -120,6 +120,8 @@ struct RawMediaFile {
     file: PubMediaFileRef,
     #[serde(default)]
     track_image: Option<ImageRef>,
+    #[serde(default)]
+    subtitles: Option<ImageRef>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,7 +131,7 @@ struct ImageRef {
 }
 
 /// One playable rendition of a recording.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MediaFile {
     pub title: String,
     /// Quality such as `360p`; empty for audio.
@@ -141,6 +143,10 @@ pub struct MediaFile {
     pub duration: Option<f64>,
     /// Still image to show before playback.
     pub poster: Option<String>,
+    /// WebVTT captions, when the recording has them.
+    pub subtitles: Option<String>,
+    /// MD5 of the file.
+    pub md5: Option<String>,
 }
 
 /// pub-media URL for the MP4 or MP3 files of one track.
@@ -194,6 +200,10 @@ pub fn media_links(client: &Client, media: &MediaRef) -> Result<Vec<MediaFile>> 
                 .track_image
                 .map(|i| i.url)
                 .filter(|u| client.check_url(u).is_ok());
+            let subtitles = f
+                .subtitles
+                .map(|s| s.url)
+                .filter(|u| !u.is_empty() && client.check_url(u).is_ok());
             (
                 f.frame_height.unwrap_or(0),
                 MediaFile {
@@ -204,6 +214,8 @@ pub fn media_links(client: &Client, media: &MediaRef) -> Result<Vec<MediaFile>> 
                     size: f.filesize,
                     duration: f.duration,
                     poster,
+                    subtitles,
+                    md5: f.file.checksum.filter(|c| !c.is_empty()),
                 },
             )
         })
@@ -211,7 +223,6 @@ pub fn media_links(client: &Client, media: &MediaRef) -> Result<Vec<MediaFile>> 
     files.sort_by_key(|(height, f)| (*height, f.size));
     Ok(files.into_iter().map(|(_, f)| f).collect())
 }
-
 
 /// Download a publication and import it. `catalog_item`, when known, adds a
 /// SHA-1 and size check and is used to confirm the imported publication.

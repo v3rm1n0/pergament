@@ -10,6 +10,7 @@ pub mod languages;
 pub mod library;
 pub mod links;
 pub mod manifest;
+pub mod mediator;
 pub mod navigate;
 pub mod net;
 pub mod reader;
