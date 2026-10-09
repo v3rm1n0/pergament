@@ -564,7 +564,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           onClose={closeToolbar}
         />
       )}
-      {player && <MediaPlayer media={player} onClose={() => setPlayer(null)} />}
+      {player && <MediaPlayer media={player} lang={lang} onClose={() => setPlayer(null)} />}
       {editing && (
         <NoteEditor
           note={editing.note}

@@ -433,7 +433,7 @@ export function Rail() {
       </RailButton>
       <RailButton
         label="Library"
-        active={view.name === "library" || view.name === "category"}
+        active={view.name === "library" || view.name === "category" || view.name === "media"}
         expanded={expanded}
         onClick={() => go({ name: "library" })}
       >

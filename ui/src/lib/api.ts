@@ -77,6 +77,46 @@ export interface MediaFile {
   size: number | null;
   duration: number | null;
   poster: string | null;
+  subtitles: string | null;
+  md5: string | null;
+}
+
+/** A recording in the media catalog (`pergament::mediator::Media`). */
+export interface Media {
+  key: string;
+  title: string;
+  kind: "audio" | "video";
+  duration: number | null;
+  published: string | null;
+  /** `jwmedia:` URL of the thumbnail. */
+  image: string | null;
+  files: MediaFile[];
+}
+
+/** A video or audio category (`pergament::mediator::Category`). */
+export interface MediaCategory {
+  key: string;
+  name: string;
+  container: boolean;
+  image: string | null;
+  subcategories: MediaCategory[];
+  media: Media[];
+}
+
+/** A recording saved in the library. */
+export interface MediaDownload {
+  id: number;
+  key: string;
+  langCode: string;
+  title: string;
+  kind: "audio" | "video";
+  label: string;
+  size: number;
+  duration: number | null;
+  image: string | null;
+  path: string;
+  subtitlePath: string | null;
+  downloadedAt: number;
 }
 
 export type LinkAction =
@@ -287,6 +327,12 @@ export const api = {
     invoke<LinkAction>("link_action", { current, href }),
   openExternal: (url: string) => invoke<void>("open_external", { url }),
   mediaLinks: (media: MediaRef) => invoke<MediaFile[]>("media_links", { media }),
+  mediaCategory: (lang: string, key: string, detailed: boolean) =>
+    invoke<MediaCategory>("media_category", { lang, key, detailed }),
+  downloadMedia: (lang: string, category: string, detailed: boolean, key: string, label: string) =>
+    invoke<MediaDownload>("download_media", { lang, category, detailed, key, label }),
+  mediaDownloads: () => invoke<MediaDownload[]>("media_downloads"),
+  removeMedia: (id: number) => invoke<void>("remove_media", { id }),
   removePublication: (dir: string) => invoke<void>("remove_publication", { dir }),
   importFiles: (paths: string[]) => invoke<ImportResult[]>("import_files", { paths }),
   languages: () => invoke<Language[]>("languages"),
