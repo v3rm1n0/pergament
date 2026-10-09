@@ -239,6 +239,15 @@ impl Catalog {
             )
             .optional()?)
     }
+
+    /// The same publication (dated symbol and issue) in every language the
+    /// catalog lists, by MEPS language id.
+    pub fn languages_of(&self, symbol: &str, issue_tag: i64) -> Result<Vec<CatalogItem>> {
+        self.items(
+            "WHERE p.Symbol = ?1 AND p.IssueTagNumber = ?2 ORDER BY p.MepsLanguageId",
+            params![symbol, issue_tag],
+        )
+    }
 }
 
 impl Catalog {

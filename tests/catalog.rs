@@ -299,3 +299,16 @@ fn real_catalog() {
     );
     assert!(meetings[0].0.image.is_some(), "{:?}", meetings[0].0);
 }
+
+#[test]
+fn lists_a_publication_in_every_language() {
+    let (_t, c) = open();
+    let langs: Vec<_> = c
+        .languages_of("wp26", 20260900)
+        .unwrap()
+        .iter()
+        .map(|i| i.meps_language)
+        .collect();
+    assert_eq!(langs, vec![0, 2]);
+    assert!(c.languages_of("wp26", 1).unwrap().is_empty());
+}
