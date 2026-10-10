@@ -114,18 +114,18 @@ function ReferencePage({ pref, onFollow }: { pref: Extract<PaneRef, { kind: "pag
       <button
         onClick={() => openTarget(pref.target, pref.studyNote)}
         title={t("Open in the reader")}
-        className="flex shrink-0 items-center gap-3 bg-bar py-1.5 pl-1.5 pr-3 text-left hover:brightness-110"
+        className="flex shrink-0 items-center gap-3 border-b border-line bg-surface py-1.5 pl-1.5 pr-3 text-left hover:bg-bar"
       >
         {card?.cover ? (
-          <MediaImg src={card.cover} alt="" className="h-11 w-11 object-cover" draggable={false} />
+          <MediaImg src={card.cover} alt="" className="h-11 w-11 rounded-md border border-line object-cover" draggable={false} />
         ) : (
-          <div className="flex h-11 w-11 items-center justify-center bg-tile">
+          <div className="flex h-11 w-11 items-center justify-center rounded-md border border-line bg-tile text-muted">
             <BookOpen size={20} strokeWidth={1.3} />
           </div>
         )}
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate font-semibold">{pref.page.title}</div>
-          <div className="truncate text-[0.8rem] text-fg/75">{card?.shortTitle ?? card?.title}</div>
+          <div className="truncate text-[13px] text-muted">{card?.shortTitle ?? card?.title}</div>
         </div>
         <ChevronRight size={20} className="shrink-0" />
       </button>
@@ -157,7 +157,7 @@ function MissingReference({ pref, onRetry }: { pref: Extract<PaneRef, { kind: "m
           onClick={async () => {
             if (await download(entry)) onRetry();
           }}
-          className="flex items-center gap-2 bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
+          className="flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm text-brand-fg hover:opacity-90 dark:bg-fg dark:text-surface"
         >
           <CloudDownload size={17} /> {t("Download ({size})", { size: mb(entry.item.size) })}
         </button>

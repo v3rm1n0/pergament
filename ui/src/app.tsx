@@ -568,17 +568,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         {toasts.map((item) => (
           <div
             key={item.id}
-            className="pointer-events-auto flex max-w-xl items-center gap-3 bg-[#2b2b2b] px-4 py-2.5 text-sm text-white shadow-lg"
+            className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-md border border-line bg-surface px-4 py-2.5 text-sm text-fg shadow-sm"
           >
             <span>{item.text}</span>
             {item.action && (
-              <button className="font-semibold text-[#e0b24f] hover:underline" onClick={item.action.run}>
+              <button className="font-semibold text-accent hover:underline" onClick={item.action.run}>
                 {item.action.label}
               </button>
             )}
             <button
               aria-label={t("Dismiss")}
-              className="opacity-60 hover:opacity-100"
+              className="text-muted hover:text-fg"
               onClick={() => setToasts((all) => all.filter((x) => x.id !== item.id))}
             >
               <X size={14} />
@@ -594,7 +594,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 export function TitleStrip() {
   const { canGoBack, back } = useApp();
   return (
-    <div data-tauri-drag-region className="flex h-7 shrink-0 items-center gap-3 bg-brand px-2 text-xs text-brand-fg">
+    <div data-tauri-drag-region className="flex h-7 shrink-0 items-center gap-3 border-b border-line bg-surface px-2 text-xs text-muted">
       <button
         aria-label={t("Back")}
         disabled={!canGoBack}
@@ -626,13 +626,13 @@ function RailButton({
       title={t(label)}
       aria-label={t(label)}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex h-14 w-full items-center gap-4 px-[13px] text-fg/75 hover:bg-white/5 hover:text-fg",
-        active && "text-accent",
+        "flex h-9 w-full items-center gap-3 rounded-md px-2 text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent",
+        active && "bg-bar text-fg",
       )}
     >
-      {active && <span className="absolute inset-y-3 left-0 w-[3px] bg-accent" />}
-      <span className="flex w-6 justify-center">{children}</span>
+      <span className="flex w-5 shrink-0 justify-center">{children}</span>
       {expanded && <span className="text-sm">{t(label)}</span>}
     </button>
   );
@@ -650,9 +650,9 @@ export function Rail() {
     setExpanded(false);
     root(v);
   };
-  const icon = { size: 22, strokeWidth: 1.4 };
+  const icon = { size: 18, strokeWidth: 1.6 };
   return (
-    <nav className={cn("flex shrink-0 flex-col bg-rail transition-[width]", expanded ? "w-52" : "w-[50px]")}>
+    <nav className={cn("flex shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
       <RailButton label="Menu" active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
         <Menu {...icon} />
       </RailButton>
@@ -723,7 +723,7 @@ export function BarButton({
       aria-label={t(label)}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-11 items-center justify-center text-fg/85 hover:bg-black/5 hover:text-fg disabled:opacity-40 dark:hover:bg-white/10"
+      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
     >
       {children}
     </button>
@@ -745,7 +745,7 @@ function MoreMenu() {
   }, [open]);
   const item = (label: string, icon: ReactNode, run: () => void) => (
     <button
-      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+      className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-bar"
       onClick={() => {
         setOpen(false);
         run();
@@ -758,10 +758,10 @@ function MoreMenu() {
   return (
     <div ref={ref} className="relative">
       <BarButton label="More" onClick={() => setOpen((o) => !o)}>
-        <Ellipsis size={22} strokeWidth={1.5} />
+        <Ellipsis size={18} strokeWidth={1.6} />
       </BarButton>
       {open && (
-        <div className="absolute right-0 top-11 z-40 w-56 bg-bar py-1 shadow-xl ring-1 ring-line">
+        <div className="absolute right-0 top-9 z-40 w-56 rounded-md border border-line bg-surface py-1 shadow-sm">
           {item("Import .jwpub…", <FolderInput size={17} />, () => void importFiles())}
           {item(dark ? "Light mode" : "Dark mode", dark ? <Sun size={17} /> : <Moon size={17} />, () =>
             setTheme(dark ? "light" : "dark"),
@@ -786,14 +786,14 @@ export function AppBar({
   const { push, lang, setLang, publications } = useApp();
   const libraryCodes = [...new Set(publications.map((p) => p.langCode).filter((c): c is string => !!c))];
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-1 bg-bar pl-4 pr-2">
+    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-surface pl-4 pr-2">
       <div className="min-w-0 flex-1 leading-tight">
-        <h1 className="truncate text-[0.95rem] font-semibold">{title}</h1>
-        {subtitle && <div className="truncate text-[0.85rem] text-fg/80">{subtitle}</div>}
+        <h1 className="truncate text-sm font-semibold">{title}</h1>
+        {subtitle && <div className="truncate text-[13px] text-muted">{subtitle}</div>}
       </div>
       {children}
       <BarButton label="Search and download" onClick={() => push({ name: "online" })}>
-        <Search size={21} strokeWidth={1.5} />
+        <Search size={18} strokeWidth={1.6} />
       </BarButton>
       <LanguageMenu value={lang} onChange={setLang} libraryCodes={libraryCodes} />
       <MoreMenu />
@@ -801,12 +801,23 @@ export function AppBar({
   );
 }
 
-/** Section heading used across views ("Favorites", "What's New", …). */
-export function SectionTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+/** Section heading used across views ("Favorites", "What's New", …). `quiet` drops the top margin, for a heading that opens a page. */
+export function SectionTitle({
+  children,
+  aside,
+  variant = "default",
+}: {
+  children: ReactNode;
+  aside?: ReactNode;
+  variant?: "default" | "quiet";
+}) {
+  const quiet = variant === "quiet";
   return (
-    <div className="mb-3 mt-8 flex items-baseline justify-between">
-      <h2 className="text-[1.35rem] font-semibold">{typeof children === "string" ? t(children) : children}</h2>
-      {aside && <span className="text-sm text-accent">{aside}</span>}
+    <div className={cn("flex items-baseline justify-between", quiet ? "mb-3" : "mb-3 mt-10")}>
+      <h2 className="text-sm font-semibold">
+        {typeof children === "string" ? t(children) : children}
+      </h2>
+      {aside && <span className="text-[13px] text-muted">{aside}</span>}
     </div>
   );
 }

@@ -8,9 +8,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-brand text-brand-fg hover:brightness-110 rounded",
-        outline: "border border-line bg-surface hover:bg-bar rounded",
-        ghost: "hover:bg-black/5 dark:hover:bg-white/10 rounded",
+        default: "bg-brand text-brand-fg hover:opacity-90 rounded-md dark:bg-fg dark:text-surface",
+        outline: "border border-line bg-surface hover:bg-bar rounded-md",
+        ghost: "hover:bg-bar rounded-md",
       },
       size: {
         default: "h-9 px-4",

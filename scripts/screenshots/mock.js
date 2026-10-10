@@ -614,7 +614,14 @@
     link_action: ({ current, href }) => linkAction(current, href),
     open_external: () => null,
     media_links: () => [],
-    media_category: ({ key }) => ({ key, name: "", container: true, image: null, subcategories: [], media: [] }),
+    media_category: ({ key }) => {
+      const sub = (list) => list.map(([k, name]) => ({ key: k, name, container: true, image: null, subcategories: [], media: [] }));
+      const roots = {
+        VideoOnDemand: sub([["VODStudio", "Studio Features"], ["VODMovies", "Films"], ["VODSeries", "Series"], ["VODMinistry", "Ministry Shorts"], ["VODChildren", "For Children"], ["VODTeenagers", "For Teenagers"], ["VODFamily", "For Families"], ["VODProgramsEvents", "Gatherings and Events"]]),
+        Audio: sub([["AudioOriginalSongs", "Original Songs"], ["AudioDrama", "Dramatized Readings"], ["AudioPubs", "Audio Editions"], ["AudioMeetings", "Meeting Recordings"]]),
+      };
+      return { key, name: "", container: true, image: null, subcategories: roots[key] ?? [], media: [] };
+    },
     download_media: () => null,
     media_downloads: () => [],
     remove_media: () => null,

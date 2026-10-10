@@ -63,6 +63,15 @@ const scenes = [
     await page.getByText("Carry the lamp ahead of you", { exact: false }).nth(1).waitFor();
     await page.getByText("Take the lamp in front of you").waitFor();
   }],
+  ["03-bible-books", async (page) => {
+    await rail(page, "Bible");
+    await page.getByRole("button", { name: "Lanterns", exact: true }).waitFor();
+  }],
+  ["03-bible-chapters", async (page) => {
+    await rail(page, "Bible");
+    await page.getByRole("button", { name: "Lanterns", exact: true }).click();
+    await page.getByRole("button", { name: "10", exact: true }).waitFor();
+  }],
   ["03-bible-study-pane", async (page) => {
     await rail(page, "Bible");
     await page.getByRole("button", { name: "Lanterns", exact: true }).click();
@@ -75,6 +84,11 @@ const scenes = [
   ["04-library", async (page) => {
     await rail(page, "Library");
     await page.getByText("Brochures and Booklets").waitFor();
+  }],
+  ["04-library-video", async (page) => {
+    await rail(page, "Library");
+    await page.getByRole("button", { name: "Video", exact: true }).click();
+    await page.getByText("Gatherings and Events").waitFor();
   }],
   ["05-meetings", async (page) => {
     await rail(page, "Meetings");

@@ -4,19 +4,22 @@ import { cn } from "@/lib/utils";
 
 export const Tabs = TabsPrimitive.Root;
 
+/** A flat segmented control: a muted track with the active tab raised to the page background. */
 export const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn("flex items-end gap-1 overflow-x-auto border-b border-line bg-surface px-4", className)}
+    className={cn(
+      "inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border border-line bg-bar p-0.5",
+      className,
+    )}
     {...props}
   />
 ));
 TabsList.displayName = "TabsList";
 
-/** Upper-case tab with a brand underline when active. */
 export const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -24,9 +27,7 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "relative shrink-0 px-3.5 pb-3 pt-3.5 text-[1.05rem] uppercase tracking-wide text-fg/80 hover:text-fg",
-      "data-[state=active]:font-semibold data-[state=active]:text-accent",
-      "after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-accent after:opacity-0 data-[state=active]:after:opacity-100",
+      "shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent data-[state=active]:bg-surface data-[state=active]:text-fg",
       className,
     )}
     {...props}

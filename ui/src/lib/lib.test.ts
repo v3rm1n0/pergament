@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { bookShade, booksTabIndex, shortBookName } from "./bible";
+import { booksTabIndex, shortBookName } from "./bible";
 import { currentView, initialNav, navReducer } from "./nav";
-import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, verseKeyFromHref, verseKeyFromId } from "./page";
+import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, themeScriptureParts, verseKeyFromHref, verseKeyFromId } from "./page";
 import { defaultLangCode, prefersDark } from "./settings";
 import { BLOCK_PARAGRAPH, BLOCK_VERSE, applyMarks, blockElements, blockOf, selectionRanges, tokens } from "./marks";
 import type { TocNode } from "./api";
@@ -14,15 +14,6 @@ const node = (title: string, children: TocNode[] = [], bible_book: number | null
 });
 
 describe("bible", () => {
-  it("shades books by group", () => {
-    expect(bookShade(1)).toBe(0);
-    expect(bookShade(6)).toBe(2);
-    expect(bookShade(19)).toBe(1);
-    expect(bookShade(23)).toBe(0);
-    expect(bookShade(44)).toBe(2);
-    expect(bookShade(45)).toBe(1);
-    expect(bookShade(66)).toBe(0);
-  });
   it("shortens book names", () => {
     expect(shortBookName("1. Mose (Genesis)")).toBe("1. Mose");
     expect(shortBookName("Psalmen")).toBe("Psalmen");
@@ -144,6 +135,10 @@ describe("references", () => {
     const html = `<header><h2>Mittwoch</h2></header><p class="themeScrp"><em>Denkt an die </em><a><em>Heb. 13:7</em></a></p>`;
     expect(themeScripture(html)).toBe("Denkt an die Heb. 13:7");
     expect(themeScripture("<p>x</p>")).toBe("");
+    // The reference is shown apart from the text, so the brackets around it go as well.
+    const bracketed = `<p class="themeScrp"><em>Denkt an die </em>(<a><em>Heb. 13:7</em></a>)</p>`;
+    expect(themeScriptureParts(bracketed)).toEqual({ text: "Denkt an die", reference: "Heb. 13:7" });
+    expect(themeScriptureParts('<p class="themeScrp">“A (quoted) word”—<a>Ps. 1:1</a></p>').text).toBe("“A (quoted) word”");
   });
 });
 

@@ -34,7 +34,7 @@ export function Menu({ anchor, onClose, children }: { anchor: DOMRect; onClose: 
         ref={ref}
         role="menu"
         style={style}
-        className="fixed z-50 flex min-w-[200px] max-w-[calc(100vw-16px)] flex-col divide-y divide-line bg-rail shadow-xl ring-1 ring-line"
+        className="fixed z-50 flex min-w-[200px] max-w-[calc(100vw-16px)] flex-col divide-y divide-line rounded-md border border-line bg-surface shadow-sm"
       >
         {children}
       </div>
@@ -42,4 +42,4 @@ export function Menu({ anchor, onClose, children }: { anchor: DOMRect; onClose: 
   );
 }
 
-export const menuItem = "px-4 py-2 text-left text-[0.85rem] hover:bg-tile";
+export const menuItem = "px-4 py-2 text-left text-[0.85rem] hover:bg-bar";

@@ -40,7 +40,7 @@ export function MarkToolbar({
     <div
       ref={ref}
       style={{ left: x, top: y }}
-      className="fixed z-50 flex -translate-x-1/2 -translate-y-full items-center gap-1.5 bg-bar px-2 py-1.5 shadow-xl ring-1 ring-line"
+      className="fixed z-50 flex -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 shadow-sm"
     >
       {HIGHLIGHT_COLORS.map((c) => (
         <button
@@ -70,7 +70,7 @@ export function MarkToolbar({
 /** A note as shown in the study pane and in Personal Study. */
 export function NoteCard({ note, onClick, subtitle }: { note: Note; onClick?: () => void; subtitle?: string }) {
   return (
-    <button onClick={onClick} className="flex w-full gap-3 bg-tile/60 p-3 text-left hover:brightness-105">
+    <button onClick={onClick} className="flex w-full gap-3 rounded-md border border-line p-3 text-left hover:bg-bar">
       <span className={cn("w-1 shrink-0 self-stretch", note.color ? `hl-dot-${note.color}` : "bg-line")} />
       <div className="min-w-0 flex-1">
         {subtitle && <div className="truncate text-xs text-muted">{subtitle}</div>}
@@ -79,7 +79,7 @@ export function NoteCard({ note, onClick, subtitle }: { note: Note; onClick?: ()
         {note.tags.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
             {note.tags.map((t) => (
-              <span key={t} className="bg-bar px-1.5 py-0.5 text-[0.7rem]">
+              <span key={t} className="rounded border border-line px-1.5 py-0.5 text-xs">
                 {t}
               </span>
             ))}
@@ -109,7 +109,7 @@ export function NoteEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={onClose}>
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="flex w-[min(90vw,560px)] flex-col gap-3 bg-surface p-5 shadow-2xl ring-1 ring-line"
+        className="flex w-[min(90vw,560px)] flex-col gap-3 rounded-md border border-line bg-surface p-5 shadow-sm"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{note.guid ? t("Edit note") : t("New note")}</h2>
@@ -123,7 +123,7 @@ export function NoteEditor({
           placeholder={t("Title")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="bg-bar px-3 py-2 outline-none focus:ring-1 focus:ring-accent"
+          className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
         />
         <textarea
           id="note-content"
@@ -131,14 +131,14 @@ export function NoteEditor({
           rows={8}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="resize-y bg-bar px-3 py-2 outline-none focus:ring-1 focus:ring-accent"
+          className="resize-y rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
         />
         <input
           id="note-tags"
           placeholder={t("Tags, separated by commas")}
           value={tags}
           onChange={(e) => setTags(e.target.value)}
-          className="bg-bar px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-accent"
+          className="rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
         />
         <div className="flex items-center gap-2">
           {onDelete && (
@@ -162,7 +162,7 @@ export function NoteEditor({
                   .filter(Boolean),
               })
             }
-            className="bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110 disabled:opacity-50"
+            className="rounded-md bg-brand px-4 py-2 text-sm text-brand-fg hover:opacity-90 dark:bg-fg dark:text-surface disabled:opacity-50"
           >
             {t("Save")}
           </button>

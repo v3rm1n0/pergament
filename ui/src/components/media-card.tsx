@@ -111,7 +111,7 @@ export function DownloadButton({
   const close = useCallback(() => setAnchor(null), []);
   const saved = store.downloaded.get(media.key);
   const running = store.progress[media.key];
-  const icon = "text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]";
+  const icon = "text-fg";
 
   if (running) {
     return (
@@ -125,6 +125,7 @@ export function DownloadButton({
   return (
     <div className={className}>
       <button
+        className="inline-flex size-[26px] items-center justify-center rounded-md border border-line bg-surface hover:bg-bar focus-visible:outline-2 focus-visible:outline-accent"
         aria-label={saved ? t("Downloaded") : t("Download")}
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
@@ -135,9 +136,9 @@ export function DownloadButton({
         }}
       >
         {saved ? (
-          <Check size={20} strokeWidth={1.8} className={icon} />
+          <Check size={14} strokeWidth={1.8} className={icon} />
         ) : (
-          <CloudDownload size={20} strokeWidth={1.6} className={icon} />
+          <CloudDownload size={14} strokeWidth={1.6} className={icon} />
         )}
       </button>
       {anchor && (
@@ -180,7 +181,7 @@ function Thumb({ src, className, square }: { src: string | null; className?: str
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
     return (
-      <div className={cn("flex items-center justify-center bg-tile text-muted", className)}>
+      <div className={cn("flex items-center justify-center rounded-md border border-line bg-tile text-muted", className)}>
         {square ? <Music size={26} strokeWidth={1.2} /> : <Play size={26} strokeWidth={1.2} />}
       </div>
     );
@@ -191,7 +192,7 @@ function Thumb({ src, className, square }: { src: string | null; className?: str
       alt=""
       draggable={false}
       onError={() => setFailed(true)}
-      className={cn("object-cover", className)}
+      className={cn("rounded-md border border-line object-cover", className)}
     />
   );
 }
@@ -213,14 +214,14 @@ export function MediaCard({ media, from, store, onPlay }: CardProps) {
           <Thumb src={media.image} className="aspect-video w-full" />
         </button>
         {media.duration != null && (
-          <span className="pointer-events-none absolute left-1 top-1 flex items-center gap-1 bg-black/60 px-1 text-[0.7rem] text-white">
+          <span className="pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-1 rounded border border-line bg-surface px-1 text-xs tabular-nums text-fg">
             <Play size={9} fill="currentColor" /> {formatDuration(media.duration)}
           </span>
         )}
-        <DownloadButton media={media} from={from} store={store} className="absolute bottom-1 right-1" />
+        <DownloadButton media={media} from={from} store={store} className="absolute bottom-1.5 right-1.5" />
         <TileMenu target={{ kind: "media", key: media.key, langCode: lang }} />
       </div>
-      <button onClick={onPlay} className="mt-1.5 line-clamp-2 text-left text-[0.78rem] leading-snug hover:underline">
+      <button onClick={onPlay} className="mt-1.5 line-clamp-2 text-left text-[13px] font-medium leading-snug hover:underline">
         {media.title}
       </button>
     </div>
@@ -231,18 +232,18 @@ export function MediaCard({ media, from, store, onPlay }: CardProps) {
 export function MediaRow({ media, from, store, onPlay }: CardProps) {
   const { lang } = useApp();
   return (
-    <div className="group relative flex items-center gap-3 bg-tile pr-3 hover:brightness-110">
+    <div className="group relative flex items-center gap-3 rounded-md border border-line pr-3 hover:bg-bar">
       <button onClick={onPlay} title={media.title} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Thumb square src={media.image} className="h-14 w-14 shrink-0" />
         <span className="min-w-0">
-          <span className="line-clamp-2 block text-[0.88rem] leading-snug">{media.title}</span>
+          <span className="line-clamp-2 block text-sm leading-snug">{media.title}</span>
           {media.duration != null && <span className="text-xs text-muted">{formatDuration(media.duration)}</span>}
         </span>
       </button>
-      <DownloadButton media={media} from={from} store={store} className="text-fg [&_svg]:text-current [&_svg]:drop-shadow-none" />
+      <DownloadButton media={media} from={from} store={store} />
       <TileMenu
         target={{ kind: "media", key: media.key, langCode: lang }}
-        className="right-12 top-1/2 -translate-y-1/2 text-fg drop-shadow-none"
+        className="right-12 top-1/2 -translate-y-1/2"
       />
     </div>
   );
@@ -260,11 +261,11 @@ export function DownloadedCard({
 }) {
   const [confirming, setConfirming] = useState(false);
   return (
-    <div className="group relative flex items-center gap-3 bg-tile pr-3">
+    <div className="group relative flex items-center gap-3 rounded-md border border-line pr-3">
       <button onClick={onPlay} title={item.title} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Thumb square={item.kind === "audio"} src={item.image} className="h-14 w-24 shrink-0" />
         <span className="min-w-0">
-          <span className="line-clamp-2 block text-[0.88rem] leading-snug">{item.title}</span>
+          <span className="line-clamp-2 block text-sm leading-snug">{item.title}</span>
           <span className="text-xs text-muted">
             {[item.label, item.duration != null ? formatDuration(item.duration) : "", sizeMb(item.size)]
               .filter(Boolean)
@@ -274,7 +275,7 @@ export function DownloadedCard({
       </button>
       {confirming ? (
         <span className="flex gap-1 text-sm">
-          <button className="bg-brand px-2 py-1 text-brand-fg" onClick={() => void store.remove(item)}>
+          <button className="rounded-md bg-brand px-2 py-1 text-brand-fg dark:bg-fg dark:text-surface" onClick={() => void store.remove(item)}>
             {t("Remove")}
           </button>
           <button className="px-2 py-1 hover:bg-bar" onClick={() => setConfirming(false)}>
@@ -288,7 +289,7 @@ export function DownloadedCard({
       )}
       <TileMenu
         target={{ kind: "media", key: item.key, langCode: item.langCode }}
-        className="right-12 top-1/2 -translate-y-1/2 text-fg drop-shadow-none"
+        className="right-12 top-1/2 -translate-y-1/2"
       />
     </div>
   );

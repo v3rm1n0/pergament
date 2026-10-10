@@ -64,6 +64,22 @@ export function themeScripture(html: string): string {
   return (doc.querySelector(".themeScrp")?.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
+/** The theme scripture split into its text and the reference to it, which is the last link inside it. */
+export function themeScriptureParts(html: string): { text: string; reference: string } {
+  const el = new DOMParser().parseFromString(html, "text/html").querySelector(".themeScrp");
+  if (!el) return { text: "", reference: "" };
+  const clean = (s: string | null) => (s ?? "").replace(/\s+/g, " ").trim();
+  const links = el.querySelectorAll("a");
+  const link = links[links.length - 1];
+  const reference = clean(link?.textContent ?? null);
+  link?.remove();
+  // The reference stands in brackets after the text; without the link they are left empty or open.
+  const text = clean(el.textContent)
+    .replace(/[\s(\[]*[)\]]*$/, "")
+    .replace(/[\s–—-]+$/, "");
+  return { text, reference: reference.replace(/^[\s(\[]+|[\s)\]]+$/g, "") };
+}
+
 /** What a link cites inside the page it opens. */
 export type Cited =
   | { kind: "verses"; from: [number, number]; to: [number, number] }

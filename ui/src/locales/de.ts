@@ -26,6 +26,10 @@ export const de: Record<string, string> = {
 
   // Home
   "Welcome to Pergament": "Willkommen bei Pergament",
+  Today: "Heute",
+  Read: "Lesen",
+  Get: "Laden",
+  Open: "Öffnen",
   "Open {title}": "{title} öffnen",
   "Download {title}": "{title} herunterladen",
   Favorites: "Favoriten",
@@ -176,6 +180,7 @@ export const de: Record<string, string> = {
   "Notes and Tags": "Notizen und Tags",
   Bookmarks: "Lesezeichen",
   All: "Alle",
+  Chapters: "Kapitel",
   "Select text in a publication to highlight it or add a note.":
     "Wähle in einer Publikation Text aus, um ihn zu markieren oder eine Notiz hinzuzufügen.",
   "{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks":

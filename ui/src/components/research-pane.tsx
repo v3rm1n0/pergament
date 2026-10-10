@@ -56,7 +56,7 @@ export function ResearchPane({
         <div className="flex-1 pr-11 text-center leading-tight">
           <div className="text-sm">{t("Research Guide")}</div>
           {bookTitle && (
-            <div className="text-[0.7rem] text-fg/70">
+            <div className="text-xs text-muted">
               {bookTitle} {chapter}:{verse}
             </div>
           )}
@@ -68,14 +68,14 @@ export function ResearchPane({
             <button
               onClick={() => onFollow(e.href)}
               title={e.location}
-              className="flex w-full items-center gap-3 bg-bar py-1.5 pl-1.5 pr-3 text-left hover:brightness-110"
+              className="flex w-full items-center gap-3 border-b border-line bg-surface py-1.5 pl-1.5 pr-3 text-left hover:bg-bar"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-tile">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line bg-tile text-muted">
                 <Newspaper size={20} strokeWidth={1.3} />
               </div>
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="truncate font-semibold">{e.publication}</div>
-                <div className="truncate text-[0.8rem] text-fg/75">{e.subject}</div>
+                <div className="truncate text-[13px] text-muted">{e.subject}</div>
               </div>
               <ChevronRight size={20} className="shrink-0" />
             </button>

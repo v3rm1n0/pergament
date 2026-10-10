@@ -47,24 +47,24 @@ export function PersonalView() {
   return (
     <>
       <AppBar title={t("Personal Study")} subtitle={summary ? summaryLine(summary) : undefined} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-5 pb-12">
-          <SectionTitle>Backup</SectionTitle>
+      <div className="page flex-1 overflow-y-auto">
+        <div>
+          <SectionTitle variant="quiet">Backup</SectionTitle>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => void createBackup()}
-              className="flex items-center gap-2 bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
+              className="flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm text-brand-fg hover:opacity-90 dark:bg-fg dark:text-surface"
             >
               <DatabaseBackup size={17} /> {t("Create backup")}
             </button>
             <button
               onClick={() => void restoreBackup()}
-              className="flex items-center gap-2 bg-tile px-4 py-2 text-sm hover:brightness-110"
+              className="flex items-center gap-2 rounded-md border border-line bg-surface px-4 py-2 text-sm hover:bg-bar"
             >
               <FolderOpen size={17} /> {t("Restore backup…")}
             </button>
           </div>
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2 text-[13px] text-muted">
             {t("Backups are .jwlibrary files with highlights, notes, tags and bookmarks.")}
           </p>
 
@@ -100,7 +100,7 @@ export function PersonalView() {
                     title={t("Edit note")}
                     aria-label={t("Edit note")}
                     onClick={() => setEditing(n)}
-                    className="flex w-10 items-center justify-center bg-tile/60 hover:text-accent"
+                    className="flex w-10 items-center justify-center rounded-md border border-line text-muted hover:bg-bar hover:text-fg"
                   >
                     <Pencil size={16} />
                   </button>
@@ -117,12 +117,12 @@ export function PersonalView() {
                   <button
                     key={`${b.location.keySymbol}-${b.slot}-${b.title}`}
                     onClick={() => void open(b.location)}
-                    className="flex items-center gap-3 py-1.5 text-left hover:text-accent"
+                    className="flex items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-bar"
                   >
                     <BookmarkIcon size={18} className="shrink-0 text-accent" />
                     <div className="min-w-0">
-                      <div className="truncate">{b.title}</div>
-                      {b.snippet && <div className="truncate text-xs text-muted">{b.snippet}</div>}
+                      <div className="truncate text-sm">{b.title}</div>
+                      {b.snippet && <div className="truncate text-[13px] text-muted">{b.snippet}</div>}
                     </div>
                   </button>
                 ))}
@@ -168,9 +168,10 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "flex items-center gap-1 px-2.5 py-1 text-sm",
-        active ? "bg-brand text-brand-fg" : "bg-tile hover:brightness-110",
+        "flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-[13px]",
+        active ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
       )}
     >
       {children}

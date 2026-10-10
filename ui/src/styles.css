@@ -7,11 +7,11 @@
   --brand: #2b2b33;
   --brand-fg: #f3ead6;
   --bg: #f1f1f2;
-  --surface: #ffffff;
+  --surface: #fafafa;
   --bar: #f1f1f2;
   --rail: #e3e3e6;
   --tile: #e0e0e3;
-  --text: #1b1b20;
+  --text: #25252b;
   --muted: #66666f;
   --border: #d4d4d9;
   --accent: #97680d;
@@ -33,12 +33,12 @@
 /* Dark: black content, dark grey bars, brighter amber. */
 .dark {
   --brand: #1c1c22;
-  --bg: #000000;
-  --surface: #000000;
-  --bar: #1e1e23;
+  --bg: #16161a;
+  --surface: #16161a;
+  --bar: #1f1f25;
   --rail: #27272d;
   --tile: #2a2a30;
-  --text: #e7e7ea;
+  --text: #dcdce0;
   --muted: #9a9aa3;
   --border: #34343b;
   --accent: #e0b24f;
@@ -337,4 +337,17 @@ body {
 }
 .reader textarea.gen-field-input:focus {
   border-color: var(--accent);
+}
+
+/* One centered content column of at most 880px, with 16px (24px from 720px) of side padding. */
+@layer components {
+  .page {
+    background: var(--surface);
+    padding: 2rem max(1rem, calc((100% - 880px) / 2));
+  }
+  @media (min-width: 720px) {
+    .page {
+      padding-inline: max(1.5rem, calc((100% - 880px) / 2));
+    }
+  }
 }
