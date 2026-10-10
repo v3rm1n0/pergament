@@ -25,7 +25,7 @@ function Idle() {
   }, [current]);
   if (!year) return null;
   return (
-    <div className="max-w-[64vw] text-center font-serif text-[clamp(1.6rem,4.3vw,5.5rem)] font-bold leading-snug text-white/80">
+    <div className="max-w-[64vw] text-center text-[clamp(1.6rem,4.3vw,5.5rem)] font-semibold leading-snug text-white/80">
       <p>{year.text}</p>
       {year.reference && <p>—{year.reference}.</p>}
     </div>

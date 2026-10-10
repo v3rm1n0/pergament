@@ -1,41 +1,46 @@
 import { useEffect, useState } from "react";
-import { CloudDownload } from "lucide-react";
 import { taskKey, useApp } from "@/app";
 import { api, type UpdateInfo } from "@/lib/api";
 import { CatalogPrompt, EntryImage, mb } from "@/components/catalog";
 import { TileMenu, entryTarget } from "@/components/tile-menu";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { t } from "@/lib/i18n";
 
 function UpdateRow({ update }: { update: UpdateInfo }) {
   const { downloads, updates, lang } = useApp();
   const { item } = update.entry;
+  const title = item.issue_title || item.title;
   const progress = downloads[taskKey(update.entry)];
   return (
-    <div className="group relative flex bg-tile">
-      <EntryImage entry={update.entry} className="h-[88px] w-[88px] shrink-0" />
-      <div className="flex min-w-0 flex-1 flex-col px-3 py-2">
-        <div className="line-clamp-2 text-[0.9rem] leading-snug">{item.issue_title || item.title}</div>
-        <div className="mt-auto text-xs text-fg/70">
+    <li className="group relative flex items-center gap-3 border-b border-line px-1 py-2 hover:bg-bar">
+      <EntryImage entry={update.entry} className="aspect-[4/5] w-9 shrink-0 rounded-[6px] border border-line" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm leading-normal">{title}</div>
+        <div className="truncate text-[13px] leading-normal tabular-nums text-muted">
           {item.symbol} · {item.year} · {mb(item.size)}
         </div>
+        {progress && (
+          <Progress value={progress.total ? (progress.done / progress.total) * 100 : null} label={title} className="mt-1 h-0.5" />
+        )}
       </div>
-      <button
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 px-2.5 text-[13px]"
         disabled={!!progress}
         onClick={() => void updates.update(update)}
-        className="flex w-20 shrink-0 flex-col items-center justify-center gap-1 text-xs hover:bg-bar disabled:opacity-50"
-        title={t("Update {title}", { title: item.issue_title || item.title })}
+        title={t("Update {title}", { title })}
       >
-        <CloudDownload size={20} strokeWidth={1.5} />
         {t("Update")}
-      </button>
-      {progress && (
-        <div className="absolute inset-x-1.5 bottom-1.5">
-          <Progress value={progress.total ? (progress.done / progress.total) * 100 : null} />
-        </div>
-      )}
-      <TileMenu target={entryTarget(update.entry, lang)} className="text-fg drop-shadow-none" />
-    </div>
+      </Button>
+      <span className="relative size-7 shrink-0">
+        <TileMenu
+          target={entryTarget(update.entry, lang)}
+          className="right-0 top-0 size-7 border-transparent bg-transparent text-muted opacity-100 hover:text-fg"
+        />
+      </span>
+    </li>
   );
 }
 
@@ -55,7 +60,7 @@ export function UpdatesTab() {
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <p className="text-[0.95rem]">
+        <p className="text-sm">
           {count === 0
             ? t("All downloaded publications are up to date.")
             : count === 1
@@ -63,28 +68,20 @@ export function UpdatesTab() {
               : t("{count} publications have updates.", { count })}
         </p>
         {count > 1 && (
-          <button
-            disabled={busy}
-            onClick={() => void updates.updateAll()}
-            className="bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110 disabled:opacity-50"
-          >
+          <Button disabled={busy} onClick={() => void updates.updateAll()}>
             {t("Update all")}
-          </button>
+          </Button>
         )}
-        <button
-          disabled={updates.checking}
-          onClick={() => void updates.check()}
-          className="bg-tile px-4 py-2 text-sm hover:brightness-110 disabled:opacity-50"
-        >
+        <Button variant="outline" disabled={updates.checking} onClick={() => void updates.check()}>
           {updates.checking ? t("Checking…") : t("Check now")}
-        </button>
+        </Button>
       </div>
       {count > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-1">
+        <ul className="border-t border-line">
           {updates.items.map((u) => (
             <UpdateRow key={u.dir} update={u} />
           ))}
-        </div>
+        </ul>
       )}
       <p className="mt-6 max-w-xl text-sm text-muted">
         {t(

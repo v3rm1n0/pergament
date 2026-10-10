@@ -98,8 +98,9 @@ function LanguagePicker({ target, onClose }: { target: PubTarget; onClose: () =>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label={t("More Languages")}
-        className="fixed left-1/2 top-1/2 z-50 flex max-h-[70vh] w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col bg-rail shadow-xl ring-1 ring-line"
+        className="fixed left-1/2 top-1/2 z-50 flex max-h-[70vh] w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-line bg-surface shadow-sm"
       >
         <div className="p-3">
           <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search languages")} />
@@ -137,8 +138,9 @@ function RemoveConfirm({ title, onConfirm, onClose }: { title: string; onConfirm
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div
         role="alertdialog"
+        aria-modal="true"
         aria-label={t("Remove from library")}
-        className="fixed left-1/2 top-1/2 z-50 flex w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 bg-rail p-4 shadow-xl ring-1 ring-line"
+        className="fixed left-1/2 top-1/2 z-50 flex w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border border-line bg-surface p-4 shadow-sm"
       >
         <p className="text-sm">{t("Remove {title} from the library?", { title })}</p>
         <div className="flex justify-end gap-2">
@@ -153,6 +155,14 @@ function RemoveConfirm({ title, onConfirm, onClose }: { title: string; onConfirm
     </>
   );
 }
+
+/** A 26px square control on a cover or row: hidden until it is hovered or focused, always shown on touch screens. */
+export const coverControl = cn(
+  "inline-flex size-[26px] items-center justify-center rounded-md border border-line bg-surface text-fg",
+  "opacity-0 transition-opacity hover:bg-bar motion-reduce:transition-none",
+  "group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100",
+  "focus-visible:outline-2 focus-visible:outline-accent [@media(pointer:coarse)]:opacity-100",
+);
 
 /** The 3-dots button of a tile and its menu. The tile must be `group relative`; this sits in its top-right corner. */
 export function TileMenu({
@@ -196,13 +206,9 @@ export function TileMenu({
           const rect = e.currentTarget.getBoundingClientRect();
           setAnchor((a) => (a ? null : rect));
         }}
-        className={cn(
-          "absolute right-1 top-1 text-white drop-shadow-[0_0_2px_rgba(0,0,0,0.9)] focus-visible:opacity-100 group-hover:opacity-100",
-          anchor ? "opacity-100" : "opacity-0",
-          className,
-        )}
+        className={cn(coverControl, "absolute right-1.5 top-1.5", className)}
       >
-        <MoreHorizontal size={18} strokeWidth={1.8} />
+        <MoreHorizontal size={14} strokeWidth={1.8} />
       </button>
       {anchor && (
         <Menu anchor={anchor} onClose={close}>

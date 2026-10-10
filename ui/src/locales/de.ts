@@ -26,6 +26,10 @@ export const de: Record<string, string> = {
 
   // Home
   "Welcome to Pergament": "Willkommen bei Pergament",
+  Today: "Heute",
+  Read: "Lesen",
+  Get: "Laden",
+  Open: "Öffnen",
   "Open {title}": "{title} öffnen",
   "Download {title}": "{title} herunterladen",
   Favorites: "Favoriten",
@@ -176,6 +180,32 @@ export const de: Record<string, string> = {
   "Notes and Tags": "Notizen und Tags",
   Bookmarks: "Lesezeichen",
   All: "Alle",
+  Chapters: "Kapitel",
+  "Study pane": "Studienleiste",
+  "Reading font": "Schrift",
+  Standard: "Standard",
+  "Easy to read": "Gut lesbar",
+  "Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.":
+    "Atkinson Hyperlegible Next wurde so gestaltet, dass sich Buchstaben leicht unterscheiden lassen. Sie ersetzt die Schrift überall, auch beim Bibeltext.",
+  "Main navigation": "Hauptnavigation",
+  "Skip to content": "Zum Inhalt springen",
+  "Go to…": "Gehe zu…",
+  "Go to a verse": "Zu einem Vers gehen",
+  "Reference, for example Heb 10:24": "Stelle, zum Beispiel Heb 10:24",
+  "No such place in this Bible.": "Diese Stelle gibt es in dieser Bibel nicht.",
+  Go: "Los",
+  "Search notes": "Notizen durchsuchen",
+  "Highlight color": "Markierungsfarbe",
+  "Sort notes": "Notizen sortieren",
+  "Newest first": "Neueste zuerst",
+  "Oldest first": "Älteste zuerst",
+  "By publication": "Nach Publikation",
+  "No notes match.": "Keine Notiz passt.",
+  "Content width": "Inhaltsbreite",
+  Centered: "Zentriert",
+  "Full width": "Volle Breite",
+  "A centered column is easier to read; full width uses the whole window for lists, covers and the reader.":
+    "Eine zentrierte Spalte liest sich leichter; volle Breite nutzt das ganze Fenster für Listen, Cover und den Leser.",
   "Select text in a publication to highlight it or add a note.":
     "Wähle in einer Publikation Text aus, um ihn zu markieren oder eine Notiz hinzuzufügen.",
   "{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks":

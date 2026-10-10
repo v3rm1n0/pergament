@@ -208,6 +208,10 @@ version 3 only. The full text is in [LICENSE](LICENSE). The notes below
 describe how the project is published and what you should know before using
 it. They do not add restrictions to the GPL.
 
+**Font.** The "Easy to read" setting uses Atkinson Hyperlegible Next, which is
+shipped with the app (`ui/src/fonts`) under the SIL Open Font License 1.1.
+The license text is next to the files. It is not loaded from the network.
+
 **Tolerated, not authorised.** The project has no permission from the Watch
 Tower Bible and Tract Society or any other rights holder of the publications
 it reads. At most, its existence and use are tolerated. That can change at any

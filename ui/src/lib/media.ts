@@ -38,9 +38,16 @@ export function mediaBlobUrl(src: string): Promise<string> {
   return blob;
 }
 
-/** Loads the `jwmedia:` images inside rendered page HTML. */
+/** Natural width from which an inline image counts as a picture and gets scaled down. */
+const PHOTO_WIDTH = 300;
+
+/** Loads the `jwmedia:` images inside rendered page HTML and marks the large ones as pictures. */
 export function hydrateMedia(root: ParentNode) {
   root.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+    // Pictures, as opposed to icons, are scaled down to a fixed box (see `img.photo` in styles.css).
+    const mark = () => img.classList.toggle("photo", img.naturalWidth >= PHOTO_WIDTH);
+    if (img.complete && img.naturalWidth > 0) mark();
+    else img.addEventListener("load", mark);
     const src = img.getAttribute("src");
     if (!isMediaUrl(src)) return;
     // The original URL is what the second display loads.

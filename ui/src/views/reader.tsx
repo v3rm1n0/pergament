@@ -22,6 +22,7 @@ import { loadAnswer, saveAnswer, saveLastColor } from "@/lib/settings";
 import { clickedImage, hydrateMedia } from "@/lib/media";
 import { parseBibleRange } from "@/lib/parallel";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
+import { GoToButton } from "@/components/go-to";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
@@ -59,7 +60,7 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
-  const { push, replace, toast, lang, userVersion, publications, playRecording, showImage } = useApp();
+  const { push, replace, toast, lang, userVersion, publications, playRecording, showImage, layout } = useApp();
   const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
@@ -439,17 +440,18 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
     (chapter ? study !== null : docFootnotes.length > 0) || refs.length > 0 || user.notes.length > 0;
   const subtitle = detail?.card.title ?? "";
   const edge =
-    "absolute top-1/2 z-10 flex h-10 w-7 -translate-y-1/2 items-center justify-center bg-bar/80 hover:bg-bar";
+    "absolute top-1/2 z-10 flex h-10 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-line bg-surface text-muted hover:bg-bar hover:text-fg";
 
   return (
     <>
       <AppBar title={dated !== null ? t("Daily Text") : (page?.title ?? "")} subtitle={subtitle}>
+        {chapter && <GoToButton />}
         {hasPane && (
           <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
             {paneOpen ? (
-              <PanelRightClose size={21} strokeWidth={1.5} />
+              <PanelRightClose size={18} strokeWidth={1.6} />
             ) : (
-              <PanelRightOpen size={21} strokeWidth={1.5} />
+              <PanelRightOpen size={18} strokeWidth={1.6} />
             )}
           </BarButton>
         )}
@@ -475,7 +477,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             </>
           )}
           <div className="h-full overflow-y-auto bg-surface">
-            <div className={cn("mx-auto px-12 py-6", chapter ? "max-w-[46rem]" : "max-w-3xl")}>
+            <div className={cn("mx-auto px-12 py-6", layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"))}>
               {split && (
                 <div
                   ref={articleRef}
@@ -497,7 +499,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           </div>
         </div>
         {hasPane && paneOpen && refs.length > 0 && (
-          <aside className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
+          <aside aria-label={t("Study pane")} className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
             <ReferencePane
               pref={refs[refs.length - 1]}
               onBack={() => setRefs((r) => r.slice(0, -1))}
@@ -508,13 +510,14 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         )}
         {hasPane && paneOpen && refs.length === 0 && (
           <aside
+            aria-label={t("Study pane")}
             ref={paneRef}
             onClick={onPaneClick}
             className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
           >
             {user.notes.length > 0 && (
               <section className="mb-6 flex flex-col gap-2">
-                <h3 className="text-[1.05rem] font-semibold">{t("My notes")}</h3>
+                <h3 className="text-sm font-semibold">{t("My notes")}</h3>
                 {user.notes.map((n) => (
                   <div key={n.guid} data-note={n.guid}>
                     <NoteCard note={n} onClick={() => setEditing({ note: n })} />
@@ -617,7 +620,7 @@ function VerseSection({
 }) {
   return (
     <section data-verse={verseKey(v)} className={cn("mb-5 scroll-mt-2 px-1", selected && "selected")}>
-      <h3 className="mb-2 text-[1.05rem] font-semibold">{verseKey(v)}</h3>
+      <h3 className="mb-2 text-sm font-semibold">{verseKey(v)}</h3>
       {v.footnotes.map((f) => (
         <div key={`f${f.index}`} className="mb-2 flex gap-2">
           <span className="text-link">*</span>
@@ -672,7 +675,7 @@ function StudyPane({
     <>
       {study.outline.length > 0 && (
         <section className="mb-5">
-          <h3 className="mb-2 text-[1.05rem] font-semibold">{study.outlineTitle ?? t("Outline")}</h3>
+          <h3 className="mb-2 text-sm font-semibold">{study.outlineTitle ?? t("Outline")}</h3>
           {study.outline.map((o, i) => (
             <div key={i} style={{ paddingLeft: `${Math.max(0, o.level - 2) * 1.3}rem` }}>
               {o.text}{" "}

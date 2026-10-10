@@ -75,7 +75,7 @@ export function ParallelPane({ href, range, onBack }: { href: string; range: Bib
         </button>
         <div className="flex-1 pr-11 text-center leading-tight">
           <div className="text-sm">{t("Parallel Translations")}</div>
-          {bookTitle && <div className="text-[0.7rem] text-fg/70">{rangeText(bookTitle, range)}</div>}
+          {bookTitle && <div className="text-xs text-muted">{rangeText(bookTitle, range)}</div>}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -84,12 +84,12 @@ export function ParallelPane({ href, range, onBack }: { href: string; range: Bib
             <button
               onClick={() => openTarget(chapterTarget(b.dir, range.book, range.from[0], range.from[1]))}
               title={t("Open in the reader")}
-              className="flex w-full items-center gap-3 bg-bar py-1.5 pl-1.5 pr-3 text-left hover:brightness-110"
+              className="flex w-full items-center gap-3 border-b border-line bg-surface py-1.5 pl-1.5 pr-3 text-left hover:bg-bar"
             >
               <Cover pub={b} />
               <div className="min-w-0 flex-1 leading-tight">
                 <div className="truncate font-semibold">{b.shortTitle ?? b.title}</div>
-                <div className="truncate text-[0.8rem] text-fg/75">{b.langCode ? languageName(b.langCode) : ""}</div>
+                <div className="truncate text-[13px] text-muted">{b.langCode ? languageName(b.langCode) : ""}</div>
               </div>
               <ChevronRight size={20} className="shrink-0" />
             </button>
@@ -100,7 +100,7 @@ export function ParallelPane({ href, range, onBack }: { href: string; range: Bib
           </section>
         ))}
         <div className="flex justify-center px-5 py-6">
-          <button onClick={() => setCustomizing(true)} className="w-72 bg-tile px-4 py-2 text-sm hover:brightness-110">
+          <button onClick={() => setCustomizing(true)} className="w-72 rounded-md border border-line bg-surface px-4 py-2 text-sm hover:bg-bar">
             {t("Customize")}
           </button>
         </div>
@@ -119,9 +119,9 @@ export function ParallelPane({ href, range, onBack }: { href: string; range: Bib
 
 function Cover({ pub }: { pub: PubCard }) {
   return pub.cover ? (
-    <MediaImg src={pub.cover} alt="" className="h-11 w-11 object-cover" draggable={false} />
+    <MediaImg src={pub.cover} alt="" className="h-11 w-11 rounded-md border border-line object-cover" draggable={false} />
   ) : (
-    <div className="flex h-11 w-11 items-center justify-center bg-tile">
+    <div className="flex h-11 w-11 items-center justify-center rounded-md border border-line bg-tile text-muted">
       <BookOpen size={20} strokeWidth={1.3} />
     </div>
   );
@@ -188,8 +188,11 @@ function CustomizeDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Customize")}
         onMouseDown={(e) => e.stopPropagation()}
-        className="flex w-[min(90vw,420px)] flex-col gap-3 bg-surface p-5 shadow-2xl ring-1 ring-line"
+        className="flex w-[min(90vw,420px)] flex-col gap-3 rounded-md border border-line bg-surface p-5 shadow-sm"
       >
         <p className="text-center text-sm text-muted">{t("Import or download more Bibles to add translations.")}</p>
         <div>{included.flatMap((d) => bibles.find((b) => b.dir === d) ?? []).map((b, i) => row(b, i))}</div>
@@ -200,7 +203,7 @@ function CustomizeDialog({
           </div>
         )}
         <div className="flex justify-end">
-          <button onClick={onClose} className="bg-tile px-6 py-2 text-sm hover:brightness-110">
+          <button onClick={onClose} className="rounded-md border border-line bg-surface px-6 py-2 text-sm hover:bg-bar">
             {t("Done")}
           </button>
         </div>

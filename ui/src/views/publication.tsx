@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { FileText, Star } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
 import { api, documentTarget, type PubDetail, type TocNode } from "@/lib/api";
-import { bookShade, booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
-import { cn } from "@/lib/utils";
+import { booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { t } from "@/lib/i18n";
+import { GoToButton } from "@/components/go-to";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const shadeClass = ["bg-tile-0", "bg-tile-1", "bg-tile-2"] as const;
 
 export function usePublication(dir: string): PubDetail | null {
   const { toast } = useApp();
@@ -25,22 +23,19 @@ export function usePublication(dir: string): PubDetail | null {
   return detail;
 }
 
-/** One Testament: heading plus the book tile grid. */
-function BookSection({ dir, node, columns }: { dir: string; node: TocNode; columns: number }) {
+/** One Testament: heading plus its books as a grid that is wide enough for the full short names. */
+function BookSection({ dir, node }: { dir: string; node: TocNode }) {
   const { push } = useApp();
   const books = node.children.filter((c) => c.bible_book != null);
   return (
-    <section className="min-w-0 flex-1">
-      <h2 className="mb-4 text-[1.65rem] font-bold uppercase leading-tight tracking-wide">{node.title}</h2>
-      <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <section>
+      <h2 className="mb-3 text-sm font-semibold">{node.title}</h2>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-2">
         {books.map((b) => (
           <button
             key={b.bible_book}
             onClick={() => push({ name: "chapters", dir, book: b.bible_book! })}
-            className={cn(
-              "flex h-[4.5rem] items-center px-3.5 text-left text-[1.05rem] text-tile-fg transition-[filter] hover:brightness-125",
-              shadeClass[bookShade(b.bible_book!)],
-            )}
+            className="flex h-10 items-center rounded-md border border-line px-3 text-left text-sm hover:bg-bar focus-visible:outline-2 focus-visible:outline-accent"
           >
             <span className="truncate">{shortBookName(b.title)}</span>
           </button>
@@ -51,12 +46,11 @@ function BookSection({ dir, node, columns }: { dir: string; node: TocNode; colum
 }
 
 function BooksTab({ dir, node }: { dir: string; node: TocNode }) {
-  // The books tab holds one child per Testament.
-  const sections = node.children.filter(hasBooks);
+  // The books tab holds one child per Testament; they stack, so the books keep their room.
   return (
-    <div className="flex flex-col gap-10 lg:flex-row lg:gap-8">
-      {sections.map((s, i) => (
-        <BookSection key={s.title} dir={dir} node={s} columns={i === 0 && sections.length > 1 ? 4 : 3} />
+    <div className="flex flex-col gap-10">
+      {node.children.filter(hasBooks).map((s) => (
+        <BookSection key={s.title} dir={dir} node={s} />
       ))}
     </div>
   );
@@ -70,14 +64,14 @@ function DocList({ dir, nodes }: { dir: string; nodes: TocNode[] }) {
   return (
     <div className="space-y-8">
       {docs.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[3px]">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2">
           {docs.map((d, i) => (
             <button
               key={`${d.document_id}-${i}`}
               onClick={() => openTarget(documentTarget(dir, d.document_id!))}
-              className="flex min-h-[4.5rem] items-center gap-3 bg-surface px-4 py-3 text-left ring-1 ring-line hover:bg-bar"
+              className="flex min-h-12 items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 text-left text-sm hover:bg-bar"
             >
-              <FileText className="shrink-0 text-muted" size={20} strokeWidth={1.5} />
+              <FileText className="shrink-0 text-muted" size={18} strokeWidth={1.5} />
               <span className="line-clamp-2">{d.title}</span>
             </button>
           ))}
@@ -85,7 +79,7 @@ function DocList({ dir, nodes }: { dir: string; nodes: TocNode[] }) {
       )}
       {groups.map((g, i) => (
         <section key={`${g.title}-${i}`}>
-          <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{g.title}</h2>
+          <h2 className="mb-3 text-sm font-semibold">{g.title}</h2>
           <DocList dir={dir} nodes={g.children} />
         </section>
       ))}
@@ -99,10 +93,11 @@ function FavoriteButton({ dir }: { dir: string }) {
   const on = favorites.includes(dir);
   return (
     <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => toggleFavorite(dir)}>
-      <Star size={21} strokeWidth={1.5} className={on ? "fill-accent text-accent" : undefined} />
+      <Star size={18} strokeWidth={1.6} className={on ? "fill-accent text-accent" : undefined} />
     </BarButton>
   );
 }
+
 
 export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const { replace } = useApp();
@@ -117,9 +112,10 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
     return (
       <>
         <AppBar title={title} subtitle={languageName(lang)}>
-          <FavoriteButton dir={dir} />
+          {detail.card.isBible && <GoToButton />}
+        <FavoriteButton dir={dir} />
         </AppBar>
-        <div className="flex-1 overflow-y-auto px-8 py-8">
+        <div className="page flex-1 overflow-y-auto">
           <DocList dir={dir} nodes={toc[0]?.children ?? []} />
         </div>
       </>
@@ -130,6 +126,7 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   return (
     <>
       <AppBar title={title} subtitle={languageName(lang)}>
+        {detail.card.isBible && <GoToButton />}
         <FavoriteButton dir={dir} />
       </AppBar>
       <Tabs
@@ -137,15 +134,17 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
         onValueChange={(v) => replace({ name: "publication", dir, tab: Number(v) })}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsList>
-          {toc.map((t, i) => (
-            <TabsTrigger key={i} value={String(i)}>
-              {t.title}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="page pb-0 pt-6">
+          <TabsList>
+            {toc.map((t, i) => (
+              <TabsTrigger key={i} value={String(i)}>
+                {t.title}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         {toc.map((t, i) => (
-          <TabsContent key={i} value={String(i)} className="flex-1 overflow-y-auto px-8 py-8 outline-none">
+          <TabsContent key={i} value={String(i)} className="page flex-1 pt-6 overflow-y-auto outline-none">
             {hasBooks(t) ? <BooksTab dir={dir} node={t} /> : <DocList dir={dir} nodes={t.children} />}
           </TabsContent>
         ))}

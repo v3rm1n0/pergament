@@ -91,13 +91,13 @@ export function LanguageMenu({
         title={t("Language: {name}", { name: current?.vernacular ?? value })}
         aria-label={t("Language")}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 items-center gap-1.5 rounded px-2.5 hover:bg-black/5 dark:hover:bg-white/10"
+        className="flex h-8 items-center gap-1.5 rounded-md px-2 text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <Languages size={22} strokeWidth={1.6} />
-        <span className="text-sm font-semibold">{value}</span>
+        <Languages size={18} strokeWidth={1.6} />
+        <span className="text-[13px] font-medium">{value}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-40 flex max-h-[70vh] w-80 flex-col overflow-hidden rounded bg-surface shadow-xl ring-1 ring-line">
+        <div className="absolute right-0 top-10 z-40 flex max-h-[70vh] w-80 flex-col overflow-hidden rounded-md border border-line bg-surface shadow-sm">
           <div className="border-b border-line p-3">
             <Input
               autoFocus
@@ -110,13 +110,13 @@ export function LanguageMenu({
           <div className="flex-1 overflow-y-auto py-1">
             {inLibrary.filter(matches).length > 0 && (
               <>
-                <div className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted">
+                <div className="px-4 pb-1 pt-2 text-[13px] font-semibold text-muted">
                   {t("In your library")}
                 </div>
                 {inLibrary.filter(matches).map(row)}
               </>
             )}
-            <div className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-muted">
+            <div className="px-4 pb-1 pt-3 text-[13px] font-semibold text-muted">
               {t("All languages")}
             </div>
             {error && <p className="px-4 py-2 text-sm text-muted">{t("Language list unavailable: {error}", { error })}</p>}

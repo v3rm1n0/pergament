@@ -39,9 +39,9 @@ import { t } from "@/lib/i18n";
 /** Height of the window in device pixels, which is what a recording can use at most. */
 const windowHeight = () => Math.round(window.innerHeight * (window.devicePixelRatio || 1));
 
-const iconButton = "flex h-8 w-8 items-center justify-center hover:bg-white/15";
-const chip = "flex items-center gap-1 px-2 py-1 hover:bg-white/15 aria-pressed:bg-white/20 aria-pressed:text-accent";
-const select = "bg-white/10 px-2 py-1 text-white [&>option]:text-black";
+const iconButton = "flex h-8 w-8 items-center justify-center rounded-md hover:bg-bar";
+const chip = "flex items-center gap-1 rounded-md px-2 py-1 hover:bg-bar aria-pressed:bg-bar aria-pressed:font-medium";
+const select = "rounded-md border border-line bg-surface px-2 py-1 text-fg";
 
 function Control({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
@@ -265,7 +265,7 @@ function Player({ item }: { item: PlayerItem }) {
     <div
       role="dialog"
       aria-label={t("Settings")}
-      className="absolute bottom-full right-2 z-10 mb-1 flex min-w-[240px] flex-col gap-3 bg-[#2b2b2b] p-4 text-sm shadow-xl ring-1 ring-white/15"
+      className="absolute bottom-full right-2 z-10 mb-1 flex min-w-[240px] flex-col gap-3 rounded-md border border-line bg-surface p-4 text-sm shadow-sm"
     >
       {item.sources.length > 1 && (
         <label className="flex items-center justify-between gap-3">
@@ -318,7 +318,7 @@ function Player({ item }: { item: PlayerItem }) {
   );
 
   const controls = (
-    <div className="relative shrink-0 bg-[#1f1f1f] px-3 pb-2 pt-1">
+    <div className="relative shrink-0 border-t border-line bg-surface px-3 pb-2 pt-1">
       {menu && settings}
       <input
         type="range"
@@ -334,15 +334,15 @@ function Player({ item }: { item: PlayerItem }) {
         }}
         className="block h-3 w-full cursor-pointer accent-accent"
       />
-      <div className="mt-1 flex items-center justify-between gap-3 text-[0.8rem]">
+      <div className="mt-1 flex items-center justify-between gap-3 text-[13px]">
         {full ? (
-          <span className="flex min-w-0 items-center gap-2 text-white/80">
+          <span className="flex min-w-0 items-center gap-2 text-muted">
             <Radio size={14} className="shrink-0" />
             <span className="truncate">{label}</span>
           </span>
         ) : (
           <button
-            className="flex min-w-0 items-center gap-2 text-left text-white/80 hover:text-white"
+            className="flex min-w-0 items-center gap-2 text-left text-muted hover:text-fg"
             title={t("Expand")}
             onClick={() => setFull(true)}
           >
@@ -350,12 +350,12 @@ function Player({ item }: { item: PlayerItem }) {
             <span className="truncate">{label}</span>
           </button>
         )}
-        <span className="shrink-0 tabular-nums text-white/80">
+        <span className="shrink-0 tabular-nums text-muted">
           {formatDuration(time)}/{formatDuration(duration)}
         </span>
       </div>
       {error && (
-        <p role="alert" className="mt-1 truncate text-[0.8rem] text-white" title={error}>
+        <p role="alert" className="mt-1 truncate text-[13px] text-fg" title={error}>
           {error}
         </p>
       )}
@@ -390,7 +390,7 @@ function Player({ item }: { item: PlayerItem }) {
             aria-label={t("Settings")}
             title={t("Settings")}
             aria-expanded={menu}
-            className={cn(iconButton, menu && "bg-white/15")}
+            className={cn(iconButton, menu && "bg-bar")}
             onClick={() => setMenu((m) => !m)}
           >
             <Settings size={19} />
@@ -414,14 +414,14 @@ function Player({ item }: { item: PlayerItem }) {
       ref={root}
       role={full ? "dialog" : "region"}
       aria-label={item.title}
-      className={cn("text-white", full ? "absolute inset-0 z-30 flex flex-col bg-black" : "shrink-0")}
+      className={cn("text-fg", full ? "absolute inset-0 z-30 flex flex-col bg-surface" : "shrink-0")}
     >
       {full && (
-        <header key="header" className="flex shrink-0 items-center gap-2 bg-[#1f1f1f] px-2 py-2">
+        <header key="header" className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-2">
           <Control label={t("Minimize")} onClick={() => setFull(false)}>
             <ChevronDown size={22} />
           </Control>
-          <h2 className="min-w-0 flex-1 truncate text-[1rem] font-medium">{item.title}</h2>
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{item.title}</h2>
           <Control label={t("Close")} onClick={closePlayer}>
             <X size={20} />
           </Control>

@@ -6,7 +6,7 @@ import { api, type CatalogEntry, type Progress as ProgressEvent } from "@/lib/ap
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { GridCard } from "@/components/catalog";
+import { GridCard } from "@/components/cover";
 import { t } from "@/lib/i18n";
 
 const mb = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
@@ -49,7 +49,7 @@ export function OnlineView() {
   return (
     <>
       <AppBar title={t("Search")} subtitle={languageName(lang)} />
-      <div className="flex-1 overflow-y-auto px-5 py-6">
+      <div className="page flex-1 overflow-y-auto">
         <form
           className="mb-6 flex max-w-3xl gap-2"
           onSubmit={(e) => {
@@ -89,7 +89,7 @@ export function OnlineView() {
         ) : items.length === 0 ? (
           <p className="text-muted">{t("Nothing found.")}</p>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-3 gap-y-5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-x-3 gap-y-4">
             {items.map((e) => (
               <GridCard key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
             ))}

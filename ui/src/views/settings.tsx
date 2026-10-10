@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { AppBar, useApp } from "@/app";
-import type { Theme } from "@/lib/settings";
+import type { Layout, ReadingFont, Theme } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { t, uiLanguages } from "@/lib/i18n";
 import type { UiLangSetting } from "@/lib/i18n";
@@ -17,27 +17,38 @@ const themes: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
+const layouts: { value: Layout; label: string }[] = [
+  { value: "centered", label: "Centered" },
+  { value: "wide", label: "Full width" },
+];
+
+const fonts: { value: ReadingFont; label: string }[] = [
+  { value: "standard", label: "Standard" },
+  { value: "legible", label: "Easy to read" },
+];
+
 export function SettingsView() {
   const [version, setVersion] = useState("");
   useEffect(() => {
     getVersion().then(setVersion, () => undefined);
   }, []);
-  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup, display, updates } = useApp();
+  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, layout, setLayout, readingFont, setReadingFont, createBackup, restoreBackup, display, updates } = useApp();
   return (
     <>
       <AppBar title={t("Settings")} />
-      <div className="flex-1 overflow-y-auto px-8 py-8">
-        <div className="max-w-2xl space-y-10">
+      <div className="page flex-1 overflow-y-auto">
+        <div className="space-y-10">
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Interface language")}</h2>
-            <div className="inline-flex overflow-hidden rounded ring-1 ring-line">
+            <h2 className="mb-3 text-sm font-semibold">{t("Interface language")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
               {uiLangs.map((l) => (
                 <button
                   key={l.value}
                   onClick={() => setUiLang(l.value)}
+                  aria-pressed={uiLang === l.value}
                   className={cn(
                     "px-4 py-2 text-sm",
-                    uiLang === l.value ? "bg-brand text-brand-fg" : "bg-surface hover:bg-bar",
+                    uiLang === l.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
                   )}
                 >
                   {l.value === "system" ? t(l.label) : l.label}
@@ -46,15 +57,16 @@ export function SettingsView() {
             </div>
           </section>
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Appearance")}</h2>
-            <div className="inline-flex overflow-hidden rounded ring-1 ring-line">
+            <h2 className="mb-3 text-sm font-semibold">{t("Appearance")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
               {themes.map((th) => (
                 <button
                   key={th.value}
                   onClick={() => setTheme(th.value)}
+                  aria-pressed={theme === th.value}
                   className={cn(
                     "px-4 py-2 text-sm",
-                    theme === th.value ? "bg-brand text-brand-fg" : "bg-surface hover:bg-bar",
+                    theme === th.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
                   )}
                 >
                   {t(th.label)}
@@ -63,7 +75,49 @@ export function SettingsView() {
             </div>
           </section>
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Text size")}</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("Content width")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
+              {layouts.map((l) => (
+                <button
+                  key={l.value}
+                  onClick={() => setLayout(l.value)}
+                  aria-pressed={layout === l.value}
+                  className={cn(
+                    "px-4 py-2 text-sm",
+                    layout === l.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
+                  )}
+                >
+                  {t(l.label)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              {t("A centered column is easier to read; full width uses the whole window for lists, covers and the reader.")}
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">{t("Reading font")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
+              {fonts.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setReadingFont(f.value)}
+                  aria-pressed={readingFont === f.value}
+                  className={cn(
+                    "px-4 py-2 text-sm",
+                    readingFont === f.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
+                  )}
+                >
+                  {t(f.label)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              {t("Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.")}
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">{t("Text size")}</h2>
             <div className="flex items-center gap-4">
               <input
                 type="range"
@@ -79,7 +133,7 @@ export function SettingsView() {
             <p className="reader mt-4 max-w-xl text-fg">{t("In the beginning God created the heavens and the earth.")}</p>
           </section>
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Updates")}</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("Updates")}</h2>
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
@@ -96,7 +150,7 @@ export function SettingsView() {
             </p>
           </section>
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Second display")}</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("Second display")}</h2>
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
@@ -113,15 +167,15 @@ export function SettingsView() {
             </p>
           </section>
           <section>
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide">{t("Backup")}</h2>
+            <h2 className="mb-3 text-sm font-semibold">{t("Backup")}</h2>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => void createBackup()}
-                className="bg-brand px-4 py-2 text-sm text-brand-fg hover:brightness-110"
+                className="rounded-md bg-brand px-4 py-2 text-sm text-brand-fg hover:opacity-90 dark:bg-fg dark:text-surface"
               >
                 {t("Create backup")}
               </button>
-              <button onClick={() => void restoreBackup()} className="bg-tile px-4 py-2 text-sm hover:brightness-110">
+              <button onClick={() => void restoreBackup()} className="rounded-md border border-line bg-surface px-4 py-2 text-sm hover:bg-bar">
                 {t("Restore backup…")}
               </button>
             </div>
@@ -132,7 +186,7 @@ export function SettingsView() {
             </p>
           </section>
           <section className="text-sm text-muted">
-            <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-fg">{t("About")}</h2>
+            <h2 className="mb-3 text-sm font-semibold text-fg">{t("About")}</h2>
             {version && <p className="mb-2">{t("Version {version}", { version })}</p>}
             <p>
               {t(

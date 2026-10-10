@@ -164,4 +164,56 @@ describe("Home with tile menus", () => {
     renderHome();
     expect(await screen.findByText("Höre auf Gott")).toBeTruthy();
   });
+
+  it("filters the toolbox with the segmented tabs and falls back to All", async () => {
+    renderHome();
+    await screen.findByText("Höre auf Gott");
+    expect(screen.getByRole("tab", { name: "All" })).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Tracts and Invitations" }), { button: 0 });
+    await waitFor(() => expect(screen.queryByText("Höre auf Gott")).toBeNull());
+    expect(screen.getByText("Zukunft")).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }), { button: 0 });
+    expect(await screen.findByText("Höre auf Gott")).toBeTruthy();
+  });
+
+  it("toggles a favorite with the star and reports it with aria-pressed", async () => {
+    renderHome();
+    const star = within(await tile("Höre auf Gott")).getByLabelText("Add to favorites");
+    expect(star.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(star);
+    expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["ll_2"]);
+    await waitFor(() =>
+      expect(within(screen.getAllByText("Höre auf Gott")[0].closest(".group") as HTMLElement).getByLabelText("Remove from favorites").getAttribute("aria-pressed")).toBe("true"),
+    );
+  });
+
+  it("shows today's text with its reference and a Read button, or the welcome block", async () => {
+    renderHome();
+    expect(await screen.findByText("Welcome to Pergament")).toBeTruthy();
+    cleanup();
+    backend.dated_page = () => ({
+      target: { publication: "es_X", kind: { dated: { date: 20261007 } } },
+      title: "",
+      start: 20261007,
+      end: 20261007,
+      html: '<p class="themeScrp"><em>Ein erfundener Text</em>—<a><em>Ps. 1:1</em></a></p>',
+      image: null,
+    });
+    renderHome();
+    expect(await screen.findByText("Ein erfundener Text")).toBeTruthy();
+    expect(screen.getByText("Ps. 1:1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Read" })).toBeTruthy();
+    expect(screen.queryByText("Welcome to Pergament")).toBeNull();
+  });
+
+  it("lists What's New as rows with a Get button that downloads", async () => {
+    backend.home_lists = () => ({
+      teachingToolbox: toolbox,
+      whatsNew: [entry("ll", "Brochures and Booklets", null, "Höre auf Gott")],
+      dailyText: null,
+    });
+    renderHome();
+    fireEvent.click(await screen.findByRole("button", { name: /^Get · / }));
+    await waitFor(() => expect(calls.some((c) => c.cmd === "download_publication")).toBe(true));
+  });
 });

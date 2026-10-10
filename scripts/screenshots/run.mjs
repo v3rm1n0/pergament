@@ -52,16 +52,25 @@ const settle = async (page) => {
 const scenes = [
   ["01-home", async (page) => {
     await page.getByText("Teaching Toolbox").waitFor();
-    await page.getByRole("button", { name: /Wednesday, October 7/ }).waitFor();
+    await page.getByRole("heading", { name: /Wednesday, October 7/ }).waitFor();
     await page.getByText("What's New").first().waitFor();
   }],
   ["02-daily-text-reference", async (page) => {
-    await page.getByRole("button", { name: /Wednesday, October 7/ }).click();
+    await page.getByRole("button", { name: "Read", exact: true }).click();
     await page.locator(".reader .themeScrp").waitFor();
     await page.locator(".reader .themeScrp a.b").click();
     await page.getByText("Parallel Translations").waitFor();
     await page.getByText("Carry the lamp ahead of you", { exact: false }).nth(1).waitFor();
     await page.getByText("Take the lamp in front of you").waitFor();
+  }],
+  ["03-bible-books", async (page) => {
+    await rail(page, "Bible");
+    await page.getByRole("button", { name: "Lanterns", exact: true }).waitFor();
+  }],
+  ["03-bible-chapters", async (page) => {
+    await rail(page, "Bible");
+    await page.getByRole("button", { name: "Lanterns", exact: true }).click();
+    await page.getByRole("button", { name: "10", exact: true }).waitFor();
   }],
   ["03-bible-study-pane", async (page) => {
     await rail(page, "Bible");
@@ -75,6 +84,11 @@ const scenes = [
   ["04-library", async (page) => {
     await rail(page, "Library");
     await page.getByText("Brochures and Booklets").waitFor();
+  }],
+  ["04-library-video", async (page) => {
+    await rail(page, "Library");
+    await page.getByRole("tab", { name: "Video", exact: true }).click();
+    await page.getByText("Gatherings and Events").waitFor();
   }],
   ["05-meetings", async (page) => {
     await rail(page, "Meetings");

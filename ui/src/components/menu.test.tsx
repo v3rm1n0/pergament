@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Menu } from "@/components/menu";
 
 afterEach(() => {
@@ -46,5 +46,32 @@ describe("Menu", () => {
     expect(place(rect(480, 20, 20, 20)).top).toBe(44);
     const { top } = place(rect(480, 90, 20, 20));
     expect(top + 100).toBeLessThanOrEqual(600 - 8);
+  });
+
+  it("is used with the keyboard: focus moves in, the arrows move between items, and focus goes back on close", () => {
+    cleanup();
+    const trigger = document.createElement("button");
+    document.body.append(trigger);
+    trigger.focus();
+    const { unmount } = render(
+      <Menu anchor={rect(100, 100, 20, 20)} onClose={() => undefined}>
+        <button role="menuitem">First</button>
+        <button role="menuitem">Second</button>
+        <button role="menuitem">Third</button>
+      </Menu>,
+    );
+    const menu = screen.getByRole("menu");
+    expect(document.activeElement).toBe(screen.getByText("First"));
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByText("Second"));
+    fireEvent.keyDown(menu, { key: "End" });
+    expect(document.activeElement).toBe(screen.getByText("Third"));
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByText("First"));
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(screen.getByText("Third"));
+    unmount();
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
   });
 });

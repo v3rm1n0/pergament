@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { bookShade, booksTabIndex, shortBookName } from "./bible";
+import { booksTabIndex, namedBooks, parseReference, shortBookName } from "./bible";
 import { currentView, initialNav, navReducer } from "./nav";
-import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, verseKeyFromHref, verseKeyFromId } from "./page";
+import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, themeScriptureParts, verseKeyFromHref, verseKeyFromId } from "./page";
 import { defaultLangCode, prefersDark } from "./settings";
 import { BLOCK_PARAGRAPH, BLOCK_VERSE, applyMarks, blockElements, blockOf, selectionRanges, tokens } from "./marks";
 import type { TocNode } from "./api";
@@ -14,15 +14,6 @@ const node = (title: string, children: TocNode[] = [], bible_book: number | null
 });
 
 describe("bible", () => {
-  it("shades books by group", () => {
-    expect(bookShade(1)).toBe(0);
-    expect(bookShade(6)).toBe(2);
-    expect(bookShade(19)).toBe(1);
-    expect(bookShade(23)).toBe(0);
-    expect(bookShade(44)).toBe(2);
-    expect(bookShade(45)).toBe(1);
-    expect(bookShade(66)).toBe(0);
-  });
   it("shortens book names", () => {
     expect(shortBookName("1. Mose (Genesis)")).toBe("1. Mose");
     expect(shortBookName("Psalmen")).toBe("Psalmen");
@@ -144,6 +135,10 @@ describe("references", () => {
     const html = `<header><h2>Mittwoch</h2></header><p class="themeScrp"><em>Denkt an die </em><a><em>Heb. 13:7</em></a></p>`;
     expect(themeScripture(html)).toBe("Denkt an die Heb. 13:7");
     expect(themeScripture("<p>x</p>")).toBe("");
+    // The reference is shown apart from the text, so the brackets around it go as well.
+    const bracketed = `<p class="themeScrp"><em>Denkt an die </em>(<a><em>Heb. 13:7</em></a>)</p>`;
+    expect(themeScriptureParts(bracketed)).toEqual({ text: "Denkt an die", reference: "Heb. 13:7" });
+    expect(themeScriptureParts('<p class="themeScrp">“A (quoted) word”—<a>Ps. 1:1</a></p>').text).toBe("“A (quoted) word”");
   });
 });
 
@@ -213,5 +208,64 @@ describe("cited paragraphs", () => {
   });
   it("falls back to the whole page when none is found", () => {
     expect(extractParagraphs(html, { kind: "paragraphs", from: 9, to: 9 })).toBeNull();
+  });
+});
+
+describe("parseReference", () => {
+  const books = [
+    { number: 1, title: "1. Mose (Genesis)", chapters: 50 },
+    { number: 19, title: "Psalmen", chapters: 150 },
+    { number: 43, title: "Johannes", chapters: 21 },
+    { number: 58, title: "Hebräer", chapters: 13 },
+    { number: 62, title: "1. Johannes", chapters: 5 },
+    { number: 63, title: "2. Johannes", chapters: 1 },
+  ];
+  it("finds the book by the start of its name, with chapter and verse", () => {
+    expect(parseReference("Heb 10:24", books)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("  hebraer 10 , 24 ", books)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("Ps 23", books)).toEqual({ book: 19, chapter: 23, verse: null });
+    expect(parseReference("Psalmen", books)).toEqual({ book: 19, chapter: 1, verse: null });
+  });
+
+  it("reads book numbers with or without a dot, and the name in brackets", () => {
+    expect(parseReference("1 Mose 2", books)).toEqual({ book: 1, chapter: 2, verse: null });
+    expect(parseReference("1. Mose 2:3", books)).toEqual({ book: 1, chapter: 2, verse: 3 });
+    expect(parseReference("gen 3", books)).toEqual({ book: 1, chapter: 3, verse: null });
+    expect(parseReference("1 Joh 4:8", books)).toEqual({ book: 62, chapter: 4, verse: 8 });
+  });
+
+  it("reads a single number after a book of one chapter as the verse", () => {
+    expect(parseReference("2 Joh 2", books)).toEqual({ book: 63, chapter: 1, verse: 2 });
+    expect(parseReference("2. Johannes", books)).toEqual({ book: 63, chapter: 1, verse: null });
+  });
+
+  it("prefers the book whose name is exact, then the shorter one", () => {
+    expect(parseReference("Johannes 3:16", books)).toEqual({ book: 43, chapter: 3, verse: 16 });
+    expect(parseReference("Joh 3", books)).toEqual({ book: 43, chapter: 3, verse: null });
+  });
+
+  it("gives nothing for an unknown book, a missing chapter or nonsense", () => {
+    expect(parseReference("Zzz 1", books)).toBeNull();
+    expect(parseReference("Heb 14", books)).toBeNull();
+    expect(parseReference("2 Joh 1:2", books)).toEqual({ book: 63, chapter: 1, verse: 2 });
+    expect(parseReference("2 Joh 2:1", books)).toBeNull();
+    expect(parseReference("", books)).toBeNull();
+    expect(parseReference("12:3", books)).toBeNull();
+  });
+});
+
+describe("namedBooks", () => {
+  it("takes the short names from the contents, so a real Bible's long titles can be matched", () => {
+    const toc = [node("Bücher", [node("Neue Schriften", [node("Hebräer", [], 58), node("1. Johannes", [], 62)])])];
+    const books = [
+      { number: 58, title: "Der Brief an die Hebräer", chapters: 13 },
+      { number: 62, title: "Der erste Brief von Johannes", chapters: 5 },
+      { number: 99, title: "Ohne Eintrag", chapters: 1 },
+    ];
+    const named = namedBooks(toc, books);
+    expect(named.map((b) => b.title)).toEqual(["Hebräer", "1. Johannes", "Ohne Eintrag"]);
+    expect(parseReference("Heb 10:24", named)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("1 Joh 3:16", named)).toEqual({ book: 62, chapter: 3, verse: 16 });
+    expect(parseReference("Heb 10:24", books)).toBeNull();
   });
 });

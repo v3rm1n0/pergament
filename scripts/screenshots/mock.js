@@ -349,23 +349,24 @@
   const WORKBOOK_HTML = (label) =>
     `<header><h1>${label}</h1></header>` +
     `<h2 id="p1">Reading: Tides 3-4</h2>` +
-    `<h3 id="p2">Opening song and welcome (1 min.)</h3>` +
-    `<h2 id="p3">Gems of the Week</h2>` +
-    `<h3 id="p4">1. Learning to Read the Weather of a Conversation</h3>` +
+    `<h3 class="dc-icon--music" id="p2">Opening song and welcome (1 min.)</h3>` +
+    `<div class="dc-icon--gem dc-icon-layout--top dc-icon-bgColor--teal-600 dc-icon-color--white"><h2 class="du-color--teal-700" id="p3">Gems of the Week</h2></div>` +
+    `<h3 class="du-color--teal-700" id="p4">1. Learning to Read the Weather of a Conversation</h3>` +
     `<p id="p5">(10 min.)</p>` +
     `<p id="p6">Patient listeners notice the mood of a room before they say a word (<a class="b" href="pergament://bible/1:3:2-1:3:4">Tides 3:2-4</a>).</p>` +
     `<p id="p7">A question asked at the right moment can open a door that a long speech would close, although the speaker may feel clever either way (<a class="b" href="pergament://bible/2:10:5-2:10:6">Lanterns 10:5, 6</a>).</p>` +
     `<p id="p8">Short sentences travel well and a pause is often the most generous thing you can offer to a tired neighbour.</p>` +
     `<p id="p9"><strong>FOR REFLECTION:</strong> Which of my habits help other people feel heard?—<a class="b" href="pergament://bible/4:2:5-4:2:5">Orchards 2:5</a>.</p>` +
-    `<h3 id="p10">2. Digging for Gems</h3>` +
+    `<h3 class="du-color--teal-700" id="p10">2. Digging for Gems</h3>` +
     `<p id="p11">What does the image of a mended net teach us about helping others (<a class="b" href="pergament://bible/2:10:9-2:10:9">Lanterns 10:9</a>)?</p>` +
-    `<h2 id="p12">Practice Session</h2>` +
-    `<h3 id="p13">3. First Conversation (3 min.)</h3>` +
+    `<div class="dc-icon--wheat dc-icon-layout--top dc-icon-bgColor--gold-600 dc-icon-color--white"><h2 class="du-color--gold-700" id="p12">Practice Session</h2></div>` +
+    `<h3 class="du-color--gold-700" id="p13">3. First Conversation (3 min.)</h3>` +
     `<p id="p14">Greet a neighbour at the market and offer to carry one bag. Rehearse a friendly opening and a graceful exit.</p>` +
     `<img src="${banner("#2b5d34", "#a7c957", "#f0e6c8")}" alt="" style="width:100%;margin:0 0 .9em"/>` +
-    `<h2 id="p15">Community Matters</h2>` +
-    `<h3 id="p16">4. Local Needs (15 min.)</h3>` +
+    `<div class="dc-icon--sheep dc-icon-layout--top dc-icon-bgColor--red-600 dc-icon-color--white"><h2 class="du-color--maroon-600" id="p15">Community Matters</h2></div>` +
+    `<h3 class="du-color--maroon-600" id="p16">4. Local Needs (15 min.)</h3>` +
     `<p id="p17">Discussion led by the chairman. Which small job could we finish together this month, and who has the right tools in the shed?</p>` +
+    `<h3 class="dc-icon--music" id="p18"><strong>Closing words</strong> <span class="du-fontWeight--normal">(3 min.)</span> | <a class="xt" href="pergament://pub/mlc26_E:1/1-1"><strong>Song 38</strong></a> and prayer</h3>` +
     `<section class="footnotes"><h2>Footnotes</h2><div class="footnote"><a class="fn-back" href="#footnotesource1">*</a><p id="footnote1">Chairs are asked to keep the discussion to the time shown.</p></div></section>`;
 
   const STUDY_HTML =
@@ -614,7 +615,14 @@
     link_action: ({ current, href }) => linkAction(current, href),
     open_external: () => null,
     media_links: () => [],
-    media_category: ({ key }) => ({ key, name: "", container: true, image: null, subcategories: [], media: [] }),
+    media_category: ({ key }) => {
+      const sub = (list) => list.map(([k, name]) => ({ key: k, name, container: true, image: null, subcategories: [], media: [] }));
+      const roots = {
+        VideoOnDemand: sub([["VODStudio", "Studio Features"], ["VODMovies", "Films"], ["VODSeries", "Series"], ["VODMinistry", "Ministry Shorts"], ["VODChildren", "For Children"], ["VODTeenagers", "For Teenagers"], ["VODFamily", "For Families"], ["VODProgramsEvents", "Gatherings and Events"]]),
+        Audio: sub([["AudioOriginalSongs", "Original Songs"], ["AudioDrama", "Dramatized Readings"], ["AudioPubs", "Audio Editions"], ["AudioMeetings", "Meeting Recordings"]]),
+      };
+      return { key, name: "", container: true, image: null, subcategories: roots[key] ?? [], media: [] };
+    },
     download_media: () => null,
     media_downloads: () => [],
     remove_media: () => null,
