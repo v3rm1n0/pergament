@@ -52,11 +52,11 @@ const settle = async (page) => {
 const scenes = [
   ["01-home", async (page) => {
     await page.getByText("Teaching Toolbox").waitFor();
-    await page.getByRole("button", { name: /Wednesday, October 7/ }).waitFor();
+    await page.getByRole("heading", { name: /Wednesday, October 7/ }).waitFor();
     await page.getByText("What's New").first().waitFor();
   }],
   ["02-daily-text-reference", async (page) => {
-    await page.getByRole("button", { name: /Wednesday, October 7/ }).click();
+    await page.getByRole("button", { name: "Read", exact: true }).click();
     await page.locator(".reader .themeScrp").waitFor();
     await page.locator(".reader .themeScrp a.b").click();
     await page.getByText("Parallel Translations").waitFor();
