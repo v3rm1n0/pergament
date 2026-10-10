@@ -135,6 +135,17 @@ body {
   height: auto;
   border-radius: 2px;
 }
+/* Inline pictures are scaled down to fit a box, keeping their proportions; a click opens the full-size picture. */
+.reader img.photo {
+  display: block;
+  /* Important, because a page may give its pictures a size of their own. */
+  width: auto !important;
+  height: auto !important;
+  max-width: min(100%, 40rem);
+  max-height: 16rem;
+  object-fit: contain;
+  cursor: zoom-in;
+}
 .reader figure {
   margin: 1.4em 0;
 }
@@ -356,4 +367,105 @@ body {
       --gutter: max(1.5rem, calc((100% - var(--page-max, 880px)) / 2));
     }
   }
+}
+
+/* ---------- Meeting workbook sections ---------- */
+/* The publication marks its sections with the site's own classes, which are not part of the file. Teal is
+   Treasures from God's Word, gold Apply Yourself to the Field Ministry, red Living as Christians. */
+:root {
+  --teal-badge: #0e7c86;
+  --teal-text: #0b6770;
+  --gold-badge: #a87500;
+  --gold-text: #7f5c00;
+  --red-badge: #b3262f;
+  --red-text: #8f1d2c;
+}
+.dark {
+  --teal-text: #5cc3cc;
+  --gold-text: #e3b94d;
+  --red-text: #f08a93;
+}
+.reader .du-color--teal-600,
+.reader .du-color--teal-700 {
+  color: var(--teal-text);
+}
+.reader .du-color--gold-600,
+.reader .du-color--gold-700 {
+  color: var(--gold-text);
+}
+.reader .du-color--red-600,
+.reader .du-color--red-700,
+.reader .du-color--maroon-600,
+.reader .du-color--maroon-700 {
+  color: var(--red-text);
+}
+.reader .du-color--textSubdued {
+  color: var(--muted);
+}
+.reader .du-bgColor--bgSecondary {
+  background: var(--bar);
+  border-radius: 8px;
+  padding: 0.4em 1em 0.6em;
+  margin: 1.2em 0;
+}
+.reader .du-listStyleType--none {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+.reader .du-fontWeight--normal {
+  font-weight: 400;
+}
+.reader [class*="dc-icon--"]::before {
+  content: "";
+  flex: none;
+}
+.reader .dc-icon--gem {
+  --glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M10.5%203%208%209l4%2013%204-13-2.5-6%27%2F%3E%3Cpath%20d%3D%27M17%203a2%202%200%200%201%201.6.8l3%204a2%202%200%200%201%20.013%202.382l-7.99%2010.986a2%202%200%200%201-3.247%200l-7.99-10.986A2%202%200%200%201%202.4%207.8l2.998-3.997A2%202%200%200%201%207%203z%27%2F%3E%3Cpath%20d%3D%27M2%209h20%27%2F%3E%3C%2Fsvg%3E");
+}
+.reader .dc-icon--wheat {
+  --glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M2%2022%2016%208%27%2F%3E%3Cpath%20d%3D%27M3.47%2012.53%205%2011l1.53%201.53a3.5%203.5%200%200%201%200%204.94L5%2019l-1.53-1.53a3.5%203.5%200%200%201%200-4.94Z%27%2F%3E%3Cpath%20d%3D%27M7.47%208.53%209%207l1.53%201.53a3.5%203.5%200%200%201%200%204.94L9%2015l-1.53-1.53a3.5%203.5%200%200%201%200-4.94Z%27%2F%3E%3Cpath%20d%3D%27M11.47%204.53%2013%203l1.53%201.53a3.5%203.5%200%200%201%200%204.94L13%2011l-1.53-1.53a3.5%203.5%200%200%201%200-4.94Z%27%2F%3E%3Cpath%20d%3D%27M20%202h2v2a4%204%200%200%201-4%204h-2V6a4%204%200%200%201%204-4Z%27%2F%3E%3Cpath%20d%3D%27M11.47%2017.47%2013%2019l-1.53%201.53a3.5%203.5%200%200%201-4.94%200L5%2019l1.53-1.53a3.5%203.5%200%200%201%204.94%200Z%27%2F%3E%3Cpath%20d%3D%27M15.47%2013.47%2017%2015l-1.53%201.53a3.5%203.5%200%200%201-4.94%200L9%2015l1.53-1.53a3.5%203.5%200%200%201%204.94%200Z%27%2F%3E%3Cpath%20d%3D%27M19.47%209.47%2021%2011l-1.53%201.53a3.5%203.5%200%200%201-4.94%200L13%2011l1.53-1.53a3.5%203.5%200%200%201%204.94%200Z%27%2F%3E%3C%2Fsvg%3E");
+}
+.reader .dc-icon--sheep {
+  --glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Cg%20fill%3D%27white%27%20stroke%3D%27none%27%3E%3Ccircle%20cx%3D%278%27%20cy%3D%2711.5%27%20r%3D%273.6%27%2F%3E%3Ccircle%20cx%3D%2712.5%27%20cy%3D%2710%27%20r%3D%273.8%27%2F%3E%3Ccircle%20cx%3D%2712.5%27%20cy%3D%2713.5%27%20r%3D%273.2%27%2F%3E%3Ccircle%20cx%3D%276.2%27%20cy%3D%279.2%27%20r%3D%272.4%27%2F%3E%3Ccircle%20cx%3D%2715.5%27%20cy%3D%2712%27%20r%3D%272.8%27%2F%3E%3Cellipse%20cx%3D%2719%27%20cy%3D%2711.2%27%20rx%3D%272.5%27%20ry%3D%272.2%27%2F%3E%3Cellipse%20cx%3D%2717.2%27%20cy%3D%278.8%27%20rx%3D%271.5%27%20ry%3D%27.9%27%20transform%3D%27rotate(-25%2017.2%208.8)%27%2F%3E%3Crect%20x%3D%277%27%20y%3D%2714%27%20width%3D%271.6%27%20height%3D%276%27%20rx%3D%27.8%27%2F%3E%3Crect%20x%3D%2710%27%20y%3D%2715%27%20width%3D%271.6%27%20height%3D%275%27%20rx%3D%27.8%27%2F%3E%3Crect%20x%3D%2713%27%20y%3D%2715%27%20width%3D%271.6%27%20height%3D%275%27%20rx%3D%27.8%27%2F%3E%3Crect%20x%3D%2716%27%20y%3D%2714%27%20width%3D%271.6%27%20height%3D%276%27%20rx%3D%27.8%27%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2719.8%27%20cy%3D%2710.8%27%20r%3D%27.55%27%20fill%3D%27black%27%20stroke%3D%27none%27%2F%3E%3C%2Fsvg%3E");
+}
+.reader .dc-icon--music {
+  --glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%2018V5l12-2v13%27%2F%3E%3Ccircle%20cx%3D%276%27%20cy%3D%2718%27%20r%3D%273%27%2F%3E%3Ccircle%20cx%3D%2718%27%20cy%3D%2716%27%20r%3D%273%27%2F%3E%3C%2Fsvg%3E");
+}
+/* A section heading: a round colored badge with a white icon, then the title. */
+.reader [class*="dc-icon-bgColor--"] {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 1.8em 0 0.6em;
+}
+.reader [class*="dc-icon-bgColor--"]::before {
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  background: var(--glyph) center / 58% no-repeat, var(--badge);
+}
+.reader [class*="dc-icon-bgColor--"] > h2 {
+  margin: 0;
+}
+.reader .dc-icon-bgColor--teal-600 {
+  --badge: var(--teal-badge);
+}
+.reader .dc-icon-bgColor--gold-600 {
+  --badge: var(--gold-badge);
+}
+.reader .dc-icon-bgColor--red-600 {
+  --badge: var(--red-badge);
+}
+/* A heading with a plain icon, such as a song: the icon sits inline before the text, in the muted color. The heading
+   can hold several pieces (a title, a time, a link, more text), so it must stay a normal block of text. */
+.reader .dc-icon--music:not([class*="dc-icon-bgColor--"])::before {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.5em;
+  vertical-align: -0.12em;
+  background: var(--muted);
+  mask: var(--glyph) center / contain no-repeat;
+  -webkit-mask: var(--glyph) center / contain no-repeat;
 }
