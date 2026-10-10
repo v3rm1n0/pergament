@@ -16,6 +16,7 @@ import { PersonalView } from "./views/personal";
 import { PublicationView } from "./views/publication";
 import { ReaderView } from "./views/reader";
 import { SettingsView } from "./views/settings";
+import { t } from "./lib/i18n";
 import "./styles.css";
 
 function CurrentView() {
@@ -56,10 +57,20 @@ function Shell() {
         if (e.button === 3) back();
       }}
     >
+      <a
+        href="#content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("content")?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:border focus:border-line focus:bg-surface focus:px-3 focus:py-1.5 focus:text-sm"
+      >
+        {t("Skip to content")}
+      </a>
       <TitleStrip />
       <div className="flex min-h-0 flex-1">
         <Rail />
-        <main className="relative flex min-w-0 flex-1 flex-col bg-bg">
+        <main id="content" tabIndex={-1} className="relative flex min-w-0 flex-1 flex-col bg-bg outline-none">
           <div className="flex min-h-0 flex-1 flex-col">
             <CurrentView />
           </div>

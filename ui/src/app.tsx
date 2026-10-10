@@ -580,7 +580,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2">
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2"
+      >
         {toasts.map((item) => (
           <div
             key={item.id}
@@ -629,12 +633,15 @@ function RailButton({
   active,
   onClick,
   expanded,
+  toggles,
   children,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   expanded: boolean;
+  /** The button that shows or hides the labels, which reports its state. */
+  toggles?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -643,6 +650,7 @@ function RailButton({
       aria-label={t(label)}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-expanded={toggles ? expanded : undefined}
       className={cn(
         "flex h-9 w-full items-center gap-3 rounded-md px-2 text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent",
         active && "bg-bar text-fg",
@@ -668,8 +676,10 @@ export function Rail() {
   };
   const icon = { size: 18, strokeWidth: 1.6 };
   return (
-    <nav className={cn("flex shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
-      <RailButton label="Menu" active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
+    <nav
+      aria-label={t("Main navigation")}
+      className={cn("flex shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
+      <RailButton label="Menu" toggles active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
         <Menu {...icon} />
       </RailButton>
       <RailButton label="Home" active={view.name === "home"} expanded={expanded} onClick={() => go({ name: "home" })}>

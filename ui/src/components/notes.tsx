@@ -108,6 +108,9 @@ export function NoteEditor({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={note.guid ? t("Edit note") : t("New note")}
         onMouseDown={(e) => e.stopPropagation()}
         className="flex w-[min(90vw,560px)] flex-col gap-3 rounded-md border border-line bg-surface p-5 shadow-sm"
       >
@@ -123,7 +126,7 @@ export function NoteEditor({
           placeholder={t("Title")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+          className="rounded-md border border-line bg-surface px-3 py-2 focus:border-accent"
         />
         <textarea
           id="note-content"
@@ -131,14 +134,14 @@ export function NoteEditor({
           rows={8}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="resize-y rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+          className="resize-y rounded-md border border-line bg-surface px-3 py-2 focus:border-accent"
         />
         <input
           id="note-tags"
           placeholder={t("Tags, separated by commas")}
           value={tags}
           onChange={(e) => setTags(e.target.value)}
-          className="rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+          className="rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-accent"
         />
         <div className="flex items-center gap-2">
           {onDelete && (

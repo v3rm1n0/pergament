@@ -234,6 +234,11 @@ describe("parseReference", () => {
     expect(parseReference("1 Joh 4:8", books)).toEqual({ book: 62, chapter: 4, verse: 8 });
   });
 
+  it("reads a single number after a book of one chapter as the verse", () => {
+    expect(parseReference("2 Joh 2", books)).toEqual({ book: 63, chapter: 1, verse: 2 });
+    expect(parseReference("2. Johannes", books)).toEqual({ book: 63, chapter: 1, verse: null });
+  });
+
   it("prefers the book whose name is exact, then the shorter one", () => {
     expect(parseReference("Johannes 3:16", books)).toEqual({ book: 43, chapter: 3, verse: 16 });
     expect(parseReference("Joh 3", books)).toEqual({ book: 43, chapter: 3, verse: null });
@@ -242,7 +247,8 @@ describe("parseReference", () => {
   it("gives nothing for an unknown book, a missing chapter or nonsense", () => {
     expect(parseReference("Zzz 1", books)).toBeNull();
     expect(parseReference("Heb 14", books)).toBeNull();
-    expect(parseReference("2 Joh 2", books)).toBeNull();
+    expect(parseReference("2 Joh 1:2", books)).toEqual({ book: 63, chapter: 1, verse: 2 });
+    expect(parseReference("2 Joh 2:1", books)).toBeNull();
     expect(parseReference("", books)).toBeNull();
     expect(parseReference("12:3", books)).toBeNull();
   });

@@ -73,6 +73,8 @@ export function parseReference(input: string, books: { number: number; title: st
       .filter((b) => named(bookNames(b.title), (n) => n.startsWith(query)))
       .sort((a, b) => a.title.length - b.title.length || a.number - b.number)[0];
   if (!book) return null;
+  // A single number after a book of one chapter ("Jude 5") is the verse.
+  if (book.chapters === 1 && m[3] && !m[4]) return { book: book.number, chapter: 1, verse: Number(m[3]) };
   const chapter = m[3] ? Number(m[3]) : 1;
   if (chapter < 1 || chapter > book.chapters) return null;
   return { book: book.number, chapter, verse: m[4] ? Number(m[4]) : null };

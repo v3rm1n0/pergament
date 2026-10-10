@@ -499,7 +499,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
           </div>
         </div>
         {hasPane && paneOpen && refs.length > 0 && (
-          <aside className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
+          <aside aria-label={t("Study pane")} className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
             <ReferencePane
               pref={refs[refs.length - 1]}
               onBack={() => setRefs((r) => r.slice(0, -1))}
@@ -510,6 +510,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
         )}
         {hasPane && paneOpen && refs.length === 0 && (
           <aside
+            aria-label={t("Study pane")}
             ref={paneRef}
             onClick={onPaneClick}
             className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"

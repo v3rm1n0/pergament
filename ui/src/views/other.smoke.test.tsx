@@ -160,8 +160,19 @@ describe("Go to", () => {
     fireEvent.change(box, { target: { value: "Zzz 1" } });
     fireEvent.submit(box.closest("form")!);
     expect(await screen.findByText("No such place in this Bible.")).toBeTruthy();
-    fireEvent.change(box, { target: { value: "Heb 10:24" } });
-    fireEvent.submit(box.closest("form")!);
+    // Asking again keeps the first place to return to, Tab stays in the box and Escape closes it.
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
+    const go = screen.getByRole("button", { name: "Go" });
+    go.focus();
+    fireEvent.keyDown(go, { key: "Tab" });
+    expect(document.activeElement).toBe(box);
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
+    const again = await screen.findByLabelText("Reference, for example Heb 10:24");
+    await waitFor(() => expect((screen.getByRole("button", { name: "Go" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(again, { target: { value: "Heb 10:24" } });
+    fireEvent.submit(again.closest("form")!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

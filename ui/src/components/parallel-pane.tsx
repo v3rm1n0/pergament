@@ -188,6 +188,9 @@ function CustomizeDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Customize")}
         onMouseDown={(e) => e.stopPropagation()}
         className="flex w-[min(90vw,420px)] flex-col gap-3 rounded-md border border-line bg-surface p-5 shadow-sm"
       >

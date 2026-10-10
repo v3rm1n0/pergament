@@ -30,11 +30,16 @@ export function GoTo() {
   const input = useRef<HTMLInputElement>(null);
   const before = useRef<Element | null>(null);
 
+  const isOpen = useRef(false);
+  isOpen.current = open;
   const show = () => {
+    // Asking again while the box is open must not make it forget where focus has to go back to.
+    if (isOpen.current) return;
     const bibles = inLanguage(publications, lang).filter((p) => p.isBible);
     const found = bibles.find((p) => p.symbol === "nwtsty") ?? bibles[0];
     if (!found) return toast(t("No Bible in this language in your library yet"));
     before.current = document.activeElement;
+    setBible(null);
     setText("");
     setMissed(false);
     setOpen(true);
@@ -48,19 +53,34 @@ export function GoTo() {
     (before.current as HTMLElement | null)?.focus?.();
   };
 
+  // The listeners are set once and call whatever `show` is current.
+  const latest = useRef(show);
+  latest.current = show;
   useEffect(() => {
+    const open = () => latest.current();
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
-        show();
+        open();
       }
     };
     window.addEventListener("keydown", onKey);
-    window.addEventListener(GO_TO_EVENT, show);
+    window.addEventListener(GO_TO_EVENT, open);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener(GO_TO_EVENT, show);
+      window.removeEventListener(GO_TO_EVENT, open);
     };
+  }, []);
+  // Escape closes the box wherever focus is, and does not also close a picture or recording underneath it.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      close();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   });
   useEffect(() => {
     if (open) input.current?.focus();
@@ -80,7 +100,20 @@ export function GoTo() {
         aria-modal="true"
         aria-label={t("Go to a verse")}
         onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.key === "Escape" && close()}
+        onKeyDown={(e) => {
+          // Tab stays inside the box.
+          if (e.key !== "Tab") return;
+          const items = [...e.currentTarget.querySelectorAll<HTMLElement>("input, button:not(:disabled)")];
+          const first = items[0];
+          const last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           go();

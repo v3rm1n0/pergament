@@ -98,6 +98,7 @@ function LanguagePicker({ target, onClose }: { target: PubTarget; onClose: () =>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label={t("More Languages")}
         className="fixed left-1/2 top-1/2 z-50 flex max-h-[70vh] w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-line bg-surface shadow-sm"
       >
@@ -137,6 +138,7 @@ function RemoveConfirm({ title, onConfirm, onClose }: { title: string; onConfirm
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div
         role="alertdialog"
+        aria-modal="true"
         aria-label={t("Remove from library")}
         className="fixed left-1/2 top-1/2 z-50 flex w-[320px] max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border border-line bg-surface p-4 shadow-sm"
       >
