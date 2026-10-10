@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { AppBar, useApp } from "@/app";
-import type { Theme } from "@/lib/settings";
+import type { Layout, Theme } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { t, uiLanguages } from "@/lib/i18n";
 import type { UiLangSetting } from "@/lib/i18n";
@@ -17,12 +17,17 @@ const themes: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
+const layouts: { value: Layout; label: string }[] = [
+  { value: "centered", label: "Centered" },
+  { value: "wide", label: "Full width" },
+];
+
 export function SettingsView() {
   const [version, setVersion] = useState("");
   useEffect(() => {
     getVersion().then(setVersion, () => undefined);
   }, []);
-  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, createBackup, restoreBackup, display, updates } = useApp();
+  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, layout, setLayout, createBackup, restoreBackup, display, updates } = useApp();
   return (
     <>
       <AppBar title={t("Settings")} />
@@ -63,6 +68,27 @@ export function SettingsView() {
                 </button>
               ))}
             </div>
+          </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">{t("Content width")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
+              {layouts.map((l) => (
+                <button
+                  key={l.value}
+                  onClick={() => setLayout(l.value)}
+                  aria-pressed={layout === l.value}
+                  className={cn(
+                    "px-4 py-2 text-sm",
+                    layout === l.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
+                  )}
+                >
+                  {t(l.label)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              {t("A centered column is easier to read; full width uses the whole window for lists, covers and the reader.")}
+            </p>
           </section>
           <section>
             <h2 className="mb-3 text-sm font-semibold">{t("Text size")}</h2>

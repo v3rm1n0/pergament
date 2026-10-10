@@ -40,6 +40,17 @@ export function saveFontScale(scale: number) {
   write("fontScale", String(scale));
 }
 
+/** Content width: a centered column (the default) or the whole window. */
+export type Layout = "centered" | "wide";
+
+export function loadLayout(): Layout {
+  return read("layout") === "wide" ? "wide" : "centered";
+}
+
+export function saveLayout(layout: Layout) {
+  write("layout", layout);
+}
+
 /** Catalog language code for a browser locale (codes verified in docs/FORMAT.md). */
 export function defaultLangCode(locale: string): string {
   const map: Record<string, string> = { de: "X", en: "E", es: "S", fr: "F", it: "I" };

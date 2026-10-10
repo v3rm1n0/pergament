@@ -87,7 +87,7 @@ const scenes = [
   }],
   ["04-library-video", async (page) => {
     await rail(page, "Library");
-    await page.getByRole("button", { name: "Video", exact: true }).click();
+    await page.getByRole("tab", { name: "Video", exact: true }).click();
     await page.getByText("Gatherings and Events").waitFor();
   }],
   ["05-meetings", async (page) => {

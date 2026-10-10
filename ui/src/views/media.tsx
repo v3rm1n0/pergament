@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppBar, useApp } from "@/app";
 import { api, type Media, type MediaCategory, type MediaDownload } from "@/lib/api";
 import { categoryIcon } from "@/lib/media-icons";
+import { CategoryTile } from "@/components/category-tile";
 import {
   DownloadedCard,
   MediaCard,
@@ -54,21 +55,6 @@ function Status({ error, retry }: { error: string | null; retry: () => void }) {
 }
 
 /** Tile of a category, as in the official app: wide picture for video, cover and name for audio. */
-function CategoryTile({ cat, kind, onOpen }: { cat: MediaCategory; kind: "video" | "audio"; onOpen: () => void }) {
-  const Icon = categoryIcon(cat.key, cat.name, kind);
-  return (
-    <button
-      onClick={onOpen}
-      className="flex h-16 items-center gap-3 rounded-md border border-line px-3 text-left hover:bg-bar focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-bar text-muted">
-        <Icon size={22} strokeWidth={1.4} />
-      </span>
-      <span className="line-clamp-2 text-sm leading-snug">{cat.name}</span>
-    </button>
-  );
-}
-
 const TILES = "grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2";
 
 /** The Video or Audio tab of the library: the top-level categories. */
@@ -79,7 +65,7 @@ export function MediaTab({ kind }: { kind: "video" | "audio" }) {
   return (
     <div className={TILES}>
       {cat.subcategories.map((c) => (
-        <CategoryTile key={c.key} cat={c} kind={kind} onOpen={() => push({ name: "media", key: c.key, title: c.name })} />
+        <CategoryTile key={c.key} icon={categoryIcon(c.key, c.name, kind)} name={c.name} onOpen={() => push({ name: "media", key: c.key, title: c.name })} />
       ))}
     </div>
   );
@@ -137,8 +123,8 @@ export function MediaCategoryView({ catKey, title }: { catKey: string; title: st
                 {nested.map((c) => (
                   <CategoryTile
                     key={c.key}
-                    cat={c}
-                    kind="video"
+                    icon={categoryIcon(c.key, c.name, "video")}
+                    name={c.name}
                     onOpen={() => push({ name: "media", key: c.key, title: c.name })}
                   />
                 ))}

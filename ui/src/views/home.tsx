@@ -126,7 +126,7 @@ export function HomeView() {
     <>
       <AppBar title={t("Home")} />
       <div className="flex-1 overflow-y-auto bg-surface">
-        <div className="mx-auto flex max-w-[880px] flex-col gap-10 px-4 py-8 min-[720px]:px-6">
+        <div className="mx-auto flex max-w-[var(--page-max,880px)] flex-col gap-10 px-4 py-8 min-[720px]:px-6">
           {today && scripture ? (
             <section>
               <p className="text-[13px] text-muted">{t("Today")}</p>

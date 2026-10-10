@@ -181,6 +181,11 @@ export const de: Record<string, string> = {
   Bookmarks: "Lesezeichen",
   All: "Alle",
   Chapters: "Kapitel",
+  "Content width": "Inhaltsbreite",
+  Centered: "Zentriert",
+  "Full width": "Volle Breite",
+  "A centered column is easier to read; full width uses the whole window for lists, covers and the reader.":
+    "Eine zentrierte Spalte liest sich leichter; volle Breite nutzt das ganze Fenster für Listen, Cover und den Leser.",
   "Select text in a publication to highlight it or add a note.":
     "Wähle in einer Publikation Text aus, um ihn zu markieren oder eine Notiz hinzuzufügen.",
   "{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks":

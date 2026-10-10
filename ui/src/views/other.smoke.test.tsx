@@ -27,6 +27,7 @@ import { MeetingsView } from "@/views/meetings";
 import { OnlineView } from "@/views/online";
 import { PublicationView } from "@/views/publication";
 import { UpdatesTab } from "@/views/updates";
+import { SettingsView } from "@/views/settings";
 
 beforeEach(() => {
   calls.length = 0;
@@ -100,5 +101,16 @@ describe("Publication", () => {
     localStorage.setItem("favorites", JSON.stringify(["lff_2"]));
     renderIn(<PublicationView dir="lff_2" />);
     expect(await screen.findByLabelText("Remove from favorites")).toBeTruthy();
+  });
+});
+
+describe("Settings", () => {
+  it("switches the content width and remembers it", async () => {
+    renderIn(<SettingsView />);
+    expect(document.documentElement.style.getPropertyValue("--page-max")).toBe("880px");
+    fireEvent.click(await screen.findByRole("button", { name: "Full width" }));
+    expect(localStorage.getItem("layout")).toBe("wide");
+    expect(document.documentElement.style.getPropertyValue("--page-max")).toBe("100000px");
+    expect(screen.getByRole("button", { name: "Full width" }).getAttribute("aria-pressed")).toBe("true");
   });
 });

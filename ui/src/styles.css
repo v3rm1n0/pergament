@@ -339,15 +339,21 @@ body {
   border-color: var(--accent);
 }
 
-/* One centered content column of at most 880px, with 16px (24px from 720px) of side padding. */
+/* One content column of at most --page-max (set from the content width setting), with 16px (24px from 720px) of side padding. */
 @layer components {
+  .page,
+  .page-x {
+    --gutter: max(1rem, calc((100% - var(--page-max, 880px)) / 2));
+    padding-inline: var(--gutter);
+  }
   .page {
     background: var(--surface);
-    padding: 2rem max(1rem, calc((100% - 880px) / 2));
+    padding-block: 2rem;
   }
   @media (min-width: 720px) {
-    .page {
-      padding-inline: max(1.5rem, calc((100% - 880px) / 2));
+    .page,
+    .page-x {
+      --gutter: max(1.5rem, calc((100% - var(--page-max, 880px)) / 2));
     }
   }
 }

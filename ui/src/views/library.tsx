@@ -20,9 +20,10 @@ import {
 import { AppBar, BarButton, taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Category, type PubCard } from "@/lib/api";
 import { inLanguage } from "@/lib/settings";
-import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { CatalogPrompt } from "@/components/catalog";
+import { CategoryTile } from "@/components/category-tile";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GridCard } from "@/components/cover";
 import { HomeLibraryGrid } from "./downloaded";
 import { importedOnly, mergeCategories, sectionsFor } from "@/lib/types";
@@ -50,33 +51,27 @@ const ICONS: Record<number, LucideIcon> = {
   [-3]: Mic,
 };
 
-function Tabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab) => void }) {
+/** The tabs of the library, as the same segmented control the other views use. */
+function LibraryTabs({ value, onChange }: { value: LibraryTab; onChange: (v: LibraryTab) => void }) {
   const { updates } = useApp();
   const tab = (id: LibraryTab, label: string, badge = 0) => (
-    <button
-      onClick={() => onChange(id)}
-      aria-current={value === id ? "page" : undefined}
-      className={cn(
-        "shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium text-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent",
-        value === id && "bg-bar text-fg",
-      )}
-    >
+    <TabsTrigger value={id}>
       {label}
       {badge > 0 && (
-        <span className="ml-1.5 rounded-full bg-fg px-1.5 text-xs font-semibold tabular-nums text-surface">
-          {badge}
-        </span>
+        <span className="ml-1.5 rounded-full bg-fg px-1.5 text-xs font-semibold tabular-nums text-surface">{badge}</span>
       )}
-    </button>
+    </TabsTrigger>
   );
   return (
-    <div className="flex gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 min-[720px]:px-6">
-      {tab("publications", t("Publications"))}
-      {tab("video", t("Video"))}
-      {tab("audio", t("Audio"))}
-      {tab("downloaded", t("Downloaded"))}
-      {tab("updates", t("Updates"), updates.items.length)}
-    </div>
+    <Tabs value={value} onValueChange={(v) => onChange(v as LibraryTab)} className="mb-6">
+      <TabsList>
+        {tab("publications", t("Publications"))}
+        {tab("video", t("Video"))}
+        {tab("audio", t("Audio"))}
+        {tab("downloaded", t("Downloaded"))}
+        {tab("updates", t("Updates"), updates.items.length)}
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -123,8 +118,8 @@ export function LibraryView({ tab = "publications" }: { tab?: LibraryTab }) {
           </BarButton>
         )}
       </AppBar>
-      <Tabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
       <div className="page flex-1 overflow-y-auto">
+        <LibraryTabs value={tab} onChange={(t) => replace({ name: "library", tab: t })} />
         {tab === "video" || tab === "audio" ? (
           <MediaTab kind={tab} />
         ) : tab === "updates" ? (
@@ -135,19 +130,14 @@ export function LibraryView({ tab = "publications" }: { tab?: LibraryTab }) {
           <CatalogPrompt />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2">
-            {shownCategories.map((c) => {
-              const Icon = ICONS[c.id] ?? FileText;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => push({ name: "category", id: c.id, title: t(c.name) })}
-                  className="flex h-14 items-center gap-3 rounded-md border border-line px-4 text-left text-sm hover:bg-bar"
-                >
-                  <Icon size={20} strokeWidth={1.4} className="shrink-0 text-muted" />
-                  <span className="min-w-0 hyphens-auto break-words">{t(c.name)}</span>
-                </button>
-              );
-            })}
+            {shownCategories.map((c) => (
+              <CategoryTile
+                key={c.id}
+                icon={ICONS[c.id] ?? FileText}
+                name={t(c.name)}
+                onOpen={() => push({ name: "category", id: c.id, title: t(c.name) })}
+              />
+            ))}
           </div>
         )}
       </div>

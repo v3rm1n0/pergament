@@ -59,7 +59,7 @@ function outlineRange(o: ChapterStudy["outline"][number]): string {
 }
 
 export function ReaderView({ target, note }: { target: Target; note?: boolean }) {
-  const { push, replace, toast, lang, userVersion, publications, playRecording, showImage } = useApp();
+  const { push, replace, toast, lang, userVersion, publications, playRecording, showImage, layout } = useApp();
   const [refs, setRefs] = useState<PaneRef[]>([]);
   const [page, setPage] = useState<Page | null>(null);
   const [study, setStudy] = useState<ChapterStudy | null>(null);
@@ -475,7 +475,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
             </>
           )}
           <div className="h-full overflow-y-auto bg-surface">
-            <div className={cn("mx-auto px-12 py-6", chapter ? "max-w-[46rem]" : "max-w-3xl")}>
+            <div className={cn("mx-auto px-12 py-6", layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"))}>
               {split && (
                 <div
                   ref={articleRef}

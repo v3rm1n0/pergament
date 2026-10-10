@@ -28,6 +28,7 @@ import {
   inLanguage,
   loadFavorites,
   loadFontScale,
+  loadLayout,
   loadSecondDisplay,
   loadUpdateCheck,
   saveSecondDisplay,
@@ -37,6 +38,8 @@ import {
   loadTheme,
   prefersDark,
   saveFontScale,
+  saveLayout,
+  type Layout,
   toggleFavorite as toggleStoredFavorite,
   saveLang,
   saveUiLang,
@@ -74,6 +77,8 @@ interface AppContextValue {
   dark: boolean;
   fontScale: number;
   setFontScale: (n: number) => void;
+  layout: Layout;
+  setLayout: (l: Layout) => void;
   importFiles: () => Promise<void>;
   /** Selected language code, e.g. `X`. */
   lang: string;
@@ -154,6 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [fontScale, setFontScaleState] = useState(loadFontScale);
+  const [layout, setLayoutState] = useState<Layout>(loadLayout);
   const [lang, setLangState] = useState(loadLang);
   const [uiLang, setUiLangState] = useState<UiLangSetting>(loadUiLang);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -180,6 +186,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
   }, [fontScale]);
+  useEffect(() => {
+    // The widest a page column gets; "wide" leaves only the side padding.
+    document.documentElement.style.setProperty("--page-max", layout === "wide" ? "100000px" : "880px");
+  }, [layout]);
   useEffect(() => {
     api.languages().then(setLanguages).catch(() => setLanguages([]));
   }, []);
@@ -477,6 +487,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         saveFontScale(n);
         setFontScaleState(n);
       },
+      layout,
+      setLayout: (l) => {
+        saveLayout(l);
+        setLayoutState(l);
+      },
       importFiles,
       lang,
       setLang: (code) => {
@@ -529,6 +544,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       theme,
       dark,
       fontScale,
+      layout,
       importFiles,
       lang,
       uiLang,
