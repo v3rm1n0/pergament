@@ -182,6 +182,11 @@ export const de: Record<string, string> = {
   All: "Alle",
   Chapters: "Kapitel",
   "Study pane": "Studienleiste",
+  "Reading font": "Schrift",
+  Standard: "Standard",
+  "Easy to read": "Gut lesbar",
+  "Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.":
+    "Atkinson Hyperlegible Next wurde so gestaltet, dass sich Buchstaben leicht unterscheiden lassen. Sie ersetzt die Schrift überall, auch beim Bibeltext.",
   "Main navigation": "Hauptnavigation",
   "Skip to content": "Zum Inhalt springen",
   "Go to…": "Gehe zu…",

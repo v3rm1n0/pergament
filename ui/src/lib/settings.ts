@@ -40,6 +40,17 @@ export function saveFontScale(scale: number) {
   write("fontScale", String(scale));
 }
 
+/** The font of the app: the system one, or a typeface designed for legibility. */
+export type ReadingFont = "standard" | "legible";
+
+export function loadReadingFont(): ReadingFont {
+  return read("readingFont") === "legible" ? "legible" : "standard";
+}
+
+export function saveReadingFont(font: ReadingFont) {
+  write("readingFont", font);
+}
+
 /** Content width: a centered column (the default) or the whole window. */
 export type Layout = "centered" | "wide";
 

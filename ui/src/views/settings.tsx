@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { AppBar, useApp } from "@/app";
-import type { Layout, Theme } from "@/lib/settings";
+import type { Layout, ReadingFont, Theme } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { t, uiLanguages } from "@/lib/i18n";
 import type { UiLangSetting } from "@/lib/i18n";
@@ -22,12 +22,17 @@ const layouts: { value: Layout; label: string }[] = [
   { value: "wide", label: "Full width" },
 ];
 
+const fonts: { value: ReadingFont; label: string }[] = [
+  { value: "standard", label: "Standard" },
+  { value: "legible", label: "Easy to read" },
+];
+
 export function SettingsView() {
   const [version, setVersion] = useState("");
   useEffect(() => {
     getVersion().then(setVersion, () => undefined);
   }, []);
-  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, layout, setLayout, createBackup, restoreBackup, display, updates } = useApp();
+  const { uiLang, setUiLang, theme, setTheme, fontScale, setFontScale, layout, setLayout, readingFont, setReadingFont, createBackup, restoreBackup, display, updates } = useApp();
   return (
     <>
       <AppBar title={t("Settings")} />
@@ -88,6 +93,27 @@ export function SettingsView() {
             </div>
             <p className="mt-2 max-w-xl text-sm text-muted">
               {t("A centered column is easier to read; full width uses the whole window for lists, covers and the reader.")}
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">{t("Reading font")}</h2>
+            <div className="inline-flex overflow-hidden rounded-md border border-line">
+              {fonts.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setReadingFont(f.value)}
+                  aria-pressed={readingFont === f.value}
+                  className={cn(
+                    "px-4 py-2 text-sm",
+                    readingFont === f.value ? "bg-bar font-medium" : "bg-surface text-muted hover:bg-bar hover:text-fg",
+                  )}
+                >
+                  {t(f.label)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              {t("Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.")}
             </p>
           </section>
           <section>

@@ -29,6 +29,7 @@ import {
   loadFavorites,
   loadFontScale,
   loadLayout,
+  loadReadingFont,
   loadSecondDisplay,
   loadUpdateCheck,
   saveSecondDisplay,
@@ -39,6 +40,8 @@ import {
   prefersDark,
   saveFontScale,
   saveLayout,
+  saveReadingFont,
+  type ReadingFont,
   type Layout,
   toggleFavorite as toggleStoredFavorite,
   saveLang,
@@ -79,6 +82,8 @@ interface AppContextValue {
   setFontScale: (n: number) => void;
   layout: Layout;
   setLayout: (l: Layout) => void;
+  readingFont: ReadingFont;
+  setReadingFont: (f: ReadingFont) => void;
   importFiles: () => Promise<void>;
   /** Selected language code, e.g. `X`. */
   lang: string;
@@ -160,6 +165,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(loadTheme);
   const [fontScale, setFontScaleState] = useState(loadFontScale);
   const [layout, setLayoutState] = useState<Layout>(loadLayout);
+  const [readingFont, setReadingFontState] = useState<ReadingFont>(loadReadingFont);
   const [lang, setLangState] = useState(loadLang);
   const [uiLang, setUiLangState] = useState<UiLangSetting>(loadUiLang);
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -186,6 +192,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.style.setProperty("--font-scale", String(fontScale));
   }, [fontScale]);
+  useEffect(() => {
+    document.documentElement.dataset.font = readingFont;
+  }, [readingFont]);
   useEffect(() => {
     // The widest a page column gets; "wide" leaves only the side padding.
     document.documentElement.style.setProperty("--page-max", layout === "wide" ? "100000px" : "880px");
@@ -492,6 +501,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         saveLayout(l);
         setLayoutState(l);
       },
+      readingFont,
+      setReadingFont: (f) => {
+        saveReadingFont(f);
+        setReadingFontState(f);
+      },
       importFiles,
       lang,
       setLang: (code) => {
@@ -545,6 +559,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dark,
       fontScale,
       layout,
+      readingFont,
       importFiles,
       lang,
       uiLang,

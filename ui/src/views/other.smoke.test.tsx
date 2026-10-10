@@ -115,6 +115,14 @@ describe("Settings", () => {
     expect(document.documentElement.style.getPropertyValue("--page-max")).toBe("100000px");
     expect(screen.getByRole("button", { name: "Full width" }).getAttribute("aria-pressed")).toBe("true");
   });
+
+  it("switches to the easy-to-read font and remembers it", async () => {
+    renderIn(<SettingsView />);
+    expect(document.documentElement.dataset.font).toBe("standard");
+    fireEvent.click(await screen.findByRole("button", { name: "Easy to read" }));
+    expect(localStorage.getItem("readingFont")).toBe("legible");
+    expect(document.documentElement.dataset.font).toBe("legible");
+  });
 });
 
 describe("Personal Study", () => {
