@@ -29,6 +29,7 @@ import { PublicationView } from "@/views/publication";
 import { UpdatesTab } from "@/views/updates";
 import { SettingsView } from "@/views/settings";
 import { PersonalView } from "@/views/personal";
+import { GoTo } from "@/components/go-to";
 
 beforeEach(() => {
   calls.length = 0;
@@ -139,5 +140,28 @@ describe("Personal Study", () => {
     expect(titles()).toEqual(["Dusk visits"]);
     fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "zzz" } });
     expect(screen.getByText("No notes match.")).toBeTruthy();
+  });
+});
+
+describe("Go to", () => {
+  it("opens with Ctrl+G and goes to the typed reference", async () => {
+    backend.list_publications = () => [card({ dir: "nwtsty_2", symbol: "nwtsty", title: "Bible", isBible: true, langCode: "X" })];
+    backend.publication = () => ({
+      card: card({ dir: "nwtsty_2", symbol: "nwtsty", isBible: true }),
+      toc: [],
+      books: [{ number: 58, title: "Hebräer", chapter_title: "", book_document_id: null, chapters: 13 }],
+    });
+    renderIn(<GoTo />);
+    await waitFor(() => expect(calls.some((c) => c.cmd === "list_publications")).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
+    const box = await screen.findByLabelText("Reference, for example Heb 10:24");
+    await waitFor(() => expect((screen.getByRole("button", { name: "Go" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(box, { target: { value: "Zzz 1" } });
+    fireEvent.submit(box.closest("form")!);
+    expect(await screen.findByText("No such place in this Bible.")).toBeTruthy();
+    fireEvent.change(box, { target: { value: "Heb 10:24" } });
+    fireEvent.submit(box.closest("form")!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

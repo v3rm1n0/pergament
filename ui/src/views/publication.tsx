@@ -4,6 +4,7 @@ import { AppBar, BarButton, useApp } from "@/app";
 import { api, documentTarget, type PubDetail, type TocNode } from "@/lib/api";
 import { booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { t } from "@/lib/i18n";
+import { GoToButton } from "@/components/go-to";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function usePublication(dir: string): PubDetail | null {
@@ -97,6 +98,7 @@ function FavoriteButton({ dir }: { dir: string }) {
   );
 }
 
+
 export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const { replace } = useApp();
   const { lang, languageName } = useApp();
@@ -110,7 +112,8 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
     return (
       <>
         <AppBar title={title} subtitle={languageName(lang)}>
-          <FavoriteButton dir={dir} />
+          {detail.card.isBible && <GoToButton />}
+        <FavoriteButton dir={dir} />
         </AppBar>
         <div className="page flex-1 overflow-y-auto">
           <DocList dir={dir} nodes={toc[0]?.children ?? []} />
@@ -123,6 +126,7 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   return (
     <>
       <AppBar title={title} subtitle={languageName(lang)}>
+        {detail.card.isBible && <GoToButton />}
         <FavoriteButton dir={dir} />
       </AppBar>
       <Tabs

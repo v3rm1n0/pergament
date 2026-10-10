@@ -22,6 +22,7 @@ import { loadAnswer, saveAnswer, saveLastColor } from "@/lib/settings";
 import { clickedImage, hydrateMedia } from "@/lib/media";
 import { parseBibleRange } from "@/lib/parallel";
 import { MarkToolbar, NoteCard, NoteEditor } from "@/components/notes";
+import { GoToButton } from "@/components/go-to";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
@@ -444,6 +445,7 @@ export function ReaderView({ target, note }: { target: Target; note?: boolean })
   return (
     <>
       <AppBar title={dated !== null ? t("Daily Text") : (page?.title ?? "")} subtitle={subtitle}>
+        {chapter && <GoToButton />}
         {hasPane && (
           <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
             {paneOpen ? (

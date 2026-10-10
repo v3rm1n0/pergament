@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { booksTabIndex, shortBookName } from "./bible";
+import { booksTabIndex, namedBooks, parseReference, shortBookName } from "./bible";
 import { currentView, initialNav, navReducer } from "./nav";
 import { citedBy, extractParagraphs, markCited, splitPage, themeScripture, themeScriptureParts, verseKeyFromHref, verseKeyFromId } from "./page";
 import { defaultLangCode, prefersDark } from "./settings";
@@ -208,5 +208,58 @@ describe("cited paragraphs", () => {
   });
   it("falls back to the whole page when none is found", () => {
     expect(extractParagraphs(html, { kind: "paragraphs", from: 9, to: 9 })).toBeNull();
+  });
+});
+
+describe("parseReference", () => {
+  const books = [
+    { number: 1, title: "1. Mose (Genesis)", chapters: 50 },
+    { number: 19, title: "Psalmen", chapters: 150 },
+    { number: 43, title: "Johannes", chapters: 21 },
+    { number: 58, title: "Hebräer", chapters: 13 },
+    { number: 62, title: "1. Johannes", chapters: 5 },
+    { number: 63, title: "2. Johannes", chapters: 1 },
+  ];
+  it("finds the book by the start of its name, with chapter and verse", () => {
+    expect(parseReference("Heb 10:24", books)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("  hebraer 10 , 24 ", books)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("Ps 23", books)).toEqual({ book: 19, chapter: 23, verse: null });
+    expect(parseReference("Psalmen", books)).toEqual({ book: 19, chapter: 1, verse: null });
+  });
+
+  it("reads book numbers with or without a dot, and the name in brackets", () => {
+    expect(parseReference("1 Mose 2", books)).toEqual({ book: 1, chapter: 2, verse: null });
+    expect(parseReference("1. Mose 2:3", books)).toEqual({ book: 1, chapter: 2, verse: 3 });
+    expect(parseReference("gen 3", books)).toEqual({ book: 1, chapter: 3, verse: null });
+    expect(parseReference("1 Joh 4:8", books)).toEqual({ book: 62, chapter: 4, verse: 8 });
+  });
+
+  it("prefers the book whose name is exact, then the shorter one", () => {
+    expect(parseReference("Johannes 3:16", books)).toEqual({ book: 43, chapter: 3, verse: 16 });
+    expect(parseReference("Joh 3", books)).toEqual({ book: 43, chapter: 3, verse: null });
+  });
+
+  it("gives nothing for an unknown book, a missing chapter or nonsense", () => {
+    expect(parseReference("Zzz 1", books)).toBeNull();
+    expect(parseReference("Heb 14", books)).toBeNull();
+    expect(parseReference("2 Joh 2", books)).toBeNull();
+    expect(parseReference("", books)).toBeNull();
+    expect(parseReference("12:3", books)).toBeNull();
+  });
+});
+
+describe("namedBooks", () => {
+  it("takes the short names from the contents, so a real Bible's long titles can be matched", () => {
+    const toc = [node("Bücher", [node("Neue Schriften", [node("Hebräer", [], 58), node("1. Johannes", [], 62)])])];
+    const books = [
+      { number: 58, title: "Der Brief an die Hebräer", chapters: 13 },
+      { number: 62, title: "Der erste Brief von Johannes", chapters: 5 },
+      { number: 99, title: "Ohne Eintrag", chapters: 1 },
+    ];
+    const named = namedBooks(toc, books);
+    expect(named.map((b) => b.title)).toEqual(["Hebräer", "1. Johannes", "Ohne Eintrag"]);
+    expect(parseReference("Heb 10:24", named)).toEqual({ book: 58, chapter: 10, verse: 24 });
+    expect(parseReference("1 Joh 3:16", named)).toEqual({ book: 62, chapter: 3, verse: 16 });
+    expect(parseReference("Heb 10:24", books)).toBeNull();
   });
 });

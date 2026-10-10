@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProvider, Rail, TitleStrip, useApp } from "./app";
+import { GoTo } from "./components/go-to";
 import { ImageViewer } from "./components/image-viewer";
 import { PlayerHost } from "./components/player-host";
 import { isDisplayWindow } from "./lib/display";
@@ -64,6 +65,7 @@ function Shell() {
           </div>
           <PlayerHost />
           <ImageViewer />
+          <GoTo />
         </main>
       </div>
     </div>
