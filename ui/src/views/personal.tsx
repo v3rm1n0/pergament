@@ -4,6 +4,9 @@ import { AppBar, SectionTitle, useApp } from "@/app";
 import { api, type Bookmark, type Loc, type Note, type TagInfo, type UserDataSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { NoteCard, NoteEditor } from "@/components/notes";
+import { Input } from "@/components/ui/input";
+import { HIGHLIGHT_COLORS } from "@/lib/marks";
+import { filterNotes, type NoteSort } from "@/lib/notes";
 import { t } from "@/lib/i18n";
 
 /** Notes, tags and bookmarks from user data, plus backups. */
@@ -15,6 +18,10 @@ export function PersonalView() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [editing, setEditing] = useState<Note | null>(null);
+  const [query, setQuery] = useState("");
+  const [color, setColor] = useState<number | null>(null);
+  const [sort, setSort] = useState<NoteSort>("newest");
+  const shown = filterNotes(notes, { query, color, sort });
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -81,13 +88,52 @@ export function PersonalView() {
               ))}
             </div>
           )}
+          {notes.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("Search notes")}
+                aria-label={t("Search notes")}
+                className="w-full max-w-64"
+              />
+              <div className="flex items-center gap-1" role="group" aria-label={t("Highlight color")}>
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button
+                    key={c.index}
+                    title={t(c.name)}
+                    aria-label={t(c.name)}
+                    aria-pressed={color === c.index}
+                    onClick={() => setColor((cur) => (cur === c.index ? null : c.index))}
+                    className={cn(
+                      `hl-dot-${c.index} size-5 rounded-full border border-line focus-visible:outline-2 focus-visible:outline-accent`,
+                      color === c.index && "ring-2 ring-fg ring-offset-2 ring-offset-surface",
+                    )}
+                  />
+                ))}
+              </div>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as NoteSort)}
+                aria-label={t("Sort notes")}
+                className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <option value="newest">{t("Newest first")}</option>
+                <option value="oldest">{t("Oldest first")}</option>
+                <option value="publication">{t("By publication")}</option>
+              </select>
+            </div>
+          )}
           {notes.length === 0 ? (
             <p className="flex items-center gap-3 text-sm text-muted">
               <Plus size={20} /> {t("Select text in a publication to highlight it or add a note.")}
             </p>
+          ) : shown.length === 0 ? (
+            <p className="text-sm text-muted">{t("No notes match.")}</p>
           ) : (
             <div className="flex flex-col gap-2">
-              {notes.map((n) => (
+              {shown.map((n) => (
                 <div key={n.guid} className="flex items-stretch gap-1">
                   <div className="min-w-0 flex-1">
                     <NoteCard

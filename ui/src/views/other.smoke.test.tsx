@@ -28,6 +28,7 @@ import { OnlineView } from "@/views/online";
 import { PublicationView } from "@/views/publication";
 import { UpdatesTab } from "@/views/updates";
 import { SettingsView } from "@/views/settings";
+import { PersonalView } from "@/views/personal";
 
 beforeEach(() => {
   calls.length = 0;
@@ -112,5 +113,31 @@ describe("Settings", () => {
     expect(localStorage.getItem("layout")).toBe("wide");
     expect(document.documentElement.style.getPropertyValue("--page-max")).toBe("100000px");
     expect(screen.getByRole("button", { name: "Full width" }).getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("Personal Study", () => {
+  const note = (guid: string, title: string, color: number | null, lastModified: string) => ({
+    guid, title, content: "", blockType: 0, blockIdentifier: null, markGuid: null, color, tags: [], lastModified, location: null,
+  });
+
+  it("narrows the notes by text and highlight color and changes their order", async () => {
+    backend.user_data_summary = () => ({ marks: 0, notes: 2, tags: 0, bookmarks: 0, device: null });
+    backend.tags = () => [];
+    backend.bookmarks = () => [];
+    backend.all_notes = () => [note("a", "Dusk visits", 1, "2026-10-03T00:00:00Z"), note("b", "Patient listening", 3, "2026-10-05T00:00:00Z")];
+    renderIn(<PersonalView />);
+    const titles = () => screen.getAllByText(/Dusk visits|Patient listening/).map((e) => e.textContent);
+    await screen.findByText("Dusk visits");
+    expect(titles()).toEqual(["Patient listening", "Dusk visits"]);
+    fireEvent.change(screen.getByLabelText("Sort notes"), { target: { value: "oldest" } });
+    expect(titles()).toEqual(["Dusk visits", "Patient listening"]);
+    fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "patient" } });
+    expect(titles()).toEqual(["Patient listening"]);
+    fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Yellow" }));
+    expect(titles()).toEqual(["Dusk visits"]);
+    fireEvent.change(screen.getByLabelText("Search notes"), { target: { value: "zzz" } });
+    expect(screen.getByText("No notes match.")).toBeTruthy();
   });
 });
