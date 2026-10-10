@@ -9,11 +9,12 @@ follows JW Library on other platforms, with its own name, colours and icons.
 
 | | |
 |---|---|
-| ![Daily text with a Bible reference open in the side pane](docs/screenshots/02-daily-text-reference-dark.png) | ![Hebrews 10 with highlights, a note and the study pane](docs/screenshots/03-bible-study-pane-dark.png) |
+| ![Daily text with a Bible reference open in the side pane](docs/screenshots/02-daily-text-reference-dark.png) | ![Lanterns 10 with highlights, a note and the study pane](docs/screenshots/03-bible-study-pane-dark.png) |
 | ![Workbook week with highlights in all six colours](docs/screenshots/06-workbook-highlights-light.png) | ![Personal Study with notes and tags](docs/screenshots/08-personal-study-light.png) |
 
-Every view is in [docs/screenshots](docs/screenshots), in both themes. They
-show English publications; the notes and highlights are sample data.
+Every view is in [docs/screenshots](docs/screenshots), in both themes. The
+screenshots show invented content only: made-up publications, Bible text,
+covers, notes and highlights. None of it comes from a real publication.
 
 ## Before you use it
 
@@ -23,9 +24,8 @@ related names are their trademarks.
 
 - **Your own publications.** It is meant for reading publications you have
   obtained yourself, on your own computer. The repository contains no
-  publications; you import or download them at runtime. The only publication
-  text and catalog images in it are what the screenshots show. Test files are
-  read from paths you supply and are never committed.
+  publications; you import or download them at runtime. Test files are read
+  from paths you supply and are never committed.
 - **Clean-room format.** Nothing was decompiled or taken from the official
   app. The file format was worked out from public open-source projects and
   from inspecting `.jwpub` files and one user data backup. Every detail and

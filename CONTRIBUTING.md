@@ -37,6 +37,25 @@ Watchtower issue) to their paths; without them those tests are skipped.
 `PERGAMENT_TEST_NETWORK=1` enables a test that downloads one Watchtower issue
 (about 3 MB) from jw.org.
 
+## Screenshots
+
+The images in `docs/screenshots` show the real interface in headless Chromium.
+The Tauri backend is replaced by `scripts/screenshots/mock.js`, and everything
+in it is invented. Do not put real publication text, wording or artwork into
+the mock or the images, and do not take screenshots of a real library.
+
+```sh
+bun run dev        # in another terminal, serves the UI on port 1420
+node scripts/screenshots/run.mjs --out /tmp/shots
+```
+
+Playwright is not a dependency of the project. Set `PLAYWRIGHT_RESOLVE_FROM`
+to a directory whose `node_modules` has `playwright` or `playwright-core`, and
+`CHROMIUM_PATH` if Playwright's own browser does not run (on NixOS, take the
+one from `nix shell nixpkgs#chromium`). The date is fixed, so a run gives the
+same pictures. Look at every image in the scratch directory first, then run
+again without `--out` to replace the ones in `docs/screenshots`.
+
 ## Translations
 
 Adding an interface language takes one file and one line, and `bun run i18n`
