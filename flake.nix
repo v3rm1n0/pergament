@@ -98,6 +98,9 @@
             outputHash = "sha256-Hd1wZJaxCugLARxEAA+ddDU/QKpqajLXB0brpwCQmEI=";
           };
 
+          # Nix manages this install, so the in-app updater only points there.
+          env.PERGAMENT_UPDATER = "nix";
+
           cargoBuildFlags = [
             "-p"
             "pergament"

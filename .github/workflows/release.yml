@@ -2,7 +2,9 @@
 # scripts/release.sh. The release holds a zip with the binaries, the icons and
 # an installer (scripts/bundle-install.sh), a .sha256 file for the zip, deb,
 # rpm and AppImage packages and a flatpak bundle for Linux x86_64 with their
-# .sha256 files, and the source code archives GitHub adds itself. The notes are
+# .sha256 files, and the source code archives GitHub adds itself. The zip and
+# the AppImage also get a .sig file, the minisign signature the in-app updater
+# checks against the public key in src-tauri/src/app_update.rs. The notes are
 # the ones GitHub generates from the merged pull requests, with the install
 # instructions in front.
 name: Release
@@ -53,6 +55,12 @@ jobs:
       - name: Package the zip and its hash
         run: scripts/package.sh "${GITHUB_REF_NAME#v}"
 
+      - name: Sign the zip for the in-app updater
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run tauri signer sign target/package/*.zip
+
       - name: Write the text in front of the release notes
         run: scripts/release-notes.sh > notes.md
 
@@ -67,6 +75,7 @@ jobs:
           --notes-file notes.md
           target/package/*.zip
           target/package/*.zip.sha256
+          target/package/*.zip.sig
 
   # The deb, rpm and AppImage packages, built by the Tauri bundler on the same
   # old runner image as the zip. Added to the release the job above made (or
@@ -118,6 +127,12 @@ jobs:
 
       - name: Name the artifacts and write their hashes
         run: scripts/package-bundles.sh "$version"
+
+      - name: Sign the AppImage for the in-app updater
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run tauri signer sign target/package/Pergament-*-linux-x86_64.AppImage
 
       - name: Keep them as build artifacts
         if: github.ref_type != 'tag'

@@ -190,6 +190,8 @@ interface AppContextValue {
   closeNote: (id?: number, options?: { force?: boolean }) => Promise<void>;
   /** Told by the editor whether it holds unsaved text. */
   setNoteDirty: (dirty: boolean) => void;
+  /** Whether the study pane or the note window holds unsaved text. */
+  hasUnsavedNote: () => boolean;
   /** The inline editor reports its fields. */
   setNoteFields: (fields: NoteFields) => void;
   /** Move the inline draft, unsaved text included, to the note window. */
@@ -573,6 +575,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // The note window: the app sends it a note; one that opens later asks for it when ready.
   const lastNoteMessage = useRef<NoteWindowMessage | null>(null);
   const noteWindowDirty = useRef(false);
+  const hasUnsavedNote = useCallback(() => noteDirty.current || noteWindowDirty.current, []);
   /** Set while moved text is on its way to the window: a note sent after it would take its place unseen. */
   const movedPending = useRef(false);
   const showInWindow = useCallback(
@@ -877,6 +880,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openNote,
       closeNote,
       setNoteDirty,
+      hasUnsavedNote,
       setNoteFields,
       popOutNote,
       releaseNote,
@@ -932,6 +936,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       openNote,
       closeNote,
       setNoteDirty,
+      hasUnsavedNote,
       setNoteFields,
       popOutNote,
       releaseNote,

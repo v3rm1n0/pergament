@@ -53,6 +53,7 @@ import { SettingsView } from "@/views/settings";
 import { PersonalView } from "@/views/personal";
 import { GoTo } from "@/components/go-to";
 import { InlineNoteEditor } from "@/components/notes";
+import { AppUpdate } from "@/components/app-update";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
 import { emitTo } from "@tauri-apps/api/event";
 
@@ -1085,5 +1086,138 @@ describe("Coming back to a page", () => {
     renderIn(<OnlineView />);
     expect(screen.getByText("Höre auf Gott")).toBeTruthy();
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Höre");
+  });
+});
+
+describe("Settings app update", () => {
+  const update = { version: "1.7.0", notes: "## What's Changed\n* faster search", url: "https://github.com/v3rm1n0/pergament/releases/tag/v1.7.0", installable: true };
+  const ran = (cmd: string) => calls.some((c) => c.cmd === cmd);
+
+  beforeEach(() => {
+    backend.check_app_update = () => ({ kind: "zip", available: update });
+    backend.install_app_update = () => undefined;
+    backend.running_jobs = () => 0;
+    backend.restart_app = () => undefined;
+    backend.open_external = () => undefined;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("sits in the About tab", async () => {
+    renderIn(<SettingsView />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "About" }));
+    expect(await screen.findByRole("button", { name: "Check for updates" })).toBeTruthy();
+  });
+
+  it("tells a Nix install to update through Nix", async () => {
+    backend.check_app_update = () => ({ kind: "nix", available: null });
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText("Pergament was installed with Nix. Update it through your Nix configuration.")).toBeTruthy();
+    expect(ran("install_app_update")).toBe(false);
+  });
+
+  it("says when Pergament is up to date", async () => {
+    backend.check_app_update = () => ({ kind: "zip", available: null });
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText("Pergament is up to date")).toBeTruthy();
+  });
+
+  it("says when the check fails", async () => {
+    backend.check_app_update = () => {
+      throw "HTTP 403";
+    };
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText("Could not check for updates: HTTP 403")).toBeTruthy();
+  });
+
+  it("shows the version and notes and installs on confirm", async () => {
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    const dialog = await screen.findByRole("dialog", { name: "Pergament 1.7.0 is available" });
+    expect(within(dialog).getByRole("heading", { name: "What's Changed" })).toBeTruthy();
+    expect(within(dialog).getByText("faster search")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Update and restart" }));
+    await waitFor(() => expect(ran("restart_app")).toBe(true));
+    expect(calls.find((c) => c.cmd === "install_app_update")?.args).toEqual({ version: "1.7.0" });
+  });
+
+  it("closes without installing on Later", async () => {
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Later" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(ran("install_app_update")).toBe(false);
+  });
+
+  it("offers the download page when it cannot install", async () => {
+    backend.check_app_update = () => ({ kind: "manual", available: { ...update, installable: false } });
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open download page" }));
+    await waitFor(() => expect(calls.find((c) => c.cmd === "open_external")?.args).toEqual({ url: update.url }));
+    expect(ran("install_app_update")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Update and restart" })).toBeNull();
+  });
+
+  it("keeps the app running when the install fails", async () => {
+    backend.install_app_update = () => {
+      throw "signature does not match";
+    };
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Update and restart" }));
+    expect(await screen.findByText("Could not install the update: signature does not match")).toBeTruthy();
+    expect(ran("restart_app")).toBe(false);
+  });
+
+  it("waits for running downloads before restarting", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let jobs = 1;
+    backend.running_jobs = () => jobs;
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Update and restart" }));
+    expect(await screen.findByText("Waiting for 1 downloads or imports to finish…")).toBeTruthy();
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(ran("restart_app")).toBe(false);
+    jobs = 0;
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    await waitFor(() => expect(ran("restart_app")).toBe(true));
+  });
+
+  it("restarts right away when asked not to wait", async () => {
+    backend.running_jobs = () => 1;
+    renderIn(<AppUpdate />);
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Update and restart" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Restart now" }));
+    await waitFor(() => expect(ran("restart_app")).toBe(true));
+  });
+
+  it("does not restart over an unsaved note", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    function Opener() {
+      const { openNote } = useApp();
+      return <button onClick={() => void openNote({ note: { title: "Draft" } }, { in: "pane" })}>open</button>;
+    }
+    backend.running_jobs = () => 1;
+    renderIn(
+      <>
+        <Opener />
+        <InlineNoteEditor />
+        <AppUpdate />
+      </>,
+    );
+    fireEvent.click(screen.getByText("open"));
+    const editor = await screen.findByRole("form", { name: "New note" });
+    fireEvent.change(within(editor).getByPlaceholderText("Note"), { target: { value: "draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Update and restart" }));
+    expect(await screen.findByText("Save or close your note to restart.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Restart now" })).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(3000));
+    expect(ran("restart_app")).toBe(false);
   });
 });

@@ -377,6 +377,21 @@ export interface Progress {
   total: number | null;
 }
 
+/** A newer release of the app (see `src-tauri/src/app_update.rs`). */
+export interface AvailableUpdate {
+  version: string;
+  /** Markdown, without the install text in front. */
+  notes: string;
+  /** The release page, for installs the app cannot update itself. */
+  url: string;
+  installable: boolean;
+}
+
+export interface UpdateCheck {
+  kind: "nix" | "appimage" | "zip" | "manual";
+  available: AvailableUpdate | null;
+}
+
 export const api = {
   listPublications: () => invoke<PubCard[]>("list_publications"),
   publication: (dir: string) => invoke<PubDetail>("publication", { dir }),
@@ -384,6 +399,12 @@ export const api = {
   linkAction: (current: string | null, href: string) =>
     invoke<LinkAction>("link_action", { current, href }),
   openExternal: (url: string) => invoke<void>("open_external", { url }),
+  checkAppUpdate: () => invoke<UpdateCheck>("check_app_update"),
+  /** Downloads, verifies and installs `version`; the app keeps running until `restartApp`. */
+  installAppUpdate: (version: string) => invoke<void>("install_app_update", { version }),
+  /** Downloads and imports still running. */
+  runningJobs: () => invoke<number>("running_jobs"),
+  restartApp: () => invoke<void>("restart_app"),
   mediaLinks: (media: MediaRef) => invoke<MediaFile[]>("media_links", { media }),
   mediaCategory: (lang: string, key: string, detailed: boolean) =>
     invoke<MediaCategory>("media_category", { lang, key, detailed }),

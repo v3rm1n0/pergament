@@ -2,8 +2,10 @@
 //! Logic lives in [`api`] and the `pergament` crate.
 
 pub mod api;
+pub mod app_update;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use std::time::Duration;
 
@@ -13,7 +15,7 @@ use pergament::languages::Language;
 use pergament::links::{Link, MediaRef};
 use pergament::mediator;
 use pergament::navigate::{Page, Target};
-use pergament::net::{Client, HttpConfig};
+use pergament::net::{Client, Expected, HttpConfig};
 use pergament::remote::{self, Request};
 use pergament::userdata::{self, Loc, NoteInput, Range, UserData};
 use serde::Serialize;
@@ -34,6 +36,24 @@ pub struct AppState {
     cache_gate: RwLock<()>,
     /// Shared client for catalog images, so their requests are rate limited together.
     image_client: Mutex<Client>,
+    /// Downloads and imports running now; an app update waits for them before it restarts.
+    jobs: AtomicUsize,
+}
+
+/// Counts a running job in [`AppState::jobs`] until it drops.
+struct JobGuard<'a>(&'a AtomicUsize);
+
+impl<'a> JobGuard<'a> {
+    fn new(jobs: &'a AtomicUsize) -> Self {
+        jobs.fetch_add(1, Ordering::SeqCst);
+        Self(jobs)
+    }
+}
+
+impl Drop for JobGuard<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 impl AppState {
@@ -47,6 +67,11 @@ impl AppState {
         self.user
             .lock()
             .map_err(|_| "user data lock poisoned".to_owned())
+    }
+
+    /// Count a running job until the guard drops; an app update waits for it before restarting.
+    fn job(&self) -> JobGuard<'_> {
+        JobGuard::new(&self.jobs)
     }
 
     /// Use the cached catalog until the guard drops; clearing the cache waits for it.
@@ -202,6 +227,7 @@ async fn download_media(
 ) -> ApiResult<api::MediaDownload> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
+        let _job = state.job();
         let _gate = state.cache_use()?;
         let client = Client::new(HttpConfig::default());
         let found = mediator::category(
@@ -360,6 +386,8 @@ struct ImportResult {
 async fn import_files(app: AppHandle, paths: Vec<String>) -> ApiResult<Vec<ImportResult>> {
     let root = app.state::<AppState>().root.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _job = state.job();
         let mut lib = Library::open(&root).map_err(|e| e.to_string())?;
         Ok(paths
             .into_iter()
@@ -393,6 +421,7 @@ fn catalog_unguarded(app: &AppHandle) -> ApiResult<Arc<Mutex<Catalog>>> {
     if let Some(c) = state.catalog.lock().map_err(|e| e.to_string())?.clone() {
         return Ok(c);
     }
+    let _job = state.job();
     let client = Client::new(HttpConfig::default());
     let catalog = Catalog::load(
         &client,
@@ -802,7 +831,9 @@ fn open_location(state: State<'_, AppState>, loc: Loc) -> ApiResult<Option<Targe
 #[tauri::command]
 async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AppState>()
+        let state = app.state::<AppState>();
+        let _job = state.job();
+        state
             .user()?
             .export_backup(std::path::Path::new(&path))
             .map_err(|e| e.to_string())
@@ -815,7 +846,9 @@ async fn export_backup(app: AppHandle, path: String) -> ApiResult<()> {
 #[tauri::command]
 async fn restore_backup(app: AppHandle, path: String) -> ApiResult<pergament::userdata::Summary> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AppState>()
+        let state = app.state::<AppState>();
+        let _job = state.job();
+        state
             .user()?
             .restore_backup(std::path::Path::new(&path))
             .map_err(|e| e.to_string())
@@ -828,7 +861,9 @@ async fn restore_backup(app: AppHandle, path: String) -> ApiResult<pergament::us
 #[tauri::command]
 async fn merge_backup(app: AppHandle, path: String) -> ApiResult<pergament::userdata::MergeReport> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<AppState>()
+        let state = app.state::<AppState>();
+        let _job = state.job();
+        state
             .user()?
             .merge_backup(std::path::Path::new(&path))
             .map_err(|e| e.to_string())
@@ -915,6 +950,7 @@ async fn download_publication(
 ) -> ApiResult<String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
+        let _job = state.job();
         let _gate = state.cache_use()?;
         let client = Client::new(HttpConfig::default());
         let mut lib = Library::open(&state.root).map_err(|e| e.to_string())?;
@@ -943,6 +979,111 @@ async fn download_publication(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// A client for GitHub's API and release downloads, which redirect to githubusercontent.com.
+fn github_client() -> Client {
+    Client::new(HttpConfig {
+        allowed_hosts: vec!["github.com".to_owned(), "githubusercontent.com".to_owned()],
+        ..HttpConfig::default()
+    })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateCheck {
+    kind: &'static str,
+    available: Option<app_update::Available>,
+}
+
+/// Look for a newer release. Nix builds never ask GitHub.
+#[tauri::command]
+async fn check_app_update(app: AppHandle) -> ApiResult<UpdateCheck> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let kind = app_update::current_install_kind();
+        let name = match kind {
+            app_update::InstallKind::Nix => {
+                return Ok(UpdateCheck {
+                    kind: "nix",
+                    available: None,
+                });
+            }
+            app_update::InstallKind::AppImage(_) => "appimage",
+            app_update::InstallKind::Zip { .. } => "zip",
+            app_update::InstallKind::Manual => "manual",
+        };
+        let release: app_update::Release = github_client()
+            .get_json(app_update::RELEASES_URL)
+            .map_err(|e| e.to_string())?;
+        let running = app.package_info().version.to_string();
+        Ok(UpdateCheck {
+            kind: name,
+            available: app_update::available(&release, &running, &kind, std::env::consts::ARCH),
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Download `version`, check its signature and put it in place. The release is
+/// fetched again here, so nothing the page sends decides what is installed.
+#[tauri::command]
+async fn install_app_update(app: AppHandle, version: String) -> ApiResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let kind = app_update::current_install_kind();
+        let client = github_client();
+        let release: app_update::Release = client
+            .get_json(app_update::RELEASES_URL)
+            .map_err(|e| e.to_string())?;
+        if release.tag_name.strip_prefix('v') != Some(version.as_str()) {
+            return Err(format!(
+                "the latest release is {}, not {version}",
+                release.tag_name
+            ));
+        }
+        let (file, sig) = app_update::assets_for(&release, &kind, std::env::consts::ARCH)
+            .ok_or("this installation cannot be updated from the app")?;
+        let dir = app.state::<AppState>().cache.join("app-update");
+        let file_path = dir.join(&file.name);
+        let sig_path = dir.join(&sig.name);
+        let result = (|| {
+            client
+                .download(
+                    &sig.browser_download_url,
+                    &sig_path,
+                    &Expected::default(),
+                    &mut |_, _| {},
+                )
+                .map_err(|e| e.to_string())?;
+            client
+                .download(
+                    &file.browser_download_url,
+                    &file_path,
+                    &Expected::default(),
+                    &mut progress(&app, "app-update"),
+                )
+                .map_err(|e| e.to_string())?;
+            let sig_text = std::fs::read_to_string(&sig_path).map_err(|e| e.to_string())?;
+            app_update::verify_file(&file_path, &file.name, &sig_text, app_update::PUBLIC_KEY)?;
+            app_update::install(&kind, &file_path)
+        })();
+        let _ = std::fs::remove_dir_all(&dir);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Downloads and imports that are still running.
+#[tauri::command]
+fn running_jobs(state: State<'_, AppState>) -> usize {
+    state.jobs.load(Ordering::SeqCst)
+}
+
+/// Start the installed (possibly just replaced) app again.
+#[tauri::command]
+fn restart_app(app: AppHandle) {
+    app.restart();
 }
 
 /// Whether serving `path` requires a network fetch (an uncached remote image).
@@ -1010,6 +1151,11 @@ async fn media(app: AppHandle, url: String) -> ApiResult<tauri::ipc::Response> {
 }
 
 pub fn run() {
+    // Tauri restarts `$APPIMAGE` when it is set; one inherited from another AppImage is not this app.
+    if app_update::stray_appimage() {
+        // SAFETY: no other threads exist yet.
+        unsafe { std::env::remove_var("APPIMAGE") };
+    }
     let root = std::env::var_os("PERGAMENT_LIBRARY")
         .map(PathBuf::from)
         .or_else(|| dirs::data_dir().map(|d| pergament::library::app_dir(&d)))
@@ -1037,6 +1183,7 @@ pub fn run() {
                 max_retries: 2,
                 ..HttpConfig::default()
             })),
+            jobs: AtomicUsize::new(0),
         })
         .on_window_event(|window, event| {
             if !matches!(event, WindowEvent::Destroyed) {
@@ -1090,6 +1237,10 @@ pub fn run() {
             render_page,
             link_action,
             open_external,
+            check_app_update,
+            install_app_update,
+            running_jobs,
+            restart_app,
             media_links,
             year_text,
             open_display,
@@ -1146,6 +1297,28 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    use super::JobGuard;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// The update waits for this count, so every way out of a job has to lower it.
+    #[test]
+    fn a_job_counts_until_it_ends() {
+        let jobs = AtomicUsize::new(0);
+        let failing = || -> Result<(), String> {
+            let _job = JobGuard::new(&jobs);
+            assert_eq!(jobs.load(Ordering::SeqCst), 1);
+            Err("stopped early".to_owned())?;
+            Ok(())
+        };
+        assert!(failing().is_err());
+        assert_eq!(jobs.load(Ordering::SeqCst), 0);
+        let a = JobGuard::new(&jobs);
+        let b = JobGuard::new(&jobs);
+        assert_eq!(jobs.load(Ordering::SeqCst), 2);
+        drop((a, b));
+        assert_eq!(jobs.load(Ordering::SeqCst), 0);
+    }
+
     /// The windows close themselves with `destroy`, so that a close request does not ask twice.
     #[test]
     fn main_and_note_windows_may_destroy_themselves() {
