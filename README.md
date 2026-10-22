@@ -1,6 +1,7 @@
 # Pergament
 
-A quiet reader for `.jwpub` publications on Linux. It has today's text, the
+A quiet reader for `.jwpub` publications, with native Linux and portable
+Windows builds. It has today's text, the
 Bible with a study pane, your library, the meeting material, and your notes and
 highlights. There is also an untested build for Apple Silicon Macs.
 
@@ -41,6 +42,10 @@ More in [docs/screenshots](docs/screenshots). All content shown is invented.
 
 Releases are on the [releases page](https://github.com/v3rm1n0/pergament/releases).
 Check every download against its `.sha256` file before installing it.
+
+**Windows (x86_64):** extract the portable zip and run `pergament-app.exe`.
+The [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+is required; it is already installed on most Windows systems.
 
 **Linux packages** (x86_64):
 
