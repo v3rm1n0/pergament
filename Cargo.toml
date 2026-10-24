@@ -29,6 +29,10 @@ thiserror = "2.0.21"
 ureq = { version = "3.4.2", default-features = false, features = ["rustls", "json"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
+# Windows has no system SQLite to link against, so build it in.
+[target.'cfg(windows)'.dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+
 [features]
 default = ["cli"]
 # The command line tool; the app leaves it out, so its builds skip clap.
