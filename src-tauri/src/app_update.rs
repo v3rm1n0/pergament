@@ -3,8 +3,13 @@
 //! putting it in place.
 
 use std::env;
-use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::fs::File;
+use std::io::Read;
+#[cfg(unix)]
+use std::io::Write;
+#[cfg(unix)]
+use std::{fs, io};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
@@ -251,6 +256,7 @@ pub fn verify_file(
 /// Write `contents` to a temp file next to `dest` and rename it over `dest`,
 /// so `dest` is always either the old or the whole new file. Replacing a
 /// running binary this way is safe on Linux.
+#[cfg(unix)]
 pub fn replace_file(dest: &Path, contents: &mut dyn Read) -> io::Result<()> {
     let dir = dest
         .parent()
@@ -265,6 +271,7 @@ pub fn replace_file(dest: &Path, contents: &mut dyn Read) -> io::Result<()> {
 }
 
 /// The bytes of `<dir>/bin/<name>` in the release zip.
+#[cfg(unix)]
 fn zip_binary(archive: &mut zip::ZipArchive<File>, name: &str) -> Result<Vec<u8>, String> {
     let suffix = format!("/bin/{name}");
     let index = (0..archive.len())
@@ -281,6 +288,7 @@ fn zip_binary(archive: &mut zip::ZipArchive<File>, name: &str) -> Result<Vec<u8>
 }
 
 /// Put a verified download in place of the installed files.
+#[cfg(unix)]
 pub fn install(kind: &InstallKind, download: &Path) -> Result<(), String> {
     match kind {
         InstallKind::Zip { bin_dir } => {
@@ -305,7 +313,12 @@ pub fn install(kind: &InstallKind, download: &Path) -> Result<(), String> {
     }
 }
 
-#[cfg(test)]
+#[cfg(not(unix))]
+pub fn install(_: &InstallKind, _: &Path) -> Result<(), String> {
+    Err("this installation cannot be updated from the app".to_owned())
+}
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

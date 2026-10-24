@@ -9,7 +9,8 @@
 # Pushing the tag runs .github/workflows/release.yml, which builds the binaries
 # and publishes a GitHub release with a zip (binaries, icons, installer), the
 # .deb, .rpm and AppImage packages and the flatpak bundle for Linux x86_64,
-# each with its .sha256 file, and later a disk image for Apple Silicon Macs.
+# a portable zip for Windows x86_64, and a disk image for Apple Silicon Macs.
+# The release downloads have .sha256 files.
 # The release notes are the ones GitHub
 # generates from the merged pull requests (.github/release.yml), with the install
 # instructions in front. Run inside `nix develop`; the first step needs `gh`.
