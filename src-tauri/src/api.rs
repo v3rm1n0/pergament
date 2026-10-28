@@ -864,7 +864,19 @@ pub fn publication_hrefs(library: &Library, dir: &str) -> ApiResult<Vec<String>>
     Ok(hrefs)
 }
 
-/// The user data location of a page, and a title to store with it.
+/// The publication-wide location used for bookmark slots.
+pub fn publication_location(library: &Library, dir: &str) -> ApiResult<Loc> {
+    let (entry, publication) = open_entry(library, dir)?;
+    Ok(Loc {
+        key_symbol: publication.key_symbol().map_err(err)?,
+        meps_language: entry.meps_language,
+        issue_tag: entry.issue_tag.parse().unwrap_or(0),
+        document_id: None,
+        book: None,
+        chapter: None,
+    })
+}
+
 pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, String)> {
     let (entry, publication) = open_entry(library, &target.publication)?;
     let mut loc = Loc {

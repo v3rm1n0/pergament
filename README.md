@@ -38,6 +38,11 @@ More in [docs/screenshots](docs/screenshots). All content shown is invented.
 - **Personal Study:** highlights in six colors, Markdown notes with tags, and
   bookmarks, all searchable. Notes can move to their own window. There,
   `Ctrl+L` links a Bible reference and `Ctrl+P` also opens it.
+- **Bookmarks:** the bookmark icon in a publication opens ten colored slots.
+  In the reader, select an empty slot to save the selected verse or paragraph,
+  or the current reading position. Select a saved bookmark to return to it;
+  its menu can replace it with the current location or delete it. Each
+  publication and language has its own slots, included in backups and sync.
 - **Backups:** `.jwlibrary` files, the same format JW Library uses. Restore
   one, or merge it with your data. Pergament also writes a rolling backup to
   the `backups` folder in the library folder when you close it and once a day,

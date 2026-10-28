@@ -1,4 +1,4 @@
-import type { Target } from "./api";
+import type { BookmarkAnchor, Target } from "./api";
 
 export type LibraryTab = "publications" | "video" | "audio" | "updates" | "downloaded";
 
@@ -7,7 +7,7 @@ type ViewKind =
   | { name: "bible" }
   | { name: "publication"; dir: string; tab?: number }
   | { name: "chapters"; dir: string; book: number }
-  | { name: "reader"; target: Target; note?: boolean; noteGuid?: string; fromSearch?: boolean }
+  | { name: "reader"; target: Target; note?: boolean; noteGuid?: string; bookmark?: BookmarkAnchor; fromSearch?: boolean }
   | { name: "online" }
   | { name: "search" }
   | { name: "settings" }

@@ -1,5 +1,10 @@
 /** Português (Brasil) interface texts, keyed by the English text. */
 export const ptBR: Record<string, string> = {
+  Retry: "Tentar novamente",
+  "Open bookmark {slot}: {title}": "Abrir marcador {slot}: {title}",
+  "Save bookmark {slot}": "Salvar marcador {slot}",
+  "Bookmark {slot} options": "Opções do marcador {slot}",
+  "Replace with current location": "Substituir pela posição atual",
   // Navigation and bars
   "Menu": "Menu",
   "Home": "Início",

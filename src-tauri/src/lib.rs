@@ -914,6 +914,42 @@ fn bookmarks(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::B
 }
 
 #[tauri::command]
+fn publication_bookmarks(
+    state: State<'_, AppState>,
+    dir: String,
+) -> ApiResult<Vec<pergament::userdata::Bookmark>> {
+    let loc = api::publication_location(&*state.lib()?, &dir)?;
+    state
+        .user()?
+        .publication_bookmarks(&loc)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_bookmark(
+    state: State<'_, AppState>,
+    target: Target,
+    bookmark: pergament::userdata::BookmarkInput,
+) -> ApiResult<()> {
+    let (loc, title) = api::page_location(&*state.lib()?, &target)?;
+    let saved = state
+        .user()?
+        .save_bookmark(&loc, &title, &bookmark)
+        .map_err(|e| e.to_string());
+    edited(&state, saved)
+}
+
+#[tauri::command]
+fn delete_bookmark(state: State<'_, AppState>, dir: String, slot: i64) -> ApiResult<()> {
+    let loc = api::publication_location(&*state.lib()?, &dir)?;
+    let deleted = state
+        .user()?
+        .delete_bookmark(&loc, slot)
+        .map_err(|e| e.to_string());
+    edited(&state, deleted)
+}
+
+#[tauri::command]
 fn user_data_summary(state: State<'_, AppState>) -> ApiResult<pergament::userdata::Summary> {
     state.user()?.summary().map_err(|e| e.to_string())
 }
@@ -1872,6 +1908,9 @@ pub fn run() {
             all_notes,
             tags,
             bookmarks,
+            publication_bookmarks,
+            save_bookmark,
+            delete_bookmark,
             user_data_summary,
             open_location,
             export_backup,

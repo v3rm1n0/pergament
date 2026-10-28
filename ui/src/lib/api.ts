@@ -337,6 +337,9 @@ export interface Bookmark {
   location: Loc & { title: string | null };
 }
 
+export type BookmarkInput = Pick<Bookmark, "slot" | "snippet" | "blockType" | "blockIdentifier">;
+export type BookmarkAnchor = Pick<Bookmark, "blockType" | "blockIdentifier">;
+
 export interface Conflict {
   table: string;
   /** An opaque key, not meant for display. */
@@ -508,6 +511,9 @@ export const api = {
   allNotes: (tag: number | null) => invoke<Note[]>("all_notes", { tag }),
   tags: () => invoke<TagInfo[]>("tags"),
   bookmarks: () => invoke<Bookmark[]>("bookmarks"),
+  publicationBookmarks: (dir: string) => invoke<Bookmark[]>("publication_bookmarks", { dir }),
+  saveBookmark: (target: Target, bookmark: BookmarkInput) => invoke<void>("save_bookmark", { target, bookmark }),
+  deleteBookmark: (dir: string, slot: number) => invoke<void>("delete_bookmark", { dir, slot }),
   userDataSummary: () => invoke<UserDataSummary>("user_data_summary"),
   openLocation: (loc: Loc) => invoke<Target | null>("open_location", { loc }),
   exportBackup: (path: string) => invoke<void>("export_backup", { path }),

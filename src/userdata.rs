@@ -182,6 +182,15 @@ pub struct Bookmark {
     pub location: NoteLocation,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkInput {
+    pub slot: i64,
+    pub snippet: Option<String>,
+    pub block_type: i64,
+    pub block_identifier: Option<i64>,
+}
+
 /// Counts shown after a backup was restored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -457,10 +466,19 @@ impl UserData {
     }
 
     fn location_id(tx: &Transaction<'_>, loc: &Loc, title: Option<&str>) -> Result<i64> {
+        Self::location_id_kind(tx, loc, title, 0)
+    }
+
+    fn location_id_kind(
+        tx: &Transaction<'_>,
+        loc: &Loc,
+        title: Option<&str>,
+        kind: i64,
+    ) -> Result<i64> {
         let found: Option<i64> = tx
             .query_row(
                 "SELECT LocationId FROM Location
-                 WHERE Type = 0 AND Track IS NULL AND KeySymbol = ?1 AND MepsLanguage = ?2
+                 WHERE Type = ?7 AND Track IS NULL AND KeySymbol = ?1 AND MepsLanguage = ?2
                    AND IssueTagNumber = ?3 AND IFNULL(DocumentId, 0) = IFNULL(?4, 0)
                    AND IFNULL(BookNumber, 0) = IFNULL(?5, 0)
                    AND IFNULL(ChapterNumber, 0) = IFNULL(?6, 0)
@@ -471,7 +489,8 @@ impl UserData {
                     loc.issue_tag,
                     loc.document_id,
                     loc.book,
-                    loc.chapter
+                    loc.chapter,
+                    kind
                 ],
                 |r| r.get(0),
             )
@@ -488,7 +507,7 @@ impl UserData {
         tx.execute(
             "INSERT INTO Location (BookNumber, ChapterNumber, DocumentId, IssueTagNumber,
                                    KeySymbol, MepsLanguage, Type, Title)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?8, ?7)",
             params![
                 loc.book,
                 loc.chapter,
@@ -496,7 +515,8 @@ impl UserData {
                 loc.issue_tag,
                 loc.key_symbol,
                 loc.meps_language,
-                title
+                title,
+                kind
             ],
         )?;
         Ok(tx.last_insert_rowid())
@@ -864,34 +884,105 @@ impl UserData {
     }
 
     pub fn bookmarks(&self) -> Result<Vec<Bookmark>> {
+        self.bookmarks_in(None)
+    }
+
+    pub fn publication_bookmarks(&self, publication: &Loc) -> Result<Vec<Bookmark>> {
+        self.bookmarks_in(Some(publication))
+    }
+
+    fn bookmarks_in(&self, publication: Option<&Loc>) -> Result<Vec<Bookmark>> {
         let mut stmt = self.conn.prepare(
             "SELECT b.Slot, b.Title, b.Snippet, b.BlockType, b.BlockIdentifier,
                     l.KeySymbol, IFNULL(l.MepsLanguage, 0), l.IssueTagNumber, l.DocumentId,
                     l.BookNumber, l.ChapterNumber, l.Title
              FROM Bookmark b JOIN Location l ON l.LocationId = b.LocationId
-             WHERE l.KeySymbol IS NOT NULL ORDER BY b.Slot",
+             JOIN Location p ON p.LocationId = b.PublicationLocationId
+             WHERE l.KeySymbol IS NOT NULL
+               AND (?1 IS NULL OR (p.KeySymbol = ?1 AND p.MepsLanguage = ?2 AND p.IssueTagNumber = ?3))
+             ORDER BY b.Slot",
         )?;
-        let rows = stmt.query_map([], |r| {
-            Ok(Bookmark {
-                slot: r.get(0)?,
-                title: r.get(1)?,
-                snippet: r.get(2)?,
-                block_type: r.get(3)?,
-                block_identifier: r.get(4)?,
-                location: NoteLocation {
-                    loc: Loc {
-                        key_symbol: r.get(5)?,
-                        meps_language: r.get(6)?,
-                        issue_tag: r.get(7)?,
-                        document_id: r.get(8)?,
-                        book: r.get(9)?,
-                        chapter: r.get(10)?,
+        let rows = stmt.query_map(
+            params![
+                publication.map(|p| p.key_symbol.as_str()),
+                publication.map(|p| p.meps_language),
+                publication.map(|p| p.issue_tag),
+            ],
+            |r| {
+                Ok(Bookmark {
+                    slot: r.get(0)?,
+                    title: r.get(1)?,
+                    snippet: r.get(2)?,
+                    block_type: r.get(3)?,
+                    block_identifier: r.get(4)?,
+                    location: NoteLocation {
+                        loc: Loc {
+                            key_symbol: r.get(5)?,
+                            meps_language: r.get(6)?,
+                            issue_tag: r.get(7)?,
+                            document_id: r.get(8)?,
+                            book: r.get(9)?,
+                            chapter: r.get(10)?,
+                        },
+                        title: r.get(11)?,
                     },
-                    title: r.get(11)?,
-                },
-            })
-        })?;
+                })
+            },
+        )?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    pub fn save_bookmark(
+        &mut self,
+        loc: &Loc,
+        title: &str,
+        bookmark: &BookmarkInput,
+    ) -> Result<()> {
+        if !(0..10).contains(&bookmark.slot)
+            || !(0..=2).contains(&bookmark.block_type)
+            || (bookmark.block_type == 0) != bookmark.block_identifier.is_none()
+            || bookmark.block_identifier.is_some_and(|id| id < 0)
+        {
+            return Err(Error::Decode("invalid bookmark slot or block".into()));
+        }
+        let publication = Loc {
+            document_id: None,
+            book: None,
+            chapter: None,
+            ..loc.clone()
+        };
+        let tx = self.conn.transaction()?;
+        let publication_id =
+            Self::location_id_kind(&tx, &publication, None, i64::from(loc.book.is_some()))?;
+        Self::remove_bookmark(&tx, &publication, bookmark.slot)?;
+        let location_id = Self::location_id(&tx, loc, Some(title))?;
+        tx.execute(
+            "INSERT INTO Bookmark (LocationId, PublicationLocationId, Slot, Title, Snippet, BlockType, BlockIdentifier)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![location_id, publication_id, bookmark.slot, title, bookmark.snippet,
+                    bookmark.block_type, bookmark.block_identifier],
+        )?;
+        touch(&tx)?;
+        Ok(tx.commit()?)
+    }
+
+    pub fn delete_bookmark(&mut self, publication: &Loc, slot: i64) -> Result<()> {
+        if !(0..10).contains(&slot) {
+            return Err(Error::Decode("invalid bookmark slot".into()));
+        }
+        let tx = self.conn.transaction()?;
+        Self::remove_bookmark(&tx, publication, slot)?;
+        touch(&tx)?;
+        Ok(tx.commit()?)
+    }
+
+    fn remove_bookmark(tx: &Transaction<'_>, publication: &Loc, slot: i64) -> Result<()> {
+        tx.execute(
+            "DELETE FROM Bookmark WHERE Slot = ?1 AND PublicationLocationId IN
+             (SELECT LocationId FROM Location WHERE KeySymbol = ?2 AND MepsLanguage = ?3 AND IssueTagNumber = ?4)",
+            params![slot, publication.key_symbol, publication.meps_language, publication.issue_tag],
+        )?;
+        Ok(())
     }
 
     /// Hash of the user's content: every row of the data tables, but not the
@@ -2958,6 +3049,82 @@ mod tests {
         assert_eq!(merged.all_notes(None).unwrap().len(), 2);
         assert_eq!(merged.marks(&bible(23)).unwrap().len(), 1);
         assert_eq!(merged.answers(&bible(23)).unwrap()["answer"], "keep");
+    }
+
+    #[test]
+    fn bookmarks_save_replace_delete_and_reopen() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join(DB_NAME);
+        let mut ud = UserData::open(&path).unwrap();
+        let mut bookmark = BookmarkInput {
+            slot: 0,
+            snippet: Some("Reading position".into()),
+            block_type: BLOCK_VERSE,
+            block_identifier: Some(4),
+        };
+        ud.save_bookmark(&bible(23), "Psalm 23", &bookmark).unwrap();
+        bookmark.slot = 9;
+        ud.save_bookmark(&bible(24), "Psalm 24", &bookmark).unwrap();
+        bookmark.slot = 0;
+        ud.save_bookmark(&bible(25), "Psalm 25", &bookmark).unwrap();
+        let mut other = bible(1);
+        other.meps_language = 3;
+        ud.save_bookmark(&other, "Other language", &bookmark)
+            .unwrap();
+        other.meps_language = 2;
+        other.issue_tag = 20260100;
+        ud.save_bookmark(&other, "Other issue", &bookmark).unwrap();
+        other.issue_tag = 0;
+        other.key_symbol = "other".into();
+        ud.save_bookmark(&other, "Other publication", &bookmark)
+            .unwrap();
+        drop(ud);
+        let mut ud = UserData::open(&path).unwrap();
+        let rows = ud.publication_bookmarks(&bible(1)).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].title, "Psalm 25");
+        assert_eq!(rows[0].location.loc, bible(25));
+        assert_eq!(rows[0].block_identifier, Some(4));
+        assert_eq!(rows[0].snippet.as_deref(), Some("Reading position"));
+        assert_eq!(rows[1].slot, 9);
+        ud.delete_bookmark(&bible(1), 0).unwrap();
+        let rows = ud.publication_bookmarks(&bible(1)).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slot, 9);
+        assert_eq!(ud.bookmarks().unwrap().len(), 4);
+        bookmark.slot = 10;
+        assert!(ud.save_bookmark(&bible(1), "Invalid", &bookmark).is_err());
+        assert!(ud.delete_bookmark(&bible(1), -1).is_err());
+        bookmark.slot = 0;
+        bookmark.block_type = 0;
+        assert!(ud.save_bookmark(&bible(1), "Invalid", &bookmark).is_err());
+        assert_eq!(ud.bookmarks().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn bookmarks_replace_imported_publication_location() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        let bookmark = BookmarkInput {
+            slot: 0,
+            snippet: None,
+            block_type: 0,
+            block_identifier: None,
+        };
+        ud.save_bookmark(&bible(23), "Old", &bookmark).unwrap();
+        ud.conn
+            .execute(
+                "UPDATE Location SET BookNumber = 0, ChapterNumber = 0, DocumentId = 0
+             WHERE LocationId IN (SELECT PublicationLocationId FROM Bookmark)",
+                [],
+            )
+            .unwrap();
+        ud.save_bookmark(&bible(24), "New", &bookmark).unwrap();
+        let rows = ud.publication_bookmarks(&bible(1)).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].location.loc, bible(24));
+        ud.delete_bookmark(&bible(1), 0).unwrap();
+        assert!(ud.bookmarks().unwrap().is_empty());
     }
 
     #[test]

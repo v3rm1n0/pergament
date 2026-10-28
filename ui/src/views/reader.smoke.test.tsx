@@ -155,6 +155,43 @@ describe("Reader", () => {
     view.unmount();
   });
 
+  it("saves the selected verse through the publication bookmark button", async () => {
+    backend.publication_bookmarks = () => [];
+    backend.save_bookmark = () => undefined;
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByLabelText("Show note");
+    const text = await screen.findByText("For God loved the world");
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls.some((c) => c.cmd === "save_bookmark")).toBe(true));
+    expect(calls.find((c) => c.cmd === "save_bookmark")?.args).toEqual({
+      target: chapterTarget("nwtsty_E", 43, 3),
+      bookmark: { slot: 0, blockType: 2, blockIdentifier: 16, snippet: "For God loved the world" },
+    });
+    selection.removeAllRanges();
+  });
+
+  it("scrolls to a bookmarked paragraph after loading its document", async () => {
+    backend.render_page = () => ({
+      title: "Article", html: '<p id="p1">Beginning</p><p id="p7">Bookmarked paragraph</p>',
+      fragment: null, name: "",
+    });
+    const scrolling = vi.spyOn(Element.prototype, "scrollIntoView");
+    render(
+      <AppProvider>
+        <ReaderView target={documentTarget("nwtsty_E", 1)} bookmark={{ blockType: 1, blockIdentifier: 7 }} />
+      </AppProvider>,
+    );
+    await screen.findByText("Bookmarked paragraph");
+    await waitFor(() => expect(scrolling.mock.instances.some((el) => (el as Element).id === "p7")).toBe(true));
+    scrolling.mockRestore();
+  });
+
   it("turns a lesson's goals into checkboxes, a date line and a text box that keep their answers", async () => {
     // A lesson's goal box, as the backend sends it: each field is a marker that names its kind.
     backend.render_page = () => ({

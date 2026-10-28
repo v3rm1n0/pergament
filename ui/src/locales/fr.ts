@@ -1,5 +1,10 @@
 /** French interface texts, keyed by the English text. */
 export const fr: Record<string, string> = {
+  Retry: "Réessayer",
+  "Open bookmark {slot}: {title}": "Ouvrir le signet {slot} : {title}",
+  "Save bookmark {slot}": "Enregistrer le signet {slot}",
+  "Bookmark {slot} options": "Options du signet {slot}",
+  "Replace with current location": "Remplacer par la position actuelle",
   "Menu": "Menu",
   "Home": "Accueil",
   "Bible": "Bible",
