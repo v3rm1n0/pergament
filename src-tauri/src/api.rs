@@ -877,6 +877,21 @@ pub fn publication_location(library: &Library, dir: &str) -> ApiResult<Loc> {
     })
 }
 
+pub fn save_bookmark(
+    library: &Library,
+    user: &mut UserData,
+    target: &Target,
+    bookmark: &pergament::userdata::BookmarkInput,
+) -> ApiResult<()> {
+    let (loc, title) = page_location(library, target)?;
+    let title = match (bookmark.block_type, bookmark.block_identifier) {
+        (pergament::userdata::BLOCK_VERSE, Some(verse)) => format!("{title}:{verse}"),
+        (pergament::userdata::BLOCK_PARAGRAPH, Some(paragraph)) => format!("{title} ({paragraph})"),
+        _ => title,
+    };
+    user.save_bookmark(&loc, &title, bookmark).map_err(err)
+}
+
 pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, String)> {
     let (entry, publication) = open_entry(library, &target.publication)?;
     let mut loc = Loc {
@@ -922,6 +937,7 @@ pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, Stri
 pub struct PageUserData {
     pub marks: Vec<Mark>,
     pub notes: Vec<Note>,
+    pub bookmarks: Vec<pergament::userdata::Bookmark>,
     /// Answer field texts by field id.
     pub answers: std::collections::BTreeMap<String, String>,
 }
@@ -935,6 +951,17 @@ pub fn page_user_data(
     Ok(PageUserData {
         marks: user.marks(&loc).map_err(err)?,
         notes: user.notes(&loc).map_err(err)?,
+        bookmarks: user
+            .publication_bookmarks(&loc)
+            .map_err(err)?
+            .into_iter()
+            .filter(|b| {
+                let saved = &b.location.loc;
+                saved.document_id.unwrap_or(0) == loc.document_id.unwrap_or(0)
+                    && saved.book.unwrap_or(0) == loc.book.unwrap_or(0)
+                    && saved.chapter.unwrap_or(0) == loc.chapter.unwrap_or(0)
+            })
+            .collect(),
         answers: user.answers(&loc).map_err(err)?,
     })
 }

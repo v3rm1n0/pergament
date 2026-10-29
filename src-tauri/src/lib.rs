@@ -931,11 +931,7 @@ fn save_bookmark(
     target: Target,
     bookmark: pergament::userdata::BookmarkInput,
 ) -> ApiResult<()> {
-    let (loc, title) = api::page_location(&*state.lib()?, &target)?;
-    let saved = state
-        .user()?
-        .save_bookmark(&loc, &title, &bookmark)
-        .map_err(|e| e.to_string());
+    let saved = api::save_bookmark(&*state.lib()?, &mut *state.user()?, &target, &bookmark);
     edited(&state, saved)
 }
 

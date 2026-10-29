@@ -428,6 +428,28 @@ body {
 .reader {
   position: relative;
 }
+.reader .bookmark-markers {
+  position: absolute;
+  left: -2.75rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.15rem;
+  width: 1.75rem;
+  padding-top: 0.3em;
+  pointer-events: none;
+  user-select: none;
+}
+.reader .bookmark-page {
+  top: 0;
+}
+.reader .bookmark-marker {
+  display: block;
+  flex: none;
+  width: 0.75rem;
+  height: 1.25rem;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+}
 .reader .note-dot {
   position: absolute;
   left: -2rem;

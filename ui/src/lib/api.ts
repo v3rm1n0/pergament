@@ -366,6 +366,7 @@ export interface UserDataSummary {
 export interface PageUserData {
   marks: Mark[];
   notes: Note[];
+  bookmarks: Bookmark[];
   /** Answer field texts by field id. */
   answers: Record<string, string>;
 }

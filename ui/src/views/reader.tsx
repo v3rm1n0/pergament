@@ -23,7 +23,7 @@ import { clickedImage, hydrateMedia } from "@/lib/media";
 import { parseBibleRange } from "@/lib/parallel";
 import { InlineNoteEditor, MarkToolbar, NoteCard } from "@/components/notes";
 import { GoToButton } from "@/components/go-to";
-import { BookmarksButton } from "@/components/bookmarks";
+import { BOOKMARK_COLORS, BookmarksButton } from "@/components/bookmarks";
 import { OutlineSection } from "@/components/outline-section";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
@@ -96,6 +96,7 @@ export function ReaderView({
   const [selected, setSelected] = useState<string | null>(null);
   const [paneOpen, setPaneOpen] = useState(true);
   const articleRef = useRef<HTMLDivElement>(null);
+  const bookmarkBlock = useRef<BookmarkAnchor | null>(null);
   /** Answers typed on this page, which win over the loaded ones until they are reloaded. */
   const answers = useRef<Record<string, string>>({});
   const paneRef = useRef<HTMLElement>(null);
@@ -110,6 +111,8 @@ export function ReaderView({
     setStudy(null);
     setResearch([]);
     setSelected(null);
+    bookmarkBlock.current = null;
+    setUser({ marks: [], notes: [], bookmarks: [], answers: {} });
     answers.current = {};
     setRefs([]);
     api
@@ -156,7 +159,7 @@ export function ReaderView({
   }, []);
 
   // Highlights and notes of this page from user data.
-  const [user, setUser] = useState<PageUserData>({ marks: [], notes: [], answers: {} });
+  const [user, setUser] = useState<PageUserData>({ marks: [], notes: [], bookmarks: [], answers: {} });
   /** Notes in the study pane opened to their whole text. */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const toggleNote = (guid: string) =>
@@ -166,12 +169,18 @@ export function ReaderView({
       return next;
     });
   const reloadUser = useCallback(() => {
+    let live = true;
     api
       .pageUserData(target)
-      .then(setUser)
-      .catch(() => setUser({ marks: [], notes: [], answers: {} }));
+      .then((data) => live && setUser(data))
+      .catch((e) => {
+        if (!live) return;
+        setUser({ marks: [], notes: [], bookmarks: [], answers: {} });
+        toast(String(e));
+      });
+    return () => { live = false; };
     // userVersion: reload after a backup was restored; notesVersion: after the note editor saved.
-  }, [target, userVersion, notesVersion]);
+  }, [target, userVersion, notesVersion, toast]);
   useEffect(reloadUser, [reloadUser]);
 
   // Redraw the text with verse markers, highlights and note markers.
@@ -260,6 +269,55 @@ export function ReaderView({
       dot.setAttribute("aria-label", t("Show note"));
       first.prepend(dot);
     }
+  }, [split, owners, user, target]);
+
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root || !split) return;
+    root.querySelectorAll(".bookmark-markers").forEach((el) => el.remove());
+    const groups = new Map<Element, HTMLElement>();
+    const heading = chapter ? root : root.querySelector("header h1, h1, header h2, h2") ?? root;
+    for (const saved of user.bookmarks ?? []) {
+      const color = BOOKMARK_COLORS[saved.slot];
+      if (!color) continue;
+      const anchor: Element | null | undefined = saved.blockType === 0
+        ? heading
+        : saved.blockIdentifier !== null
+          ? blockElements(root, saved.blockType, saved.blockIdentifier)[0]
+          : null;
+      if (!anchor) continue;
+      let group = groups.get(anchor);
+      if (!group) {
+        group = document.createElement("span");
+        group.className = "bookmark-markers";
+        group.setAttribute("aria-hidden", "true");
+        root.append(group);
+        groups.set(anchor, group);
+      }
+      if (saved.blockType === 0) group.classList.add("bookmark-page");
+      const icon = document.createElement("span");
+      icon.className = "bookmark-marker";
+      icon.dataset.slot = String(saved.slot);
+      icon.style.backgroundColor = color;
+      group.append(icon);
+    }
+    const position = () => {
+      const top = root.getBoundingClientRect().top;
+      for (const [anchor, group] of groups) {
+        group.style.top = `${anchor.getBoundingClientRect().top - top}px`;
+      }
+    };
+    position();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(position);
+    observer?.observe(root);
+    window.addEventListener("resize", position);
+    root.addEventListener("load", position, true);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", position);
+      root.removeEventListener("load", position, true);
+      root.querySelectorAll(".bookmark-markers").forEach((el) => el.remove());
+    };
   }, [split, owners, user, target]);
 
   // Jump to the note that was opened from Personal Study, once.
@@ -391,6 +449,7 @@ export function ReaderView({
     const range = sel.getRangeAt(0);
     const ranges = selectionRanges(root, range);
     if (ranges.length === 0) return;
+    bookmarkBlock.current = { blockType: ranges[0].blockType, blockIdentifier: ranges[0].identifier };
     const rect = range.getBoundingClientRect();
     setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, ranges, text: rangeText(range) });
   };
@@ -477,6 +536,8 @@ export function ReaderView({
       return;
     }
     const hl = el.closest<HTMLElement>("mark.hl");
+    const block = el.closest(".cl, header, h1, h2, h3") ? null : blockOf(el);
+    bookmarkBlock.current = block ? { blockType: block.blockType, blockIdentifier: block.identifier } : null;
     const mark = hl && user.marks.find((m) => m.guid === hl.dataset.guid);
     if (mark) {
       const rect = hl.getBoundingClientRect();
@@ -588,17 +649,18 @@ export function ReaderView({
           const selection = window.getSelection();
           const node = selection?.anchorNode;
           const selectedBlock = node && !selection.isCollapsed && root.contains(node) ? blockOf(node instanceof Element ? node : node.parentElement) : null;
-          const top = root.closest(".overflow-y-auto")?.getBoundingClientRect().top ?? 0;
-          const visible = [...root.querySelectorAll("span.v[id], [id^=p]")].find((el) =>
-            blockOf(el) && !el.querySelector("span.v[id]") && el.getBoundingClientRect().bottom > top,
-          );
-          const block = selectedBlock ?? blockOf(visible ?? null);
+          const anchor = selectedBlock
+            ? { blockType: selectedBlock.blockType, blockIdentifier: selectedBlock.identifier }
+            : bookmarkBlock.current;
+          const element = anchor?.blockIdentifier != null
+            ? blockElements(root, anchor.blockType, anchor.blockIdentifier)[0]
+            : null;
           return {
             target,
             position: {
-              blockType: block?.blockType ?? 0,
-              blockIdentifier: block?.identifier ?? null,
-              snippet: block?.element.textContent?.trim().slice(0, 160) ?? null,
+              blockType: anchor?.blockType ?? 0,
+              blockIdentifier: anchor?.blockIdentifier ?? null,
+              snippet: element?.textContent?.trim().slice(0, 160) ?? null,
             },
           };
         }} />
