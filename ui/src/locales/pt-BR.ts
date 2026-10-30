@@ -193,8 +193,8 @@ export const ptBR: Record<string, string> = {
   "Restore backup…": "Restaurar backup…",
   "Restore backup?": "Restaurar backup?",
   "Restore": "Restaurar",
-  "Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.":
-    "Restaurar substitui todos os destaques, notas, etiquetas e marcadores pelos do backup.",
+  "Restoring replaces all favorites, highlights, notes, tags and bookmarks with those in the backup.":
+    "Restaurar substitui todos os favoritos, destaques, notas, etiquetas e marcadores pelos do backup.",
   "Backup created": "Backup criado",
   "Backup failed: {error}": "Falha no backup: {error}",
   "Restore failed: {error}": "Falha ao restaurar: {error}",
@@ -207,16 +207,16 @@ export const ptBR: Record<string, string> = {
     "Mesclar adiciona o que está apenas no backup e mantém a versão mais recente de tudo o que está nos dois. Nada é excluído. Seus dados atuais são guardados como userData.db.before-restore.",
   "Merge failed: {error}": "Falha ao mesclar: {error}",
   "Merge backups instead of replacing": "Mesclar backups em vez de substituir",
-  "Highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.":
-    "Destaques, notas, etiquetas e marcadores em um arquivo .jwlibrary. Restaurar substitui os dados atuais; com a mesclagem ativada, os backups são mesclados a eles, e a versão mais recente de tudo o que está nos dois é mantida. Nos dois casos, os dados anteriores são guardados como userData.db.before-restore na pasta da biblioteca.",
+  "Favorites, highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.":
+    "Favoritos, destaques, notas, etiquetas e marcadores em um arquivo .jwlibrary. Restaurar substitui os dados atuais; com a mesclagem ativada, os backups são mesclados a eles, e a versão mais recente de tudo o que está nos dois é mantida. Nos dois casos, os dados anteriores são guardados como userData.db.before-restore na pasta da biblioteca.",
   "Nothing new in the backup": "Nada de novo no backup",
   "Merged 1 change": "1 alteração mesclada",
   "Merged {count} changes": "{count} alterações mescladas",
   "Conflicts": "Conflitos",
   "1 conflict, your version was kept:": "1 conflito; a sua versão foi mantida:",
   "{count} conflicts, your version was kept:": "{count} conflitos; a sua versão foi mantida:",
-  "Backups are .jwlibrary files with highlights, notes, tags and bookmarks.":
-    "Backups são arquivos .jwlibrary com destaques, notas, etiquetas e marcadores.",
+  "Backups are .jwlibrary files with favorites, highlights, notes, tags and bookmarks.":
+    "Backups são arquivos .jwlibrary com favoritos, destaques, notas, etiquetas e marcadores.",
   "Notes and Tags": "Notas e etiquetas",
   "Bookmarks": "Marcadores",
   "All": "Tudo",

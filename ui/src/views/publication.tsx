@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { DownloadCloud, FileText, Star } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
-import { api, documentTarget, type LanguageEntry, type PubDetail, type TocNode } from "@/lib/api";
+import { api, documentTarget, samePublication, type LanguageEntry, type PubCard, type PubDetail, type TocNode } from "@/lib/api";
+import { cardTarget } from "@/components/tile-menu";
 import { booksTabIndex, hasBooks, shortBookName } from "@/lib/bible";
 import { t } from "@/lib/i18n";
 import { confirmText, failedText, importedText } from "@/lib/references";
@@ -98,19 +99,20 @@ function DocList({ dir, nodes }: { dir: string; nodes: TocNode[] }) {
 }
 
 /** Star in the top bar that adds the publication to the Home favorites. */
-function FavoriteButton({ dir }: { dir: string }) {
-  const { favorites, toggleFavorite } = useApp();
-  const on = favorites.includes(dir);
+function FavoriteButton({ card }: { card: PubCard }) {
+  const { favorites, setFavorite, lang } = useApp();
+  const key = cardTarget(card, lang);
+  const on = favorites.some((k) => samePublication(k, key));
   return (
-    <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => toggleFavorite(dir)}>
+    <BarButton label={on ? "Remove from favorites" : "Add to favorites"} onClick={() => void setFavorite(key, !on)}>
       <Star size={18} strokeWidth={1.6} className={on ? "fill-accent text-accent" : undefined} />
     </BarButton>
   );
 }
 
 /** Downloads the publications this one links to, after showing what that costs. */
-function ReferencesButton({ dir }: { dir: string }) {
-  const { lang, download, toast, catalogVersion } = useApp();
+function ReferencesButton({ dir, lang }: { dir: string; lang: string }) {
+  const { download, toast, catalogVersion } = useApp();
   // `undefined` while scanning, `null` without a catalog.
   const [missing, setMissing] = useState<LanguageEntry[] | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -164,15 +166,16 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   if (!detail) return <AppBar title="" />;
   const title = detail.card.shortTitle ?? detail.card.title;
   const toc = detail.toc;
+  const publicationLang = detail.card.langCode ?? lang;
 
   // A single root (e.g. a magazine issue) has no tabs; list its documents.
   if (toc.length <= 1) {
     return (
       <>
-        <AppBar title={title} subtitle={languageName(lang)}>
+        <AppBar title={title} subtitle={languageName(publicationLang)}>
           {detail.card.isBible && <GoToButton />}
-          <ReferencesButton dir={dir} />
-          <FavoriteButton dir={dir} />
+          <ReferencesButton dir={dir} lang={publicationLang} />
+          <FavoriteButton card={detail.card} />
         </AppBar>
         <div className="page flex-1 overflow-y-auto">
           <DocList dir={dir} nodes={toc[0]?.children ?? []} />
@@ -184,10 +187,10 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const active = String(tab ?? booksTabIndex(toc));
   return (
     <>
-      <AppBar title={title} subtitle={languageName(lang)}>
+      <AppBar title={title} subtitle={languageName(publicationLang)}>
         {detail.card.isBible && <GoToButton />}
-        <ReferencesButton dir={dir} />
-        <FavoriteButton dir={dir} />
+        <ReferencesButton dir={dir} lang={publicationLang} />
+        <FavoriteButton card={detail.card} />
       </AppBar>
       <Tabs
         value={active}

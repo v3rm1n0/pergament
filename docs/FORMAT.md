@@ -353,7 +353,8 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   `KeySymbol`, `IssueTagNumber`, `MepsLanguage` and `DocumentId` = MEPS
   document id. `KeySymbol` is the publication's `UndatedSymbol` when it has
   an issue tag (`w`, `mwb`) and its `Symbol` otherwise (`es26`, `nwtsty`).
-  `Type` 0 is text; 1 a whole Bible; 2/3 audio/video.
+  `Type` 0 is a text page (it needs page details); 1 a whole publication,
+  including books, magazines and Bibles; 2/3 audio/video.
 - `UserMark`: a highlight with `ColorIndex` 1-6, `StyleIndex` (0 in all
   data seen), `UserMarkGuid` (uppercase UUID v4) and `LocationId`.
 - `BlockRange`: what a highlight covers. `BlockType` 1 = paragraph
@@ -377,6 +378,13 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   `BlockType`/`BlockIdentifier` (0 = whole page, else as in `BlockRange`).
 - `Tag` (`Type` 1 = user tag, 0 = favorites) and `TagMap` linking a tag to
   a note, a location or a playlist item, with a `Position` per tag.
+  Pergament's publication favorites use type-1 locations with no page or
+  track details, identified by key symbol, MEPS language and issue tag.
+  Imported and newly added favorites share the saved `TagMap.Position`
+  order across languages; downloading does not change it. Removing a favorite
+  deletes only its type-0 tag mapping, not its location or study data.
+  Favorites live exclusively in `userData.db`, including backups and sync;
+  old localStorage favorites are ignored.
 - `Bookmark` (`Slot`, `Title`, `Snippet`, block), `InputField` (answers
   typed into workbook and study article fields: `TextTag` = the `id` of the
   field's `<textarea>` or `<input>`, e.g. `tt47`, not the `id` of its

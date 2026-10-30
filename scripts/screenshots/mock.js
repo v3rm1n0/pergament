@@ -270,8 +270,12 @@
     { dir: "mlc26_E", title: "Morning Light: A Daily Companion", shortTitle: "Morning Light 2026", symbol: "mlc", year: 2026, issueTag: "0", publicationType: "Booklet", isBible: false, cover: cover(2) },
     { dir: "mwb_E_202610", title: "Gathering Workbook, October-November 2026", shortTitle: "Gathering Workbook", symbol: "gwb", year: 2026, issueTag: "202610", publicationType: "Meeting Workbook", isBible: false, cover: cover(3) },
     { dir: "lsq_E_202610", title: "Longshore Quarterly, October 2026", shortTitle: "Longshore Quarterly", symbol: "lsq", year: 2026, issueTag: "202610", publicationType: "Article Series", isBible: false, cover: cover(4) },
-  ].map((p) => ({ ...p, mepsLanguage: 0, langCode: LANG }));
+  ].map((p) => ({ ...p, keySymbol: p.symbol, mepsLanguage: 0, langCode: LANG }));
   const pub = (dir) => PUBS.find((p) => p.dir === dir);
+  let favorites = ["lbn_E", "mlc26_E", "mwb_E_202610", "lsq_E_202610", "prb_E"].map((dir) => {
+    const p = pub(dir);
+    return { keySymbol: p.keySymbol, mepsLanguage: p.mepsLanguage, issueTag: Number(p.issueTag) };
+  });
 
   const WEEKS = [
     { id: 101, label: "October 5-11" },
@@ -659,7 +663,13 @@
     ],
     catalog_search: () => [],
     catalog_languages: () => [],
-    favorite_entries: () => [],
+    favorites: () => favorites,
+    set_favorite: ({ key, favorite }) => {
+      const matches = (k) => k.keySymbol === key.keySymbol && k.mepsLanguage === key.mepsLanguage && k.issueTag === key.issueTag;
+      if (!favorite) favorites = favorites.filter((k) => !matches(k));
+      else if (!favorites.some(matches)) favorites.push(key);
+    },
+    favorite_entry: () => null,
     book_overview: () => ({ document: null, video: null }),
     chapter_study: ({ dir, book, chapter }) =>
       dir === "lbn_E" && book === 2 && chapter === 10 ? L10_STUDY : { outlineTitle: null, outline: [], verses: [] },

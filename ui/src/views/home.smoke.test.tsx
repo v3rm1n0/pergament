@@ -2,8 +2,8 @@
 // Renders the real provider and Home view in StrictMode with a mocked backend and clicks through the tile menus.
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { CatalogEntry, PubCard, WhatsNewRow } from "@/lib/api";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { samePublication, type PublicationKey, type CatalogEntry, type PubCard, type WhatsNewRow } from "@/lib/api";
 import { card, entry } from "@/lib/fixtures";
 
 const calls: { cmd: string; args: unknown }[] = [];
@@ -29,11 +29,14 @@ import { HomeView } from "@/views/home";
 let publications: PubCard[];
 let toolbox: CatalogEntry[];
 let whatsNewRows: WhatsNewRow[];
+let favorites: PublicationKey[];
+const key = (keySymbol: string, mepsLanguage = 2, issueTag = 0): PublicationKey => ({ keySymbol, mepsLanguage, issueTag });
 
 beforeEach(() => {
   calls.length = 0;
   localStorage.clear();
   localStorage.setItem("lang", "X");
+  favorites = [];
   publications = [card({ dir: "lff_2", symbol: "lff", title: "Glücklich" })];
   toolbox = [
     entry("lff", "Books", "lff_2", "Glücklich"),
@@ -55,7 +58,15 @@ beforeEach(() => {
     teaching_toolbox: () => toolbox,
     whats_new: ({ langs }: { langs: string[] }) => langs.flatMap((c) => whatsNewRows.filter((r) => r.langCode === c)),
     dated_page: () => null,
-    favorite_entries: () => [],
+    favorites: () => favorites,
+    set_favorite: ({ key, favorite }: { key: PublicationKey; favorite: boolean }) => {
+      if (!favorite) favorites = favorites.filter((k) => !samePublication(k, key));
+      else if (!favorites.some((k) => samePublication(k, key))) favorites.push(key);
+    },
+    favorite_entry: ({ key }: { key: PublicationKey }) => {
+      const e = toolbox.find((e) => e.item.key_symbol === key.keySymbol && e.item.meps_language === key.mepsLanguage && e.item.issue_tag === key.issueTag);
+      return e ? { code: "X", entry: e } : null;
+    },
     remove_publication: ({ dir }: { dir: string }) => {
       publications = publications.filter((p) => p.dir !== dir);
       toolbox = toolbox.map((e) => (e.local === dir ? { ...e, local: null } : e));
@@ -112,40 +123,126 @@ describe("Home with tile menus", () => {
   });
 
   it("favorites a tile that is not downloaded and shows it in the Favorites row", async () => {
-    const ll = entry("ll", "Brochures and Booklets", null, "Höre auf Gott");
-    backend.favorite_entries = ({ keys }: { keys: string[] }) => (keys.includes("ll_2") ? [ll] : []);
     renderHome();
     openMenu(await tile("Höre auf Gott"));
     fireEvent.click(screen.getByText("Add to Favorites"));
-    expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["ll_2"]);
-    await waitFor(() => expect(calls.some((c) => c.cmd === "favorite_entries")).toBe(true));
+    await waitFor(() => expect(favorites).toEqual([key("ll")]));
+    await waitFor(() => expect(calls.some((c) => c.cmd === "favorite_entry")).toBe(true));
     await waitFor(() => expect(screen.getAllByText("Höre auf Gott").length).toBe(2)); // toolbox + favorites
     // Menu now offers removal from favorites.
     openMenu((await screen.findAllByText("Höre auf Gott"))[0].closest(".group") as HTMLElement);
     expect(screen.getByText("Remove from Favorites")).toBeTruthy();
   });
 
-  it("keeps a favorite whose key is not the directory name once it is downloaded", async () => {
+  it("matches an imported non-Latin favorite by identity without a catalog", async () => {
     // Non-Latin symbols are cleaned in directory names, so key and directory differ.
-    localStorage.setItem("favorites", JSON.stringify(["ขก_237"]));
-    publications = [card({ dir: "kk_237", symbol: "kk", mepsLanguage: 237, langCode: "X" })];
-    backend.favorite_entries = () => [entry("ขก", "Brochures and Booklets", "kk_237", "Thai brochure")];
+    favorites = [key("ขก", 237)];
+    publications = [card({ dir: "kk_237", symbol: "ขก", keySymbol: "ขก", title: "Thai brochure", mepsLanguage: 237, langCode: "TH" })];
+    backend.favorite_entry = () => null;
     renderHome();
     expect(await screen.findByText("Thai brochure")).toBeTruthy();
   });
 
   it("does not list a downloaded favorite twice", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["lff_2"]));
+    favorites = [key("lff")];
     renderHome();
     await screen.findAllByText("Glücklich");
     await waitFor(() => expect(calls.some((c) => c.cmd === "list_publications")).toBe(true));
-    // Toolbox tile plus the Favorites tile, and no favorite_entries lookup for a key that is a directory.
+    // Toolbox tile plus the Favorites tile.
     expect(screen.getAllByText("Glücklich").length).toBe(2);
-    expect(calls.filter((c) => c.cmd === "favorite_entries").length).toBe(0);
+  });
+
+  it("keeps mixed-language saved order and identity when a favorite downloads", async () => {
+    toolbox = [];
+    whatsNewRows = [];
+    favorites = [key("w", 0, 20260800), key("lff"), key("ll")];
+    const english = entry("w26", "Watchtower", null, "English issue", 20260800);
+    english.item.key_symbol = "w";
+    english.item.meps_language = 0;
+    const german = entry("ll", "Brochures and Booklets", null, "German brochure");
+    backend.favorite_entry = ({ key: k }: { key: PublicationKey }) =>
+      k.keySymbol === "w" ? { code: "E", entry: english } : { code: "X", entry: german };
+    backend.download_publication = ({ lang }: { lang: string }) => {
+      expect(lang).toBe("E");
+      publications.push(card({
+        dir: "w26_0_20260800", symbol: "w26", keySymbol: "w",
+        title: "English issue", issueTag: "20260800", mepsLanguage: 0, langCode: "E",
+      }));
+      return "w26_0_20260800";
+    };
+    renderHome();
+    await screen.findByText("English issue");
+    await screen.findByText("German brochure");
+    const section = screen.getByText("Favorites").closest("section")!;
+    const titles = () => [...section.querySelectorAll(".group > button")].map((b) => b.getAttribute("title"));
+    expect(titles()).toEqual(["English issue", "Glücklich", "German brochure"]);
+    openMenu(await tile("English issue"));
+    expect(screen.getByText("Remove from Favorites")).toBeTruthy();
+    fireEvent.click(screen.getByText("Share Link"));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "https://www.jw.org/finder?pub=w26&issue=202608&wtlocale=E",
+    ));
+    fireEvent.click(within(await tile("English issue")).getByTitle("English issue"));
+    await waitFor(() => expect(within(section).queryByLabelText("Download English issue")).toBeNull());
+    expect(titles()).toEqual(["English issue", "Glücklich", "German brochure"]);
+    expect(calls.filter((c) => c.cmd === "set_favorite")).toHaveLength(0);
+    expect(favorites).toEqual([key("w", 0, 20260800), key("lff"), key("ll")]);
+    openMenu(await tile("English issue"));
+    expect(screen.getByText("Remove")).toBeTruthy();
+    fireEvent.click(screen.getByText("Remove from Favorites"));
+    await waitFor(() => expect(favorites).toEqual([key("lff"), key("ll")]));
+    await waitFor(() => expect(titles()).toEqual(["Glücklich", "German brochure"]));
+  });
+
+  it("ignores localStorage favorites without reading or changing them", async () => {
+    localStorage.setItem("favorites", JSON.stringify(["lff_2", "ll_2"]));
+    const read = vi.spyOn(Storage.prototype, "getItem");
+    renderHome();
+    await screen.findByText("Höre auf Gott");
+    const section = screen.getByText("Favorites").closest("section")!;
+    expect(within(section).queryByText("Glücklich")).toBeNull();
+    expect(within(section).queryByText("Höre auf Gott")).toBeNull();
+    expect(read.mock.calls.some(([k]) => k === "favorites")).toBe(false);
+    read.mockRestore();
+    fireEvent.click(within(await tile("Höre auf Gott")).getByLabelText("Add to favorites"));
+    await waitFor(() => expect(favorites).toEqual([key("ll")]));
+    expect(localStorage.getItem("favorites")).toBe(JSON.stringify(["lff_2", "ll_2"]));
+  });
+
+  it("waits for persistence and ignores repeated in-flight actions", async () => {
+    let finish!: () => void;
+    const persisted = backend.set_favorite;
+    backend.set_favorite = async (args) => {
+      await new Promise<void>((resolve) => { finish = resolve; });
+      persisted(args);
+    };
+    renderHome();
+    const star = within(await tile("Höre auf Gott")).getByLabelText("Add to favorites");
+    fireEvent.click(star);
+    fireEvent.click(star);
+    expect(star.getAttribute("aria-pressed")).toBe("false");
+    expect(favorites).toEqual([]);
+    expect(calls.filter((c) => c.cmd === "set_favorite")).toHaveLength(1);
+    await act(async () => finish());
+    await waitFor(() => expect(star.getAttribute("aria-pressed")).toBe("true"));
+    expect(favorites).toEqual([key("ll")]);
+    expect(calls.find((c) => c.cmd === "set_favorite")?.args).toEqual({ key: key("ll"), favorite: true });
+  });
+
+  it.each([false, true])("keeps the previous state and reports failed writes (favorite = %s)", async (on) => {
+    favorites = on ? [key("ll")] : [];
+    backend.set_favorite = () => { throw new Error("database write failed"); };
+    renderHome();
+    const star = within(await tile("Höre auf Gott")).getByLabelText(on ? "Remove from favorites" : "Add to favorites");
+    await waitFor(() => expect(star.getAttribute("aria-pressed")).toBe(String(on)));
+    fireEvent.click(star);
+    expect(await screen.findByText("Error: database write failed")).toBeTruthy();
+    expect(star.getAttribute("aria-pressed")).toBe(String(on));
+    expect(favorites).toEqual(on ? [key("ll")] : []);
   });
 
   it("asks before removing a downloaded publication, then removes it everywhere", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["lff_2"]));
+    favorites = [key("lff")];
     renderHome();
     const [first] = await screen.findAllByText("Glücklich");
     openMenu(first.closest(".group") as HTMLElement);
@@ -165,20 +262,29 @@ describe("Home with tile menus", () => {
   });
 
   it("survives a backend without a catalog", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["ll_2"]));
+    favorites = [key("ll")];
     backend.home_lists = () => null;
-    backend.favorite_entries = () => null;
+    backend.favorite_entry = () => null;
     renderHome();
     expect(await screen.findByText("Favorites")).toBeTruthy();
   });
 
   it("survives failing favorite lookups", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["ll_2"]));
-    backend.favorite_entries = () => {
+    favorites = [key("ll")];
+    backend.favorite_entry = () => {
       throw new Error("boom");
     };
     renderHome();
     expect(await screen.findByText("Höre auf Gott")).toBeTruthy();
+  });
+
+  it("reports failed database reads instead of using localStorage", async () => {
+    localStorage.setItem("favorites", '["lff_2"]');
+    backend.favorites = () => { throw new Error("database read failed"); };
+    renderHome();
+    expect((await screen.findAllByText("Error: database read failed")).length).toBeGreaterThan(0);
+    const section = screen.getByText("Favorites").closest("section")!;
+    expect(within(section).queryByText("Glücklich")).toBeNull();
   });
 
   it("filters the toolbox with the segmented tabs and falls back to All", async () => {
@@ -197,7 +303,7 @@ describe("Home with tile menus", () => {
     const star = within(await tile("Höre auf Gott")).getByLabelText("Add to favorites");
     expect(star.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(star);
-    expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["ll_2"]);
+    await waitFor(() => expect(favorites).toEqual([key("ll")]));
     await waitFor(() =>
       expect(within(screen.getAllByText("Höre auf Gott")[0].closest(".group") as HTMLElement).getByLabelText("Remove from favorites").getAttribute("aria-pressed")).toBe("true"),
     );

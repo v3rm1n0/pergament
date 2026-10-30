@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mediaLink, pubKey, publicationLink } from "@/lib/share";
-
-describe("favorite keys", () => {
-  it("match the library directory names", () => {
-    expect(pubKey("rsg", 2, 0)).toBe("rsg_2");
-    expect(pubKey("w26", 2, 20260800)).toBe("w26_2_20260800");
-  });
-});
+import { mediaLink, publicationLink } from "@/lib/share";
 
 describe("share links", () => {
   it("links a dated publication with its month", () => {

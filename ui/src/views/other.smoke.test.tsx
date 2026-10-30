@@ -6,9 +6,11 @@ import { setUiLang } from "@/lib/i18n";
 import { locales } from "@/locales";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { card, entry } from "@/lib/fixtures";
+import { samePublication, type PublicationKey } from "@/lib/api";
 
 const calls: { cmd: string; args: unknown }[] = [];
 let backend: Record<string, (args: any) => unknown> = {};
+let favorites: PublicationKey[];
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args?: unknown) => {
@@ -62,7 +64,13 @@ beforeEach(() => {
   closeRequested = null;
   localStorage.clear();
   localStorage.setItem("lang", "X");
+  favorites = [];
   backend = {
+    favorites: () => favorites,
+    set_favorite: ({ key, favorite }: { key: PublicationKey; favorite: boolean }) => {
+      if (!favorite) favorites = favorites.filter((k) => !samePublication(k, key));
+      else if (!favorites.some((k) => samePublication(k, key))) favorites.push(key);
+    },
     list_publications: () => [card({ dir: "lff_2", symbol: "lff", title: "Glücklich" })],
     languages: () => [],
     catalog_cached: () => true,
@@ -128,18 +136,55 @@ describe("Updates", () => {
 });
 
 describe("Publication", () => {
+  it("uses the publication language when looking up downloads of its references", async () => {
+    backend.publication = () => ({
+      card: card({ dir: "english-publication", symbol: "lff", langCode: "E", mepsLanguage: 0 }),
+      toc: [], books: [],
+    });
+    backend.referenced_publications = () => [];
+    renderIn(<PublicationView dir="english-publication" />);
+    await waitFor(() => expect(calls.find((c) => c.cmd === "referenced_publications")?.args).toEqual({
+      dir: "english-publication", lang: "E",
+    }));
+  });
+
   it("toggles the favorite star and keeps it in sync with the stored list", async () => {
     renderIn(<PublicationView dir="lff_2" />);
     fireEvent.click(await screen.findByLabelText("Add to favorites"));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["lff_2"]));
+    await waitFor(() => expect(favorites).toEqual([{ keySymbol: "lff", mepsLanguage: 2, issueTag: 0 }]));
     fireEvent.click(await screen.findByLabelText("Remove from favorites"));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual([]));
+    await waitFor(() => expect(favorites).toEqual([]));
   });
 
   it("shows a favorite that was added elsewhere as set", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["lff_2"]));
+    favorites = [{ keySymbol: "lff", mepsLanguage: 2, issueTag: 0 }];
     renderIn(<PublicationView dir="lff_2" />);
     expect(await screen.findByLabelText("Remove from favorites")).toBeTruthy();
+    favorites = [];
+    const handlers = vi.mocked(listen).mock.calls.filter((c) => c[0] === "user-data-changed").map((c) => c[1]);
+    act(() => handlers.forEach((handler) => handler({ event: "user-data-changed", id: 0, payload: null })));
+    expect(await screen.findByLabelText("Add to favorites")).toBeTruthy();
+  });
+
+  it("shares the database identity between catalog results and publication-page stars", async () => {
+    const issue = entry("w26", "Watchtower", null, "Catalog issue", 20260800);
+    issue.item.key_symbol = "w";
+    backend.catalog_search = () => [issue];
+    backend.publication = () => ({
+      card: card({ dir: "different-directory", symbol: "w26", keySymbol: "w", issueTag: "20260800", title: "Downloaded issue" }),
+      toc: [], books: [],
+    });
+    renderIn(<><OnlineView /><PublicationView dir="different-directory" /></>);
+    fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+    openMenu(await tile("Catalog issue"));
+    fireEvent.click(screen.getByText("Add to Favorites"));
+    await waitFor(() => expect(favorites).toEqual([{ keySymbol: "w", mepsLanguage: 2, issueTag: 20260800 }]));
+    const stars = await screen.findAllByLabelText("Remove from favorites");
+    expect(stars).toHaveLength(2);
+    const pageStar = stars.find((s) => !s.closest(".group"))!;
+    fireEvent.click(pageStar);
+    await waitFor(() => expect(favorites).toEqual([]));
+    await waitFor(() => expect(screen.getAllByLabelText("Add to favorites")).toHaveLength(2));
   });
 });
 

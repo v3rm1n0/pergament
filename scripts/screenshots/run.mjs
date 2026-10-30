@@ -41,7 +41,6 @@ mkdirSync(out, { recursive: true });
 
 // A Wednesday, so the daily text and "this week" are the same on every run.
 const NOW = new Date("2026-10-07T09:30:00Z");
-const FAVORITES = ["lbn_E", "mlc26_E", "mwb_E_202610", "lsq_E_202610", "prb_E"];
 
 const rail = (page, name) => page.getByRole("button", { name, exact: true }).click();
 const settle = async (page) => {
@@ -136,13 +135,12 @@ for (const scheme of ["light", "dark"]) {
   });
   await context.addInitScript({ path: path.join(here, "mock.js") });
   await context.addInitScript(
-    ({ theme, favorites }) => {
+    ({ theme }) => {
       localStorage.setItem("theme", theme);
       localStorage.setItem("lang", "E");
       localStorage.setItem("uiLang", "en");
-      localStorage.setItem("favorites", JSON.stringify(favorites));
     },
-    { theme: scheme, favorites: FAVORITES },
+    { theme: scheme },
   );
   await context.clock.setFixedTime(NOW);
 

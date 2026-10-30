@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
-import { api, type CatalogEntry, type DatedPage, type HomeLists, type WhatsNewRow } from "@/lib/api";
+import { api, samePublication, type CatalogEntry, type DatedPage, type HomeLists, type LanguageEntry, type WhatsNewRow } from "@/lib/api";
 import { isoDate, longDate } from "@/lib/dates";
 import { themeScriptureParts } from "@/lib/page";
-import { inLanguage, loadToolboxLang, loadWhatsNewLangs, saveToolboxLang, saveWhatsNewLangs } from "@/lib/settings";
+import { loadToolboxLang, loadWhatsNewLangs, saveToolboxLang, saveWhatsNewLangs } from "@/lib/settings";
 import { t } from "@/lib/i18n";
-import { TileMenu, entryTarget } from "@/components/tile-menu";
+import { TileMenu, cardTarget, entryTarget } from "@/components/tile-menu";
 import { SectionLanguagePicker } from "@/components/language-menu";
 import { CatalogPrompt, EntryImage, useEntryAction } from "@/components/catalog";
 import { WhatsNewLanguages } from "@/components/whats-new-languages";
@@ -76,7 +76,7 @@ let cachedToolbox: { lang: string; entries: CatalogEntry[] | null } | undefined;
 let cachedNew: { key: string; rows: WhatsNewRow[] | null } | undefined;
 
 export function HomeView() {
-  const { lang, publications, libraryReady, catalogVersion, favorites, toast, push } = useApp();
+  const { lang, publications, catalogVersion, favorites, toast, push } = useApp();
   const [lists, setLists] = useState<HomeLists | null | undefined>(
     cachedLists?.lang === lang ? cachedLists.lists : undefined,
   );
@@ -87,25 +87,29 @@ export function HomeView() {
     cachedToolbox?.lang === toolboxEff ? cachedToolbox.entries : undefined,
   );
   const { activate } = useEntryAction();
-  const favoritePubs = inLanguage(publications, lang).filter((p) => favorites.includes(p.dir));
-  // Favorites that are not downloaded come from the catalog, if one is cached. A key that is not a library
-  // directory name (non-Latin symbols are cleaned there) can still resolve to a downloaded entry, which shows too.
-  const missingKeys = favorites.filter((k) => !publications.some((p) => p.dir === k));
-  const [extra, setExtra] = useState<CatalogEntry[]>([]);
+  const missingKeys = favorites.filter((k) => !publications.some((p) => samePublication(k, cardTarget(p, lang))));
+  const [extra, setExtra] = useState<LanguageEntry[]>([]);
   useEffect(() => {
-    // Until the library is read every favorite looks missing.
-    if (!libraryReady || missingKeys.length === 0) return setExtra([]);
     let live = true;
-    api
-      .favoriteEntries(lang, missingKeys)
-      .then((r) => live && setExtra(r ?? []))
-      .catch(() => live && setExtra([]));
+    Promise.all(missingKeys.map((key) => api.favoriteEntry(key).catch((e) => {
+      if (live) toast(String(e));
+      return null;
+    })))
+      .then((rows) => { if (live) setExtra(rows.filter((r) => r !== null)); });
     return () => {
       live = false;
     };
     // The keys array is rebuilt on every render; its content is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang, catalogVersion, libraryReady, missingKeys.join("|")]);
+  }, [catalogVersion, JSON.stringify(missingKeys), toast]);
+
+  const favoriteTiles = favorites.map((key) => {
+    const pub = publications.find((p) => samePublication(key, cardTarget(p, lang)));
+    const id = JSON.stringify(key);
+    if (pub) return <PubCover key={id} pub={pub} />;
+    const row = extra.find((r) => samePublication(key, entryTarget(r.entry, r.code)));
+    return row ? <EntryCover key={id} entry={row.entry} lang={row.code} /> : null;
+  }).filter((tile) => tile !== null);
 
   useEffect(() => {
     let live = true;
@@ -231,14 +235,9 @@ export function HomeView() {
 
           <section>
             <SectionTitle variant="quiet">Favorites</SectionTitle>
-            {favoritePubs.length + extra.length > 0 ? (
+            {favoriteTiles.length > 0 ? (
               <div className="flex flex-wrap gap-x-3 gap-y-4">
-                {favoritePubs.map((p) => (
-                  <PubCover key={p.dir} pub={p} />
-                ))}
-                {extra.map((e) => (
-                  <EntryCover key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} />
-                ))}
+                {favoriteTiles}
               </div>
             ) : (
               <div className="flex items-center gap-2 rounded-md border border-dashed border-line px-4 py-5 text-[13px] leading-normal text-muted">

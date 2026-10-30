@@ -96,7 +96,7 @@ export function importedOnly(entries: CatalogEntry[], pubs: PubCard[], category:
     .map(
       (p): CatalogEntry => ({
         item: {
-          key_symbol: p.symbol,
+          key_symbol: p.keySymbol,
           symbol: p.symbol,
           meps_language: p.mepsLanguage,
           issue_tag: Number(p.issueTag) || 0,

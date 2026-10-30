@@ -8,9 +8,10 @@ afterEach(cleanup);
 const entry = (local: string | null) => ({ item: { symbol: "lff" }, local });
 const removePublication = vi.hoisted(() => vi.fn());
 vi.mock("@/app", () => ({
-  useApp: () => ({ toast: vi.fn(), favorites: [], toggleFavorite: vi.fn(), push: vi.fn(), download: vi.fn(), removePublication, lang: "X" }),
+  useApp: () => ({ toast: vi.fn(), favorites: [], setFavorite: vi.fn(), push: vi.fn(), download: vi.fn(), removePublication, lang: "X" }),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/api")>(),
   api: {
     catalogLanguages: vi.fn(async () => [{ code: "X", entry: entry("lff_2") }, { code: "E", entry: entry(null) }]),
     languages: vi.fn(async () => [{ code: "X", name: "German", vernacular: "Deutsch", rtl: false, signLanguage: false }]),
@@ -19,7 +20,7 @@ vi.mock("@/lib/api", () => ({
 
 import { TileMenu } from "@/components/tile-menu";
 
-const target = { kind: "pub", symbol: "lff", issueTag: 0, mepsLanguage: 2, langCode: "X", local: null, title: "Glücklich" } as const;
+const target = { kind: "pub", symbol: "lff", keySymbol: "lff", issueTag: 0, mepsLanguage: 2, langCode: "X", local: null, title: "Glücklich" } as const;
 
 // Radix opens a menu on a pointer press, not on a click.
 const openMenu = () => fireEvent.pointerDown(screen.getByLabelText("More"), { button: 0, ctrlKey: false });

@@ -8,6 +8,7 @@ const pub = (dir: string, publicationType: string | null, year = 2026): PubCard 
   title: dir,
   shortTitle: null,
   symbol: dir,
+  keySymbol: dir,
   year,
   issueTag: "0",
   mepsLanguage: 2,
@@ -39,6 +40,23 @@ describe("publication types", () => {
     const listed = { local: "a" } as CatalogEntry;
     const extra = importedOnly([listed], [pub("a", "Brochure"), pub("b", "Brochure"), pub("c", "Book")], 4);
     expect(extra.map((e) => e.local)).toEqual(["b"]);
+  });
+
+  it("preserves the database identity of imported-only dated publications", () => {
+    const publication = {
+      ...pub("w26_0_20260800", "Watchtower"),
+      symbol: "w26",
+      keySymbol: "w",
+      issueTag: "20260800",
+      mepsLanguage: 0,
+      langCode: "E",
+    };
+    const [extra] = importedOnly([], [publication], categoryOf(publication).id);
+    expect(extra.item.key_symbol).toBe("w");
+    expect(extra.item.symbol).toBe("w26");
+    expect(extra.item.meps_language).toBe(0);
+    expect(extra.item.issue_tag).toBe(20260800);
+    expect(extra.local).toBe(publication.dir);
   });
 });
 

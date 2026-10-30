@@ -6,6 +6,7 @@ export const card = (over: Partial<PubCard> = {}): PubCard => ({
   title: "Title",
   shortTitle: null,
   symbol: "x",
+  keySymbol: over.symbol ?? "x",
   year: 2026,
   issueTag: "0",
   mepsLanguage: 2,
