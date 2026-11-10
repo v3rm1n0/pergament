@@ -14,7 +14,7 @@ use pergament::mediator;
 use pergament::navigate::{self, Page, Target, TargetKind};
 use pergament::reader::{BibleBook, TocNode};
 use pergament::render::{RenderOptions, Renderer, media_name};
-use pergament::userdata::{Loc, Mark, Note, UserData};
+use pergament::userdata::{Loc, Mark, Note, PublicationKey, UserData};
 use pergament::{Entry, Library, Publication};
 use serde::Serialize;
 
@@ -39,6 +39,7 @@ pub struct PubCard {
     pub title: String,
     pub short_title: Option<String>,
     pub symbol: String,
+    pub key_symbol: String,
     pub year: i64,
     pub issue_tag: String,
     pub meps_language: i64,
@@ -62,6 +63,7 @@ fn card(entry: &Entry, publication: &Publication) -> ApiResult<PubCard> {
         title: entry.title.clone(),
         short_title: entry.short_title.clone(),
         symbol: entry.symbol.clone(),
+        key_symbol: publication.key_symbol().map_err(err)?,
         year: entry.year,
         issue_tag: entry.issue_tag.clone(),
         meps_language: entry.meps_language,
@@ -368,40 +370,26 @@ pub fn languages_of(
     Ok(out)
 }
 
-/// `symbol_meps[_issue]`, the library directory name of a publication, as
-/// `(symbol, meps language, issue tag)`; the issue is 0 when the key has none.
-pub fn parse_pub_key(key: &str) -> Option<(String, i64, i64)> {
-    let parts: Vec<&str> = key.split('_').collect();
-    let number = |s: &str| s.parse::<i64>().ok();
-    let parsed = match parts.as_slice() {
-        [head @ .., meps, issue]
-            if !head.is_empty()
-                && issue.len() >= 6
-                && issue.chars().all(|c| c.is_ascii_digit()) =>
-        {
-            (head.join("_"), number(meps)?, number(issue)?)
-        }
-        [head @ .., meps] if !head.is_empty() => (head.join("_"), number(meps)?, 0),
-        _ => return None,
-    };
-    Some(parsed).filter(|(symbol, _, _)| !symbol.is_empty())
-}
-
-/// Catalog entries of favorite keys in the language `meps`; keys of other
-/// languages and keys the catalog does not know are skipped.
-pub fn favorite_entries(
+/// Resolve one stored identity for display without changing it.
+pub fn favorite_entry(
     catalog: &Catalog,
-    meps: i64,
     library: &Library,
-    keys: &[String],
-) -> ApiResult<Vec<CatalogEntry>> {
-    let items = keys
-        .iter()
-        .filter_map(|k| parse_pub_key(k))
-        .filter(|(_, m, _)| *m == meps)
-        .filter_map(|(symbol, _, issue)| catalog.find(&symbol, meps, Some(issue)).ok().flatten())
-        .collect();
-    entries(items, library)
+    key: &PublicationKey,
+) -> ApiResult<Option<LanguageEntry>> {
+    key.validate().map_err(err)?;
+    let Some(item) = catalog
+        .find(&key.key_symbol, key.meps_language, Some(key.issue_tag))
+        .map_err(err)?
+    else {
+        return Ok(None);
+    };
+    let Some(code) = catalog.language_code(key.meps_language) else {
+        return Ok(None);
+    };
+    Ok(Some(LanguageEntry {
+        code: code.to_owned(),
+        entry: entry_of(item, &local_map(library)?),
+    }))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1204,20 +1192,6 @@ mod tests {
     use super::*;
     use pergament::catalog::Catalog;
 
-    #[test]
-    fn parses_library_keys() {
-        assert_eq!(parse_pub_key("rsg_2"), Some(("rsg".into(), 2, 0)));
-        assert_eq!(
-            parse_pub_key("w26_2_20260800"),
-            Some(("w26".into(), 2, 20260800))
-        );
-        assert_eq!(parse_pub_key("T-ftr_2"), Some(("T-ftr".into(), 2, 0)));
-        assert_eq!(parse_pub_key("a_b_2"), Some(("a_b".into(), 2, 0)));
-        assert_eq!(parse_pub_key("nonsense"), None);
-        assert_eq!(parse_pub_key("x_y"), None);
-        assert_eq!(parse_pub_key("_2"), None);
-    }
-
     /// A catalog with `w26` (August 2026) in German and English, `lff` in German only, a row listed twice
     /// (the real catalog has such duplicates) and one whose language has no cover to derive a code from.
     fn catalog(dir: &std::path::Path) -> Catalog {
@@ -1563,54 +1537,52 @@ mod tests {
     }
 
     #[test]
-    fn favorites_resolve_in_the_selected_language_only() {
+    fn favorite_tiles_resolve_stored_identities_in_their_own_language() {
         let tmp = tempfile::tempdir().unwrap();
         let (cat, lib) = (
             catalog(tmp.path()),
             Library::open(tmp.path().join("lib")).unwrap(),
         );
-        let want = |ks: &[&str], meps| {
-            let ks: Vec<String> = ks.iter().map(|k| k.to_string()).collect();
-            keys(&favorite_entries(&cat, meps, &lib, &ks).unwrap())
+        install(lib.root(), "broken", 0, &[]);
+        std::fs::write(
+            lib.root().join("publications/broken_2_0/c.db"),
+            b"unreadable database",
+        )
+        .unwrap();
+        for (meps_language, code) in [(0, "E"), (2, "X")] {
+            let key = PublicationKey {
+                key_symbol: "w".into(),
+                meps_language,
+                issue_tag: 20260800,
+            };
+            let row = favorite_entry(&cat, &lib, &key).unwrap().unwrap();
+            assert_eq!(row.code, code);
+            assert_eq!(row.entry.item.key_symbol, key.key_symbol);
+            assert_eq!(row.entry.item.symbol, "w26");
+            assert_eq!(row.entry.item.meps_language, key.meps_language);
+            assert_eq!(row.entry.item.issue_tag, key.issue_tag);
+        }
+        let missing = PublicationKey {
+            key_symbol: "gone".into(),
+            meps_language: 2,
+            issue_tag: 0,
         };
-        assert_eq!(
-            want(&["w26_2_20260800", "w26_0_20260800"], 2),
-            ["w26_2_20260800"]
-        );
-        assert_eq!(
-            want(&["w26_2_20260800", "w26_0_20260800"], 0),
-            ["w26_0_20260800"]
-        );
-        assert_eq!(want(&["lff_2"], 2).len(), 1);
-    }
-
-    #[test]
-    fn favorites_skip_unknown_and_malformed_keys() {
-        let tmp = tempfile::tempdir().unwrap();
-        let (cat, lib) = (
-            catalog(tmp.path()),
-            Library::open(tmp.path().join("lib")).unwrap(),
-        );
-        let ks: Vec<String> = [
-            "",
-            "_",
-            "_2",
-            "nonsense",
-            "lff",
-            "lff_x",
-            "lff_2_notanumber",
-            "gone_2",
-            "w26_2_20260900",
-            "lff_2",
-        ]
-        .iter()
-        .map(|k| k.to_string())
-        .collect();
-        assert_eq!(
-            keys(&favorite_entries(&cat, 2, &lib, &ks).unwrap()),
-            ["lff_2_0"]
-        );
-        assert!(favorite_entries(&cat, 2, &lib, &[]).unwrap().is_empty());
+        assert!(favorite_entry(&cat, &lib, &missing).unwrap().is_none());
+        let invalid = PublicationKey {
+            key_symbol: "".into(),
+            ..missing
+        };
+        assert!(favorite_entry(&cat, &lib, &invalid).is_err());
+        rusqlite::Connection::open(tmp.path().join("catalog-test.db"))
+            .unwrap()
+            .execute_batch("DROP TABLE Publication;")
+            .unwrap();
+        let key = PublicationKey {
+            key_symbol: "w".into(),
+            meps_language: 2,
+            issue_tag: 20260800,
+        };
+        assert!(favorite_entry(&cat, &lib, &key).is_err());
     }
 
     #[test]
@@ -1624,25 +1596,6 @@ mod tests {
             vec!["lff_2_0", "w26_2_20260800"]
         );
         assert!(teaching_toolbox(&cat, 0, &lib).unwrap().is_empty());
-    }
-
-    #[test]
-    fn keys_with_odd_numbers_do_not_panic() {
-        for k in [
-            "x_99999999999999999999",
-            "x_-1",
-            "x_2_-5",
-            "x_2_20260800_extra",
-            "é_2",
-            "a_b_c_d_e_2_20260800",
-        ] {
-            let _ = parse_pub_key(k);
-        }
-        assert_eq!(
-            parse_pub_key("a_b_c_d_e_2_20260800"),
-            Some(("a_b_c_d_e".into(), 2, 20260800))
-        );
-        assert_eq!(parse_pub_key("x_99999999999999999999"), None);
     }
 
     #[test]

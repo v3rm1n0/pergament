@@ -139,23 +139,6 @@ export function inLanguage<T extends { langCode: string | null }>(items: T[], co
   return items.filter((p) => p.langCode == null || p.langCode === code);
 }
 
-/** Library directories marked as favorites. */
-export function loadFavorites(): string[] {
-  try {
-    const v: unknown = JSON.parse(read("favorites") ?? "[]");
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-export function toggleFavorite(dir: string): string[] {
-  const list = loadFavorites();
-  const next = list.includes(dir) ? list.filter((d) => d !== dir) : [...list, dir];
-  write("favorites", JSON.stringify(next));
-  return next;
-}
-
 /** Highlight color used for a note on a new selection. */
 export function loadLastColor(): number {
   const n = Number(read("highlightColor"));

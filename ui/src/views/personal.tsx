@@ -81,7 +81,7 @@ export function PersonalView() {
             </button>
           </div>
           <p className="mt-2 text-[13px] text-muted">
-            {t("Backups are .jwlibrary files with highlights, notes, tags and bookmarks.")}
+            {t("Backups are .jwlibrary files with favorites, highlights, notes, tags and bookmarks.")}
           </p>
 
           <SectionTitle>Notes and Tags</SectionTitle>

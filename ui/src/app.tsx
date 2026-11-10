@@ -18,7 +18,7 @@ import {
   Sun,
   Users,
 } from "lucide-react";
-import { api, type CatalogEntry, type Language, type Progress, type PubCard, type Target, type UpdateInfo } from "@/lib/api";
+import { api, samePublication, type PublicationKey, type CatalogEntry, type Language, type Progress, type PubCard, type Target, type UpdateInfo } from "@/lib/api";
 import type { MediaRef } from "@/lib/api";
 import { fieldsOf, sameFields, type NoteDraft, type NoteFields } from "@/lib/notes";
 import { conflictText, mergeToast } from "@/lib/merge";
@@ -38,7 +38,6 @@ import {
 import { DISPLAY_CLOSED, DISPLAY_READY, remember, sendToDisplay, type DisplayMessage } from "@/lib/display";
 import { currentView, initialNav, navReducer, type Section, type View } from "@/lib/nav";
 import {
-  loadFavorites,
   loadFontScale,
   loadLayout,
   loadReadingFont,
@@ -59,7 +58,6 @@ import {
   saveMergeBackups,
   type ReadingFont,
   type Layout,
-  toggleFavorite as toggleStoredFavorite,
   saveBibles,
   saveLang,
   saveUiLang,
@@ -162,9 +160,8 @@ interface AppContextValue {
   userVersion: number;
   /** Bumped when the floating editor saved or deleted a note. */
   notesVersion: number;
-  /** Favorite keys (`symbol_meps[_issue]`, the library directory names). */
-  favorites: string[];
-  toggleFavorite: (key: string) => void;
+  favorites: PublicationKey[];
+  setFavorite: (key: PublicationKey, favorite: boolean) => Promise<void>;
   createBackup: () => Promise<void>;
   restoreBackup: () => Promise<void>;
   /** The recording being played; it keeps playing while the user navigates. */
@@ -239,8 +236,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<Record<string, Progress>>({});
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [userVersion, setUserVersion] = useState(0);
-  const [favorites, setFavorites] = useState(loadFavorites);
-  const toggleFavorite = useCallback((key: string) => setFavorites(toggleStoredFavorite(key)), []);
+  const [favorites, setFavorites] = useState<PublicationKey[]>([]);
+  const favoriteWrites = useRef<PublicationKey[]>([]);
+  const favoriteRevision = useRef(0);
   const [player, setPlayer] = useState<AppContextValue["player"]>(null);
   const [note, setNote] = useState<AppContextValue["note"]>(null);
   const noteRef = useRef(note);
@@ -291,6 +289,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       action: action && { label: action.label, onClick: action.run },
     });
   }, []);
+
+  useEffect(() => {
+    let live = true;
+    const revision = favoriteRevision.current;
+    api.favorites().then((rows) => {
+      if (live && revision === favoriteRevision.current) setFavorites(rows);
+    }).catch((e) => toast(String(e)));
+    return () => { live = false; };
+  }, [userVersion, toast]);
+
+  const setFavorite = useCallback(async ({ keySymbol, mepsLanguage, issueTag }: PublicationKey, favorite: boolean) => {
+    const key = { keySymbol, mepsLanguage, issueTag };
+    if (favoriteWrites.current.some((k) => samePublication(k, key))) return;
+    favoriteWrites.current.push(key);
+    favoriteRevision.current++;
+    try {
+      await api.setFavorite(key, favorite);
+      setFavorites((rows) => favorite
+        ? rows.some((k) => samePublication(k, key)) ? rows : [...rows, key]
+        : rows.filter((k) => !samePublication(k, key)));
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      favoriteWrites.current = favoriteWrites.current.filter((k) => !samePublication(k, key));
+      favoriteRevision.current++;
+      setUserVersion((v) => v + 1);
+    }
+  }, [toast]);
 
   const refreshPublications = useCallback(async () => {
     try {
@@ -488,7 +514,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (a) => a.sync.folder !== null,
         () => true,
       );
-      const warning = t("Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.");
+      const warning = t("Restoring replaces all favorites, highlights, notes, tags and bookmarks with those in the backup.");
       const ok = await ask(syncing ? `${warning} ${t("Sync is on: this also changes your data on the other synced computers.")}` : warning, {
         title: t("Restore backup?"),
         kind: "warning",
@@ -909,7 +935,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userVersion,
       notesVersion,
       favorites,
-      toggleFavorite,
+      setFavorite,
       createBackup,
       restoreBackup,
       player,
@@ -965,7 +991,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userVersion,
       notesVersion,
       favorites,
-      toggleFavorite,
+      setFavorite,
       createBackup,
       restoreBackup,
       player,

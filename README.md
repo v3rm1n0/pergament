@@ -18,7 +18,8 @@ More in [docs/screenshots](docs/screenshots). All content shown is invented.
 ## Features
 
 - **Home:** today's text, favorites, the Teaching Toolbox and What's New. The
-  last two each have their own language.
+  last two each have their own language. Favorites include all languages in
+  their saved order and are kept in `userData.db`, with backups and sync.
 - **Bible:** book tiles, chapter grid and book overviews. `Ctrl+G` goes to a
   reference such as `Heb 10:24`, and the arrow keys turn chapters. The study
   pane has the outline, footnotes, cross references, study notes and Research

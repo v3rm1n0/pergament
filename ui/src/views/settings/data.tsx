@@ -305,7 +305,7 @@ export function DataTab() {
         </label>
         <p className="mt-2 max-w-xl text-sm text-muted">
           {t(
-            "Highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.",
+            "Favorites, highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.",
           )}
         </p>
       </section>

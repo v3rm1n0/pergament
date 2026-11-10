@@ -62,6 +62,31 @@ pub const BLOCK_VERSE: i64 = 2;
 /// `Tag.Type` of user tags (0 is the built-in favorites list).
 pub(crate) const TAG_USER: i64 = 1;
 
+/// Database identity of a whole publication, independent of its download.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicationKey {
+    pub key_symbol: String,
+    pub meps_language: i64,
+    pub issue_tag: i64,
+}
+
+impl PublicationKey {
+    pub fn validate(&self) -> Result<()> {
+        if self.key_symbol.is_empty()
+            || self
+                .key_symbol
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
+            || self.meps_language < 0
+            || self.issue_tag < 0
+        {
+            return Err(Error::NotFound("invalid publication identity".into()));
+        }
+        Ok(())
+    }
+}
+
 /// The page a mark or note belongs to: a document of a publication, or a
 /// chapter of a Bible.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -280,6 +305,99 @@ impl UserData {
             bookmarks: count("SELECT count(*) FROM Bookmark")?,
             device: None,
         })
+    }
+
+    /// Whole-publication favorites in their saved order, in every language.
+    pub fn favorites(&self) -> Result<Vec<PublicationKey>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT l.KeySymbol, l.MepsLanguage, l.IssueTagNumber
+             FROM TagMap m JOIN Tag t ON t.TagId = m.TagId
+             JOIN Location l ON l.LocationId = m.LocationId
+             WHERE t.Type = 0 AND l.Type = 1 AND l.BookNumber IS NULL
+               AND l.ChapterNumber IS NULL AND l.DocumentId IS NULL AND l.Track IS NULL
+             ORDER BY m.Position, m.TagMapId",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(PublicationKey {
+                key_symbol: r.get(0)?,
+                meps_language: r.get(1)?,
+                issue_tag: r.get(2)?,
+            })
+        })?;
+        let mut favorites = Vec::new();
+        for row in rows {
+            let key = row?;
+            if !favorites.contains(&key) {
+                favorites.push(key);
+            }
+        }
+        Ok(favorites)
+    }
+
+    /// Set membership, not toggle: repeated requests leave the saved order alone.
+    pub fn set_favorite(&mut self, key: &PublicationKey, favorite: bool) -> Result<()> {
+        key.validate()?;
+        let tx = self.conn.transaction()?;
+        let locations = "SELECT LocationId FROM Location
+            WHERE Type = 1 AND KeySymbol = ?1 AND MepsLanguage = ?2 AND IssueTagNumber = ?3
+              AND BookNumber IS NULL AND ChapterNumber IS NULL
+              AND DocumentId IS NULL AND Track IS NULL";
+        let args = params![key.key_symbol, key.meps_language, key.issue_tag];
+        let changed = if favorite {
+            let exists: bool = tx.query_row(
+                &format!(
+                    "SELECT EXISTS(SELECT 1 FROM TagMap m JOIN Tag t ON t.TagId = m.TagId
+                         WHERE t.Type = 0 AND m.LocationId IN ({locations}))"
+                ),
+                args,
+                |r| r.get(0),
+            )?;
+            if exists {
+                return Ok(());
+            }
+            let location: Option<i64> = tx
+                .query_row(
+                    &format!("{locations} ORDER BY LocationId LIMIT 1"),
+                    args,
+                    |r| r.get(0),
+                )
+                .optional()?;
+            let location = match location {
+                Some(id) => id,
+                None => {
+                    tx.execute(
+                        "INSERT INTO Location (KeySymbol, MepsLanguage, IssueTagNumber, Type)
+                         VALUES (?1, ?2, ?3, 1)",
+                        args,
+                    )?;
+                    tx.last_insert_rowid()
+                }
+            };
+            tx.execute(
+                "INSERT INTO Tag (Type, Name) SELECT 0, 'Favorite'
+                 WHERE NOT EXISTS (SELECT 1 FROM Tag WHERE Type = 0)",
+                [],
+            )?;
+            tx.execute(
+                "INSERT INTO TagMap (LocationId, TagId, Position)
+                 SELECT ?1, TagId, (SELECT IFNULL(max(Position), -1) + 1
+                                   FROM TagMap WHERE TagId = t.TagId)
+                 FROM Tag t WHERE Type = 0 ORDER BY TagId LIMIT 1",
+                [location],
+            )?
+        } else {
+            tx.execute(
+                &format!(
+                    "DELETE FROM TagMap WHERE TagId IN (SELECT TagId FROM Tag WHERE Type = 0)
+                          AND LocationId IN ({locations})"
+                ),
+                args,
+            )?
+        };
+        if changed > 0 {
+            touch(&tx)?;
+        }
+        Ok(tx.commit()?)
     }
 
     /// Location rows of a page (there can be several for the same page).
@@ -2527,6 +2645,269 @@ mod tests {
         }
     }
 
+    fn publication_key(symbol: &str, language: i64, issue: i64) -> PublicationKey {
+        PublicationKey {
+            key_symbol: symbol.into(),
+            meps_language: language,
+            issue_tag: issue,
+        }
+    }
+
+    #[test]
+    fn favorites_import_add_remove_and_order() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        // Imported rows need neither a catalog nor downloaded publications.
+        ud.conn
+            .execute_batch(
+                "INSERT INTO Tag VALUES (7, 0, 'Favoriten');
+             INSERT INTO Location (LocationId, KeySymbol, MepsLanguage, IssueTagNumber, Type)
+             VALUES (9, 'w', 0, 20260800, 1), (10, 'lff', 2, 0, 1);
+             INSERT INTO TagMap (TagId, LocationId, Position) VALUES (7, 10, 8), (7, 9, 3);",
+            )
+            .unwrap();
+        let imported = [
+            publication_key("w", 0, 20260800),
+            publication_key("lff", 2, 0),
+        ];
+        assert_eq!(ud.favorites().unwrap(), imported);
+        let mark = ud.add_mark(&bible(23), None, 2, &[verse(1, 0, 3)]).unwrap();
+        let note = ud
+            .save_note(
+                Some(&bible(23)),
+                None,
+                &note_input("Keep", "text", &["study"]),
+            )
+            .unwrap();
+        // Other study data can reference a whole-publication location too.
+        ud.conn
+            .execute(
+                "INSERT INTO Bookmark (LocationId, PublicationLocationId, Slot, Title)
+             VALUES ((SELECT LocationId FROM UserMark WHERE UserMarkGuid = ?1), 9, 0, 'Keep')",
+                [&mark],
+            )
+            .unwrap();
+        let fingerprint = ud.fingerprint().unwrap();
+        ud.set_favorite(&imported[0], true).unwrap();
+        assert_eq!(ud.fingerprint().unwrap(), fingerprint);
+        let thai = publication_key("ขก", 237, 0);
+        ud.set_favorite(&thai, true).unwrap();
+        ud.set_favorite(&thai, true).unwrap();
+        assert_eq!(
+            ud.favorites().unwrap(),
+            [imported[0].clone(), imported[1].clone(), thai.clone()]
+        );
+        // The existing localized type-0 tag is reused.
+        assert_eq!(
+            ud.conn
+                .query_row("SELECT count(*) FROM Tag WHERE Type = 0", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        ud.set_favorite(&imported[0], false).unwrap();
+        let fingerprint = ud.fingerprint().unwrap();
+        ud.set_favorite(&imported[0], false).unwrap();
+        assert_eq!(ud.fingerprint().unwrap(), fingerprint);
+        assert_eq!(ud.favorites().unwrap(), [imported[1].clone(), thai]);
+        assert_eq!(ud.marks(&bible(23)).unwrap()[0].guid, mark);
+        assert_eq!(ud.all_notes(None).unwrap()[0].guid, note);
+        assert_eq!(ud.bookmarks().unwrap().len(), 1);
+        assert_eq!(
+            ud.conn
+                .query_row(
+                    "SELECT count(*) FROM Location WHERE LocationId = 9",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+        ud.set_favorite(&imported[0], true).unwrap();
+        assert_eq!(ud.favorites().unwrap().last(), Some(&imported[0]));
+        assert_eq!(
+            ud.conn
+                .query_row(
+                    "SELECT count(*) FROM Location WHERE KeySymbol = 'w'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn favorites_respect_jw_library_location_check_after_restore() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join(DB_NAME);
+        let conn = Connection::open(&path).unwrap();
+        let schema = SCHEMA.replace(
+            "UNIQUE(BookNumber, ChapterNumber, KeySymbol, MepsLanguage, Type)",
+            "CHECK (
+                (Type = 0 AND (
+                    (DocumentId IS NOT NULL AND DocumentId != 0)
+                    OR (Track IS NOT NULL AND (
+                        (KeySymbol IS NOT NULL AND length(KeySymbol) > 0)
+                        OR (DocumentId IS NOT NULL AND DocumentId != 0)))
+                    OR (BookNumber IS NOT NULL AND BookNumber != 0
+                        AND KeySymbol IS NOT NULL AND length(KeySymbol) > 0
+                        AND (ChapterNumber IS NULL OR ChapterNumber = 0))
+                    OR (ChapterNumber IS NOT NULL AND ChapterNumber != 0
+                        AND BookNumber IS NOT NULL AND BookNumber != 0
+                        AND KeySymbol IS NOT NULL AND length(KeySymbol) > 0)))
+                OR Type != 0),
+             UNIQUE(BookNumber, ChapterNumber, KeySymbol, MepsLanguage, Type)",
+        );
+        conn.execute_batch(&schema).unwrap();
+        conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+            .unwrap();
+        drop(conn);
+        let source = UserData::open(&path).unwrap();
+        let backup = backup_of(&source, tmp.path(), "jw-library.jwlibrary");
+        let mut ud = UserData::open(tmp.path().join("restored.db")).unwrap();
+        ud.restore_backup(&backup).unwrap();
+        assert!(
+            ud.conn
+                .execute(
+                    "INSERT INTO Location (KeySymbol, MepsLanguage, Type) VALUES ('bad', 2, 0)",
+                    []
+                )
+                .is_err()
+        );
+        let keys = [
+            publication_key("lff", 2, 0),
+            publication_key("w", 0, 20260800),
+            publication_key("nwtsty", 2, 0),
+        ];
+        for key in &keys {
+            ud.set_favorite(key, true).unwrap();
+            ud.set_favorite(key, true).unwrap();
+        }
+        assert_eq!(ud.favorites().unwrap(), keys);
+        assert_eq!(
+            ud.conn
+                .query_row("SELECT count(*) FROM Location WHERE Type = 1", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+        let page = Loc {
+            key_symbol: "lff".into(),
+            meps_language: 2,
+            issue_tag: 0,
+            document_id: Some(1),
+            book: None,
+            chapter: None,
+        };
+        let note = ud
+            .save_note(Some(&page), None, &note_input("Keep", "text", &[]))
+            .unwrap();
+        ud.set_favorite(&keys[0], false).unwrap();
+        let backup = backup_of(&ud, tmp.path(), "roundtrip.jwlibrary");
+        let mut restored = UserData::open(tmp.path().join("roundtrip.db")).unwrap();
+        restored.restore_backup(&backup).unwrap();
+        assert_eq!(restored.favorites().unwrap(), keys[1..]);
+        assert_eq!(restored.all_notes(None).unwrap()[0].guid, note);
+    }
+
+    #[test]
+    fn favorites_validate_and_roll_back_database_failures() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        for key in [
+            publication_key("", 2, 0),
+            publication_key("a b", 2, 0),
+            publication_key("x", -1, 0),
+            publication_key("x", 2, -1),
+        ] {
+            assert!(ud.set_favorite(&key, true).is_err());
+            assert!(ud.set_favorite(&key, false).is_err());
+        }
+        let key = publication_key("lff", 2, 0);
+        let before = ud.fingerprint().unwrap();
+        ud.conn.execute_batch(
+            "CREATE TRIGGER fail_add BEFORE INSERT ON TagMap BEGIN SELECT RAISE(ABORT, 'add failed'); END;"
+        ).unwrap();
+        assert!(
+            ud.set_favorite(&key, true)
+                .unwrap_err()
+                .to_string()
+                .contains("add failed")
+        );
+        assert_eq!(ud.fingerprint().unwrap(), before);
+        ud.conn.execute_batch("DROP TRIGGER fail_add;").unwrap();
+        ud.set_favorite(&key, true).unwrap();
+        let before = ud.fingerprint().unwrap();
+        ud.conn.execute_batch(
+            "CREATE TRIGGER fail_remove BEFORE DELETE ON TagMap BEGIN SELECT RAISE(ABORT, 'remove failed'); END;"
+        ).unwrap();
+        assert!(
+            ud.set_favorite(&key, false)
+                .unwrap_err()
+                .to_string()
+                .contains("remove failed")
+        );
+        assert_eq!(ud.fingerprint().unwrap(), before);
+        assert_eq!(ud.favorites().unwrap(), [key]);
+        ud.conn.execute_batch("DROP TABLE TagMap;").unwrap();
+        assert!(ud.favorites().is_err());
+    }
+
+    #[test]
+    fn favorites_backup_restore_and_merge_keep_study_data() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut source = UserData::open(tmp.path().join("source").join(DB_NAME)).unwrap();
+        let keys = [
+            publication_key("w", 0, 20260800),
+            publication_key("nwtsty", 2, 0),
+        ];
+        for key in &keys {
+            source.set_favorite(key, true).unwrap();
+        }
+        source
+            .add_mark(&bible(23), None, 3, &[verse(1, 0, 3)])
+            .unwrap();
+        source
+            .save_note(
+                Some(&bible(23)),
+                None,
+                &note_input("Source", "keep", &["study"]),
+            )
+            .unwrap();
+        source
+            .save_answer(&bible(23), None, "answer", "keep")
+            .unwrap();
+        let file = tmp.path().join("backup.jwlibrary");
+        source.export_backup(&file).unwrap();
+        let mut restored = UserData::open(tmp.path().join("restored").join(DB_NAME)).unwrap();
+        restored.restore_backup(&file).unwrap();
+        assert_eq!(restored.favorites().unwrap(), keys);
+        assert_eq!(
+            restored.fingerprint().unwrap(),
+            source.fingerprint().unwrap()
+        );
+        let local = publication_key("lff", 2, 0);
+        let mut merged = UserData::open(tmp.path().join("merged").join(DB_NAME)).unwrap();
+        merged.set_favorite(&local, true).unwrap();
+        merged
+            .save_note(Some(&bible(1)), None, &note_input("Local", "keep", &[]))
+            .unwrap();
+        merged.merge_backup(&file).unwrap();
+        assert_eq!(
+            merged.favorites().unwrap(),
+            [local.clone(), keys[0].clone(), keys[1].clone()]
+        );
+        merged.merge_backup(&file).unwrap();
+        assert_eq!(
+            merged.favorites().unwrap(),
+            [local, keys[0].clone(), keys[1].clone()]
+        );
+        assert_eq!(merged.all_notes(None).unwrap().len(), 2);
+        assert_eq!(merged.marks(&bible(23)).unwrap().len(), 1);
+        assert_eq!(merged.answers(&bible(23)).unwrap()["answer"], "keep");
+    }
+
     #[test]
     fn marks_round_trip_and_split() {
         let tmp = tempfile::tempdir().unwrap();
@@ -4442,6 +4823,34 @@ mod tests {
         fn add_mark(ud: &mut UserData, chapter: i64) -> String {
             ud.add_mark(&bible(chapter), None, 1, &[verse(1, 0, 3)])
                 .unwrap()
+        }
+
+        #[test]
+        fn favorites_sync_additions_and_removals_without_deleting_study_data() {
+            let tmp = tempfile::tempdir().unwrap();
+            let (mut a, mut b) = (device(tmp.path(), "a"), device(tmp.path(), "b"));
+            let keys = [
+                publication_key("w", 0, 20260800),
+                publication_key("lff", 2, 0),
+            ];
+            let mark = add_mark(&mut a.ud, 23);
+            for key in &keys {
+                a.ud.set_favorite(key, true).unwrap();
+            }
+            sync_both(&mut a, &mut b);
+            assert_eq!(b.ud.favorites().unwrap(), keys);
+            b.ud.set_favorite(&keys[0], false).unwrap();
+            sync_both(&mut b, &mut a);
+            assert_eq!(a.ud.favorites().unwrap(), [keys[1].clone()]);
+            assert_eq!(b.ud.favorites().unwrap(), [keys[1].clone()]);
+            assert_eq!(mark_color(&a.ud, &mark), Some(1));
+            assert_eq!(mark_color(&b.ud, &mark), Some(1));
+            a.ud.set_favorite(&keys[0], true).unwrap();
+            sync_both(&mut a, &mut b);
+            assert_eq!(
+                b.ud.favorites().unwrap(),
+                [keys[1].clone(), keys[0].clone()]
+            );
         }
 
         #[test]

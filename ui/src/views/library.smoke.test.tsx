@@ -65,6 +65,7 @@ beforeEach(() => {
     media: [media("pub-nwtsv_X_1_VIDEO", "A video"), media("pub-x_X_2_VIDEO", "Another video")],
   };
   backend = {
+    favorites: () => [],
     list_publications: () => publications,
     languages: () => [
       { code: "X", name: "German", vernacular: "Deutsch", rtl: false, signLanguage: false },
@@ -147,6 +148,27 @@ describe("Category page", () => {
 });
 
 describe("Downloaded tab", () => {
+  it("uses the key symbol for both the Library star and menu", async () => {
+    const favorite = { keySymbol: "w", mepsLanguage: 2, issueTag: 20260800 };
+    let saved = [favorite];
+    publications = [card({ dir: "unrelated-directory", symbol: "w26", keySymbol: "w", issueTag: "20260800", title: "Downloaded issue" })];
+    backend.favorites = () => saved;
+    backend.set_favorite = ({ key, favorite: on }) => {
+      expect(key).toEqual(favorite);
+      saved = on ? [favorite] : [];
+    };
+    renderIn(<LibraryView tab="downloaded" />);
+    const t = await tile("Downloaded issue");
+    expect(within(t).getByLabelText("Remove from favorites").getAttribute("aria-pressed")).toBe("true");
+    openMenu(t);
+    fireEvent.click(screen.getByText("Remove from Favorites"));
+    await waitFor(() => expect(within(t).getByLabelText("Add to favorites").getAttribute("aria-pressed")).toBe("false"));
+    fireEvent.click(within(t).getByLabelText("Add to favorites"));
+    await waitFor(() => expect(saved).toEqual([favorite]));
+    openMenu(t);
+    expect(screen.getByText("Remove from Favorites")).toBeTruthy();
+  });
+
   it("removes a publication after confirming, from its menu", async () => {
     renderIn(<LibraryView tab="downloaded" />);
     openMenu(await tile("Glücklich"));

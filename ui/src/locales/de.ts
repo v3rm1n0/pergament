@@ -192,8 +192,8 @@ export const de: Record<string, string> = {
   "Restore backup…": "Sicherung wiederherstellen…",
   "Restore backup?": "Sicherung wiederherstellen?",
   Restore: "Wiederherstellen",
-  "Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.":
-    "Beim Wiederherstellen werden alle Markierungen, Notizen, Tags und Lesezeichen durch die aus der Sicherung ersetzt.",
+  "Restoring replaces all favorites, highlights, notes, tags and bookmarks with those in the backup.":
+    "Beim Wiederherstellen werden alle Favoriten, Markierungen, Notizen, Tags und Lesezeichen durch die aus der Sicherung ersetzt.",
   "Backup created": "Sicherung erstellt",
   "Backup failed: {error}": "Sicherung fehlgeschlagen: {error}",
   "Restore failed: {error}": "Wiederherstellen fehlgeschlagen: {error}",
@@ -206,16 +206,16 @@ export const de: Record<string, string> = {
     "Beim Zusammenführen wird hinzugefügt, was nur in der Sicherung steht, und von allem, was in beiden steht, bleibt die neuere Version erhalten. Es wird nichts gelöscht. Deine aktuellen Daten bleiben als userData.db.before-restore erhalten.",
   "Merge failed: {error}": "Zusammenführen fehlgeschlagen: {error}",
   "Merge backups instead of replacing": "Sicherungen zusammenführen statt ersetzen",
-  "Highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.":
-    "Markierungen, Notizen, Tags und Lesezeichen als .jwlibrary-Datei. Beim Wiederherstellen werden die aktuellen Daten ersetzt; ist das Zusammenführen eingeschaltet, werden Sicherungen stattdessen hineingeführt und von allem, was in beiden steht, bleibt die neuere Version. In beiden Fällen bleiben die bisherigen Daten als userData.db.before-restore im Bibliotheksordner erhalten.",
+  "Favorites, highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.":
+    "Favoriten, Markierungen, Notizen, Tags und Lesezeichen als .jwlibrary-Datei. Beim Wiederherstellen werden die aktuellen Daten ersetzt; ist das Zusammenführen eingeschaltet, werden Sicherungen stattdessen hineingeführt und von allem, was in beiden steht, bleibt die neuere Version. In beiden Fällen bleiben die bisherigen Daten als userData.db.before-restore im Bibliotheksordner erhalten.",
   "Nothing new in the backup": "Die Sicherung enthält nichts Neues",
   "Merged 1 change": "1 Änderung zusammengeführt",
   "Merged {count} changes": "{count} Änderungen zusammengeführt",
   Conflicts: "Konflikte",
   "1 conflict, your version was kept:": "1 Konflikt, deine Version wurde behalten:",
   "{count} conflicts, your version was kept:": "{count} Konflikte, deine Version wurde behalten:",
-  "Backups are .jwlibrary files with highlights, notes, tags and bookmarks.":
-    "Sicherungen sind .jwlibrary-Dateien mit Markierungen, Notizen, Tags und Lesezeichen.",
+  "Backups are .jwlibrary files with favorites, highlights, notes, tags and bookmarks.":
+    "Sicherungen sind .jwlibrary-Dateien mit Favoriten, Markierungen, Notizen, Tags und Lesezeichen.",
   "Notes and Tags": "Notizen und Tags",
   Bookmarks: "Lesezeichen",
   All: "Alle",

@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { BookOpen, CloudDownload, Star } from "lucide-react";
 import { useApp } from "@/app";
-import type { CatalogEntry, PubCard } from "@/lib/api";
-import { pubKey } from "@/lib/share";
+import { samePublication, type CatalogEntry, type PubCard } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { EntryImage, mb, useEntryAction } from "@/components/catalog";
@@ -16,7 +15,6 @@ function Cover({
   category,
   target,
   onActivate,
-  favoriteKey,
   progress,
   action,
   meta,
@@ -27,7 +25,6 @@ function Cover({
   category?: string | null;
   target: PubTarget;
   onActivate: () => void;
-  favoriteKey: string;
   /** Percent while downloading, null while the size is unknown, undefined when idle. */
   progress?: number | null;
   action?: ReactNode;
@@ -35,8 +32,8 @@ function Cover({
   meta?: string | null;
   className?: string;
 }) {
-  const { favorites, toggleFavorite } = useApp();
-  const favorite = favorites.includes(favoriteKey);
+  const { favorites, setFavorite } = useApp();
+  const favorite = favorites.some((key) => samePublication(key, target));
   const label = favorite ? t("Remove from favorites") : t("Add to favorites");
   return (
     <div className={cn("group relative w-[104px]", className)}>
@@ -59,7 +56,7 @@ function Cover({
           aria-label={label}
           aria-pressed={favorite}
           title={label}
-          onClick={() => toggleFavorite(favoriteKey)}
+          onClick={() => void setFavorite(target, !favorite)}
           className={cn(control, "absolute right-[38px] top-1.5")}
         >
           <Star size={14} strokeWidth={1.6} className={cn(favorite && "fill-accent text-accent")} />
@@ -100,7 +97,6 @@ export function EntryCover({
       target={target}
       meta={meta}
       className={className}
-      favoriteKey={pubKey(target.symbol, target.mepsLanguage, target.issueTag)}
       onActivate={() => void activate(entry, lang)}
       progress={p ? (p.total ? (p.done / p.total) * 100 : null) : undefined}
       action={
@@ -120,9 +116,8 @@ export function EntryCover({
 
 /** Portrait cover of a downloaded publication. */
 export function PubCover({ pub, meta, className }: { pub: PubCard; meta?: string; className?: string }) {
-  const { push, lang, favorites } = useApp();
+  const { push, lang } = useApp();
   const target = cardTarget(pub, lang);
-  const key = pubKey(target.symbol, target.mepsLanguage, target.issueTag);
   return (
     <Cover
       image={
@@ -138,8 +133,6 @@ export function PubCover({ pub, meta, className }: { pub: PubCard; meta?: string
       meta={meta}
       className={className}
       target={target}
-      // A favorite of a non-Latin symbol is stored under its directory name.
-      favoriteKey={favorites.includes(pub.dir) && !favorites.includes(key) ? pub.dir : key}
       onActivate={() => push({ name: "publication", dir: pub.dir })}
     />
   );

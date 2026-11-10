@@ -842,6 +842,24 @@ fn tags(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::TagInf
 }
 
 #[tauri::command]
+fn favorites(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::PublicationKey>> {
+    state.user()?.favorites().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_favorite(
+    state: State<'_, AppState>,
+    key: pergament::userdata::PublicationKey,
+    favorite: bool,
+) -> ApiResult<()> {
+    let saved = state
+        .user()?
+        .set_favorite(&key, favorite)
+        .map_err(|e| e.to_string());
+    edited(&state, saved)
+}
+
+#[tauri::command]
 fn bookmarks(state: State<'_, AppState>) -> ApiResult<Vec<pergament::userdata::Bookmark>> {
     state.user()?.bookmarks().map_err(|e| e.to_string())
 }
@@ -966,17 +984,21 @@ async fn catalog_languages(
     .map_err(|e| e.to_string())?
 }
 
-/// Catalog entries of favorite keys; `None` when no catalog is cached.
+/// A favorite's catalog tile; `None` when no catalog or entry is available.
 #[tauri::command]
-async fn favorite_entries(
+async fn favorite_entry(
     app: AppHandle,
-    lang: String,
-    keys: Vec<String>,
-) -> ApiResult<Option<Vec<api::CatalogEntry>>> {
+    key: pergament::userdata::PublicationKey,
+) -> ApiResult<Option<api::LanguageEntry>> {
+    key.validate().map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        with_catalog(&app, &lang, |c, meps, lib| {
-            api::favorite_entries(c, meps, lib, &keys)
-        })
+        let state = app.state::<AppState>();
+        let _gate = state.cache_use()?;
+        let Some(catalog) = cached_catalog(&app)? else {
+            return Ok(None);
+        };
+        let catalog = catalog.lock().map_err(|e| e.to_string())?;
+        api::favorite_entry(&catalog, &*state.lib()?, &key)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1723,7 +1745,9 @@ pub fn run() {
             import_files,
             catalog_search,
             catalog_languages,
-            favorite_entries,
+            favorites,
+            set_favorite,
+            favorite_entry,
             languages,
             chapter_study,
             book_overview,

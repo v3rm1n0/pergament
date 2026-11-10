@@ -35,6 +35,7 @@ export interface PubCard {
   title: string;
   shortTitle: string | null;
   symbol: string;
+  keySymbol: string;
   year: number;
   issueTag: string;
   mepsLanguage: number;
@@ -48,6 +49,16 @@ export interface PubDetail {
   card: PubCard;
   toc: TocNode[];
   books: BibleBook[];
+}
+
+export interface PublicationKey {
+  keySymbol: string;
+  mepsLanguage: number;
+  issueTag: number;
+}
+
+export function samePublication(a: PublicationKey, b: PublicationKey): boolean {
+  return a.keySymbol === b.keySymbol && a.mepsLanguage === b.mepsLanguage && a.issueTag === b.issueTag;
 }
 
 /** Mirrors pergament::navigate::Target (serde external tagging). */
@@ -428,9 +439,9 @@ export const api = {
   /** `null` when no catalog is cached yet. */
   catalogLanguages: (symbol: string, issueTag: number) =>
     invoke<LanguageEntry[] | null>("catalog_languages", { symbol, issueTag }),
-  /** Catalog entries for favorite keys in `lang`; `null` when no catalog is cached yet. */
-  favoriteEntries: (lang: string, keys: string[]) =>
-    invoke<CatalogEntry[] | null>("favorite_entries", { lang, keys }),
+  favorites: () => invoke<PublicationKey[]>("favorites"),
+  setFavorite: (key: PublicationKey, favorite: boolean) => invoke<void>("set_favorite", { key, favorite }),
+  favoriteEntry: (key: PublicationKey) => invoke<LanguageEntry | null>("favorite_entry", { key }),
   chapterStudy: (dir: string, book: number, chapter: number) =>
     invoke<ChapterStudy>("chapter_study", { dir, book, chapter }),
   bookOverview: (dir: string, book: number) => invoke<BookOverview>("book_overview", { dir, book }),

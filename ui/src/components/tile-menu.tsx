@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, MoreHorizontal } from "lucide-react";
 import { useApp } from "@/app";
-import { api, type CatalogEntry, type Language, type LanguageEntry, type PubCard } from "@/lib/api";
+import { api, samePublication, type PublicationKey, type CatalogEntry, type Language, type LanguageEntry, type PubCard } from "@/lib/api";
 import { loadLanguages } from "@/components/language-menu";
 import {
   AlertDialog,
@@ -15,15 +15,13 @@ import {
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { mediaLink, pubKey, publicationLink } from "@/lib/share";
+import { mediaLink, publicationLink } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 
-export interface PubTarget {
+export interface PubTarget extends PublicationKey {
   kind: "pub";
   symbol: string;
-  issueTag: number;
-  mepsLanguage: number;
   langCode: string;
   /** Library directory when downloaded. */
   local: string | null;
@@ -40,6 +38,7 @@ export type TileTarget = PubTarget | MediaTarget;
 export const entryTarget = (e: CatalogEntry, lang: string): PubTarget => ({
   kind: "pub",
   symbol: e.item.symbol,
+  keySymbol: e.item.key_symbol,
   issueTag: e.item.issue_tag,
   mepsLanguage: e.item.meps_language,
   langCode: lang,
@@ -51,6 +50,7 @@ export const entryTarget = (e: CatalogEntry, lang: string): PubTarget => ({
 export const cardTarget = (p: PubCard, lang: string): PubTarget => ({
   kind: "pub",
   symbol: p.symbol,
+  keySymbol: p.keySymbol,
   issueTag: Number(p.issueTag) || 0,
   mepsLanguage: p.mepsLanguage,
   langCode: p.langCode ?? lang,
@@ -151,11 +151,10 @@ export function TileMenu({
   target: TileTarget;
   className?: string;
 }) {
-  const { toast, favorites, toggleFavorite, removePublication } = useApp();
+  const { toast, favorites, setFavorite, removePublication } = useApp();
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const key = target.kind === "pub" ? pubKey(target.symbol, target.mepsLanguage, target.issueTag) : null;
-  const favorite = key != null && favorites.includes(key);
+  const favorite = target.kind === "pub" && favorites.some((key) => samePublication(key, target));
 
   const share = async () => {
     const link =
@@ -188,8 +187,8 @@ export function TileMenu({
         <DropdownMenuContent align="end" className="min-w-[200px]" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onSelect={() => void share()}>{t("Share Link")}</DropdownMenuItem>
           {target.kind === "pub" && <DropdownMenuItem onSelect={() => setPicking(true)}>{t("More Languages")}</DropdownMenuItem>}
-          {key != null && (
-            <DropdownMenuItem onSelect={() => toggleFavorite(key)}>
+          {target.kind === "pub" && (
+            <DropdownMenuItem onSelect={() => void setFavorite(target, !favorite)}>
               {favorite ? t("Remove from Favorites") : t("Add to Favorites")}
             </DropdownMenuItem>
           )}
