@@ -21,6 +21,8 @@ cd ios && xtool dev     # builds, installs and launches on a connected device
   origin and the absolute `/assets/...` paths from Vite work.
 - `Sources/Pergament/Resources/tauri-shim.js` is injected at document start and
   stands in for `window.__TAURI_INTERNALS__`.
+- The app icon is `AppIcon.png` (1024 px, opaque), named by `iconPath` in
+  `xtool.yml`; xtool copies it into the bundle and sets `CFBundleIconFile`.
 
 ## Next
 
