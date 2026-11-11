@@ -189,7 +189,9 @@ pub unsafe extern "C" fn pergament_invoke(
     }
 }
 
-/// Run the close-time backup on the calling thread.
+/// Write a rolling backup on the calling thread, every time it is called. Unlike
+/// the close backup it has no once-per-process latch: iOS calls it each time the
+/// app goes to the background, and may suspend the process without a close.
 ///
 /// # Safety
 /// `handle` must be NULL or from `pergament_open` and not yet closed.
@@ -199,7 +201,9 @@ pub unsafe extern "C" fn pergament_backup(handle: *mut c_void) {
         return;
     }
     // SAFETY: a live handle per the contract.
-    unsafe { &*handle.cast::<Handle>() }.core.backup_on_close();
+    unsafe { &*handle.cast::<Handle>() }
+        .core
+        .backup_rolling(false);
 }
 
 /// Back up and release the handle. Does not wait for calls in flight.

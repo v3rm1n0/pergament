@@ -3,6 +3,7 @@ use std::ptr;
 use std::sync::mpsc::{Sender, channel};
 use std::time::Duration;
 
+use pergament::userdata::{self, Loc, Range, UserData};
 use pergament_ios::{
     pergament_backup, pergament_close, pergament_invoke, pergament_media_free,
     pergament_media_headers, pergament_media_open, pergament_media_read, pergament_media_scheme,
@@ -75,6 +76,42 @@ fn lists_an_empty_library() {
         (7, 1, "[]".to_owned())
     );
     unsafe { pergament_backup(f.handle) };
+    unsafe { pergament_close(f.handle) };
+}
+
+fn rolling_backups(f: &Fixture) -> usize {
+    std::fs::read_dir(f.library.join("backups")).map_or(0, |dir| dir.count())
+}
+
+/// iOS backs up on every trip to the background, not once per process.
+#[test]
+fn backup_runs_every_time_it_is_called() {
+    let f = open();
+    unsafe { pergament_backup(f.handle) };
+    assert_eq!(rolling_backups(&f), 1);
+    // An edit, so the next backup is not skipped as unchanged; marks need no publication.
+    let mut user = UserData::open(f.library.join(userdata::DB_NAME)).unwrap();
+    let loc = Loc {
+        key_symbol: "nwtsty".into(),
+        meps_language: 2,
+        issue_tag: 0,
+        document_id: None,
+        book: Some(19),
+        chapter: Some(23),
+    };
+    let range = Range {
+        block_type: userdata::BLOCK_VERSE,
+        identifier: 1,
+        start: 0,
+        end: 3,
+    };
+    user.add_mark(&loc, None, 1, &[range]).unwrap();
+    drop(user);
+    // Rolling backups are named by the second.
+    std::thread::sleep(Duration::from_millis(1100));
+    unsafe { pergament_backup(f.handle) };
+    unsafe { pergament_backup(f.handle) };
+    assert_eq!(rolling_backups(&f), 2);
     unsafe { pergament_close(f.handle) };
 }
 

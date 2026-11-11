@@ -43,7 +43,8 @@ void *pergament_open(const char *library_dir, const char *cache_dir,
  */
 void pergament_invoke(void *handle, uint64_t id, const char *name, const char *args_json);
 
-/* Runs the close-time backup synchronously on the calling thread (scenePhase == .background). */
+/* Writes a rolling backup synchronously on the calling thread, on every call
+   (scenePhase == .background); skipped when nothing changed or rolling is off. NULL is ignored. */
 void pergament_backup(void *handle);
 
 /* Runs the backup, then releases the handle; does not wait for calls in flight. NULL is ignored. */
