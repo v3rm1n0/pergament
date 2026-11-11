@@ -93,6 +93,20 @@ test("replies settle their own call, and a repeated or unknown id is ignored", a
   await expect(second).resolves.toBe("second");
 });
 
+test("a reply meant for a previous page load does not settle the new page's call", async () => {
+  void internals().invoke("list_books");
+  const earlier = posted[0].id;
+  await Bun.sleep(2);
+  delete window.__TAURI_INTERNALS__;
+  await import(`./tauri-shim.js?run=${imports++}`);
+  let settled = false;
+  void internals().invoke("list_books").then(() => (settled = true));
+  expect(posted[1].id).not.toBe(earlier);
+  window.__pergament_reply(earlier, 1, '"stale"');
+  await Promise.resolve();
+  expect(settled).toBe(false);
+});
+
 test("a reply that is not JSON still settles its call", async () => {
   const result = internals().invoke("list_books");
   window.__pergament_reply(posted[0].id, 1, "{");

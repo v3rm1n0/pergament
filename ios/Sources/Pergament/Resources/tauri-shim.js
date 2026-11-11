@@ -11,7 +11,8 @@
   const unavailable = "not available on iOS yet";
   const label = "main";
   let nextId = 1;
-  let nextCall = 1;
+  // Seeded from the load time so a late reply to a call from before a reload cannot match a new call; stays below 2^53.
+  let nextCall = Date.now() * 1000;
   const pending = new Map();
   // eventId -> { event, handler }, handler being a transformCallback id.
   const listeners = new Map();
