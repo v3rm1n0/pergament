@@ -49,6 +49,8 @@
             ./tests
             ./src-tauri
             # A workspace member, so cargo needs its manifest even when not building it.
+            ./app-core/Cargo.toml
+            ./app-core/src
             ./ios/core/Cargo.toml
             ./ios/core/src
             ./ui

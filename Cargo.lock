@@ -2804,6 +2804,7 @@ dependencies = [
  "notify",
  "open",
  "pergament",
+ "pergament-app-core",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2812,6 +2813,17 @@ dependencies = [
  "tauri-plugin-dialog",
  "tempfile",
  "zip",
+]
+
+[[package]]
+name = "pergament-app-core"
+version = "1.8.0"
+dependencies = [
+ "pergament",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

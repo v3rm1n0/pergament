@@ -1,9 +1,8 @@
 //! Tauri shell: managed state, commands and the `jwmedia:` image protocol.
 //! Logic lives in [`api`] and the `pergament` crate.
 
-pub mod api;
 pub mod app_update;
-pub mod auto;
+pub use pergament_app_core::{api, auto};
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

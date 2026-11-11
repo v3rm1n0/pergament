@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "src-tauri", "ios/core"]
+members = [".", "app-core", "src-tauri", "ios/core"]
 
 [package]
 name = "pergament"
