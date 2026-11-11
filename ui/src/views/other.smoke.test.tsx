@@ -938,6 +938,14 @@ describe("Merging backups", () => {
     expect(vi.mocked(ask).mock.calls[0][1]).toEqual({ title: "Restore backup?", kind: "warning", okLabel: "Restore" });
   });
 
+  it("says why a restore could not start when the picker fails", async () => {
+    vi.mocked(open).mockRejectedValueOnce("could not show the dialog");
+    await dataTab();
+    fireEvent.click(await screen.findByRole("button", { name: "Restore backup…" }));
+    expect(await screen.findByText("Restore failed: could not show the dialog")).toBeTruthy();
+    expect(calls.some((c) => c.cmd === "restore_backup")).toBe(false);
+  });
+
   it("ignores a second restore while one is running", async () => {
     localStorage.setItem("mergeBackups", "true");
     let finish: (r: unknown) => void = () => undefined;
@@ -962,6 +970,39 @@ describe("Merging backups", () => {
     fireEvent.click(button);
     await waitFor(() => expect(calls.filter((c) => c.cmd === "merge_backup")).toHaveLength(2));
     expect(open).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("Bible books", () => {
+  it("shows each book by its abbreviation, and by its name where there is none", async () => {
+    backend.book_abbreviations = () => ({ 1: "1Mo" });
+    backend.publication = () => ({
+      card: card({ dir: "bible_abbr", symbol: "nwt", title: "Bible", isBible: true }),
+      toc: [
+        {
+          title: "Bibel",
+          document_id: null,
+          bible_book: null,
+          children: [
+            {
+              title: "Hebräische Schriften",
+              document_id: null,
+              bible_book: null,
+              children: [
+                { title: "1. Mose (Genesis)", document_id: null, bible_book: 1, children: [] },
+                { title: "Psalmen", document_id: null, bible_book: 19, children: [] },
+              ],
+            },
+          ],
+        },
+        { title: "Anhang", document_id: null, bible_book: null, children: [{ title: "Glossar", document_id: 7, bible_book: null, children: [] }] },
+      ],
+      books: [],
+    });
+    renderIn(<PublicationView dir="bible_abbr" />);
+    expect(await screen.findByRole("button", { name: "1Mo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Psalmen" })).toBeTruthy();
+    expect(screen.queryByText("1. Mose")).toBeNull();
   });
 });
 

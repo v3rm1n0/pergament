@@ -33,21 +33,39 @@ export function usePublication(dir: string): PubDetail | null {
   return detail;
 }
 
-/** One Testament: heading plus its books as a grid that is wide enough for the full short names. */
-function BookSection({ dir, node }: { dir: string; node: TocNode }) {
+/** The abbreviations a Bible uses for its books, by book number; empty while loading or without them. */
+function useBookAbbreviations(dir: string): Record<number, string> {
+  const [abbr, setAbbr] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let live = true;
+    api.bookAbbreviations(dir).then(
+      (a) => live && setAbbr(a),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [dir]);
+  return abbr;
+}
+
+/** One Testament: heading plus its books as a square grid mirroring the mobile library. */
+function BookSection({ dir, node, abbr }: { dir: string; node: TocNode; abbr: Record<number, string> }) {
   const { push } = useApp();
   const books = node.children.filter((c) => c.bible_book != null);
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold">{node.title}</h2>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2">
         {books.map((b) => (
           <button
             key={b.bible_book}
             onClick={() => push({ name: "chapters", dir, book: b.bible_book! })}
-            className="flex h-10 items-center rounded-md border border-line px-3 text-left text-sm hover:bg-bar focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex aspect-square items-center justify-center rounded-md border border-line text-sm hover:bg-bar focus-visible:outline-2 focus-visible:outline-accent"
           >
-            <span className="truncate">{shortBookName(b.title)}</span>
+            <span className="truncate px-1" title={shortBookName(b.title)}>
+              {abbr[b.bible_book!] ?? shortBookName(b.title)}
+            </span>
           </button>
         ))}
       </div>
@@ -55,12 +73,12 @@ function BookSection({ dir, node }: { dir: string; node: TocNode }) {
   );
 }
 
-function BooksTab({ dir, node }: { dir: string; node: TocNode }) {
+function BooksTab({ dir, node, abbr }: { dir: string; node: TocNode; abbr: Record<number, string> }) {
   // The books tab holds one child per Testament; they stack, so the books keep their room.
   return (
     <div className="flex flex-col gap-10">
       {node.children.filter(hasBooks).map((s) => (
-        <BookSection key={s.title} dir={dir} node={s} />
+        <BookSection key={s.title} dir={dir} node={s} abbr={abbr} />
       ))}
     </div>
   );
@@ -161,6 +179,7 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
   const { replace } = useApp();
   const { lang, languageName } = useApp();
   const detail = usePublication(dir);
+  const abbr = useBookAbbreviations(dir);
   if (!detail) return <AppBar title="" />;
   const title = detail.card.shortTitle ?? detail.card.title;
   const toc = detail.toc;
@@ -205,7 +224,7 @@ export function PublicationView({ dir, tab }: { dir: string; tab?: number }) {
         </div>
         {toc.map((t, i) => (
           <TabsContent key={i} value={String(i)} className="page flex-1 pt-6 overflow-y-auto outline-none">
-            {hasBooks(t) ? <BooksTab dir={dir} node={t} /> : <DocList dir={dir} nodes={t.children} />}
+            {hasBooks(t) ? <BooksTab dir={dir} node={t} abbr={abbr} /> : <DocList dir={dir} nodes={t.children} />}
           </TabsContent>
         ))}
       </Tabs>
