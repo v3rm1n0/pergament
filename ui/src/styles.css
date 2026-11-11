@@ -88,6 +88,11 @@ body {
   line-height: 1.75;
   user-select: text;
 }
+/* iOS: the reader's own selection (views/reader.tsx) replaces the system's, which would cover it with its menu.
+   The text stays selectable so the selection is painted; the system's gesture is cancelled in script. */
+.reader.own-selection {
+  -webkit-touch-callout: none;
+}
 .reader h1 {
   font-size: 1.9em;
   font-weight: 700;

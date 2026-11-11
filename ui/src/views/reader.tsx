@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChevronLeft, ChevronRight, Newspaper, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import { Newspaper, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
 import {
   api,
@@ -30,6 +30,9 @@ import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
 import { ReferencePane, type PaneRef } from "@/components/reference-pane";
 import { usePublication } from "./publication";
 import { t } from "@/lib/i18n";
+import { useLongPress } from "@/lib/use-long-press";
+import { extendTo, selectWordAt } from "@/lib/own-selection";
+import { ownSelection } from "@/lib/platform";
 
 /** How a followed link changes the pane: new stack, deeper, or retry in place. */
 type RefMode = "root" | "push" | "replace";
@@ -371,16 +374,91 @@ export function ReaderView({
   const [toolbar, setToolbar] = useState<Toolbar | null>(null);
   const closeToolbar = useCallback(() => setToolbar(null), []);
 
-  const onArticleMouseUp = () => {
+  /** Shows the toolbar at the selection, if there is one in the text: above it, or under it with `below`. */
+  const offerColors = useCallback((below: boolean) => {
     const root = articleRef.current;
     const sel = window.getSelection();
-    if (!root || !sel || sel.isCollapsed || !root.contains(sel.anchorNode)) return;
+    if (!root || !sel || sel.isCollapsed || !root.contains(sel.anchorNode)) return false;
     const range = sel.getRangeAt(0);
     const ranges = selectionRanges(root, range);
-    if (ranges.length === 0) return;
+    if (ranges.length === 0) return false;
     const rect = range.getBoundingClientRect();
-    setToolbar({ x: rect.left + rect.width / 2, y: rect.top - 6, ranges, text: rangeText(range) });
-  };
+    const y = below ? rect.bottom + TOUCH_GAP : rect.top - 6;
+    setToolbar({ x: rect.left + rect.width / 2, y, below, ranges, text: rangeText(range) });
+    return true;
+  }, []);
+
+  const onArticleMouseUp = () => void offerColors(false);
+
+  // On iOS the reader selects text itself, so the system's selection and its Copy menu never start. A long press
+  // selects the word under the finger; moving the finger extends the selection to the words it passes.
+  const ownSel = ownSelection();
+  const selecting = useRef(false);
+  const press = useLongPress(({ clientX, clientY }) => {
+    selecting.current = selectWordAt(clientX, clientY);
+  });
+  const pressHandlers = ownSel
+    ? {
+        onPointerDown: (e: ReactPointerEvent) => {
+          if (e.pointerType !== "mouse") window.getSelection()?.removeAllRanges();
+          press.onPointerDown(e);
+        },
+        onPointerMove: press.onPointerMove,
+        onPointerUp: press.onPointerUp,
+        onPointerCancel: press.onPointerCancel,
+        onClickCapture: press.onClickCapture,
+      }
+    : {};
+  useEffect(() => {
+    if (!ownSel) return;
+    const move = (e: TouchEvent) => {
+      if (!selecting.current) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) extendTo(touch.clientX, touch.clientY);
+    };
+    const end = () => (selecting.current = false);
+    // Cancels the system's own long-press selection and text drag; a selection made by script is not a selectstart.
+    const block = (e: Event) => e.preventDefault();
+    document.addEventListener("touchmove", move, { passive: false });
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", end);
+    document.addEventListener("selectstart", block);
+    document.addEventListener("dragstart", block);
+    return () => {
+      document.removeEventListener("touchmove", move);
+      document.removeEventListener("pointerup", end);
+      document.removeEventListener("pointercancel", end);
+      document.removeEventListener("selectstart", block);
+      document.removeEventListener("dragstart", block);
+    };
+  }, [ownSel]);
+
+  // A selection made by touch sends no mouseup: iOS selects on a long press and by dragging its handles.
+  // So the toolbar follows the selection once it has stopped changing, and goes under it, because iOS
+  // puts its own Copy menu above.
+  useEffect(() => {
+    let touch = false;
+    let settled = 0;
+    const pointer = (e: PointerEvent) => {
+      touch = e.pointerType !== "mouse";
+    };
+    const changed = () => {
+      window.clearTimeout(settled);
+      if (!touch) return;
+      settled = window.setTimeout(() => {
+        // A tap that takes the selection away may send no mousedown for the toolbar to close on.
+        if (!offerColors(true)) setToolbar((t) => (t?.below ? null : t));
+      }, 300);
+    };
+    document.addEventListener("pointerdown", pointer, true);
+    document.addEventListener("selectionchange", changed);
+    return () => {
+      window.clearTimeout(settled);
+      document.removeEventListener("pointerdown", pointer, true);
+      document.removeEventListener("selectionchange", changed);
+    };
+  }, [offerColors]);
 
   const userAction = async (run: () => Promise<unknown>) => {
     try {
@@ -562,8 +640,6 @@ export function ReaderView({
     else if (refs.length > 0) keepNote();
   }, [paneOpen, refs.length, releaseNote, keepNote]);
   const subtitle = detail?.card.title ?? "";
-  const edge =
-    "absolute top-1/2 z-10 flex h-10 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-line bg-surface text-muted hover:bg-bar hover:text-fg";
 
   return (
     <>
@@ -581,39 +657,21 @@ export function ReaderView({
       </AppBar>
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
-          {paged && (
-            <>
-              <button
-                aria-label={dated !== null ? t("Previous day") : chapter ? t("Previous chapter") : t("Previous page")}
-                className={cn(edge, "left-1")}
-                onClick={() => go(-1)}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                aria-label={dated !== null ? t("Next day") : chapter ? t("Next chapter") : t("Next page")}
-                className={cn(edge, "right-1")}
-                onClick={() => go(1)}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </>
-          )}
           <div className="h-full overflow-y-auto bg-surface">
             <div
               className={cn(
                 "mx-auto py-6",
-                // The paging buttons are 32px at the edges; 36px keeps the text clear of them.
-                compact ? (paged ? "px-9" : "px-4") : "px-12",
+                compact ? "px-4" : "px-12",
                 layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"),
               )}
             >
               {split && (
                 <div
                   ref={articleRef}
-                  className={cn("reader", chapter && "bible")}
+                  className={cn("reader", chapter && "bible", ownSel && "own-selection")}
                   onClick={onArticleClick}
                   onMouseUp={onArticleMouseUp}
+                  {...pressHandlers}
                   dangerouslySetInnerHTML={{ __html: split.body }}
                 />
               )}
@@ -726,6 +784,7 @@ export function ReaderView({
         <MarkToolbar
           x={toolbar.x}
           y={toolbar.y}
+          below={toolbar.below}
           current={toolbar.mark?.color}
           onColor={colorChosen}
           onNote={() => void noteChosen()}
@@ -752,10 +811,15 @@ function SheetBar({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Room under a touch selection for the handle that hangs from its end. */
+const TOUCH_GAP = 20;
+
 /** Where the highlight toolbar is and what it acts on: a new selection or a highlight. */
 interface Toolbar {
   x: number;
   y: number;
+  /** Under the selection, where a touch selection has it. */
+  below?: boolean;
   ranges?: MarkRange[];
   mark?: Mark;
   /** The selected text, for a new selection. */

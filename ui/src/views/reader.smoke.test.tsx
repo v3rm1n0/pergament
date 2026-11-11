@@ -237,6 +237,123 @@ describe("Reader", () => {
     expect(screen.getByTestId("where").textContent).toBe(where);
   });
 
+  /** The verse once the page has its notes: adding their dots replaces the text's elements. */
+  const shownVerse = async () => {
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByRole("button", { name: "Show note" });
+    return document.querySelector<HTMLElement>(".reader span.v")!;
+  };
+
+  describe("own selection on iOS", () => {
+    let caret = 0;
+    beforeEach(() => {
+      window.__PERGAMENT_PLATFORM__ = "ios";
+      document.caretRangeFromPoint = () => {
+        const r = document.createRange();
+        const walk = document.createTreeWalker(document.querySelector(".reader")!, NodeFilter.SHOW_TEXT);
+        let text = walk.nextNode();
+        while (text && !text.textContent?.includes("God")) text = walk.nextNode();
+        r.setStart(text!, caret);
+        r.collapse(true);
+        return r;
+      };
+    });
+    afterEach(() => {
+      delete window.__PERGAMENT_PLATFORM__;
+      delete (document as unknown as Record<string, unknown>).caretRangeFromPoint;
+      window.getSelection()?.removeAllRanges();
+    });
+    const held = () => act(() => new Promise((done) => setTimeout(done, 600)));
+
+    it("selects the word under a long press, without native selection", async () => {
+      const verse = await shownVerse();
+      expect(document.querySelector(".reader.own-selection")).toBeTruthy();
+      caret = 5;
+      fireEvent.pointerDown(verse, { pointerType: "touch", clientX: 10, clientY: 10 });
+      await held();
+      expect(window.getSelection()!.toString()).toBe("God");
+    });
+
+    it("extends the selection to the word under the finger as it moves", async () => {
+      const verse = await shownVerse();
+      caret = 5;
+      fireEvent.pointerDown(verse, { pointerType: "touch", clientX: 10, clientY: 10 });
+      await held();
+      caret = 16;
+      fireEvent.touchMove(verse, { touches: [{ clientX: 80, clientY: 10 }] });
+      expect(window.getSelection()!.toString()).toBe("God loved the");
+    });
+
+    it("cancels the system's own selection from starting", async () => {
+      const verse = await shownVerse();
+      const start = new Event("selectstart", { bubbles: true, cancelable: true });
+      verse.dispatchEvent(start);
+      expect(start.defaultPrevented).toBe(true);
+    });
+
+    it("leaves the selection to the browser off iOS", async () => {
+      window.__PERGAMENT_PLATFORM__ = undefined;
+      await shownVerse();
+      expect(document.querySelector(".reader.own-selection")).toBeNull();
+    });
+  });
+
+  describe("highlighting", () => {
+    const rect = Range.prototype.getBoundingClientRect;
+    beforeEach(() => {
+      // jsdom does no layout: the selection is 20px high, 200px down the page.
+      Range.prototype.getBoundingClientRect = () => ({ left: 100, width: 60, top: 200, bottom: 220 }) as DOMRect;
+      backend.add_mark = () => "m1";
+    });
+    afterEach(() => {
+      Range.prototype.getBoundingClientRect = rect;
+      window.getSelection()?.removeAllRanges();
+    });
+
+    it("offers the colours under text selected by touch, which sends no mouseup", async () => {
+      const verse = await shownVerse();
+      fireEvent.pointerDown(verse, { pointerType: "touch" });
+      window.getSelection()!.selectAllChildren(verse);
+      document.dispatchEvent(new Event("selectionchange"));
+
+      const yellow = await screen.findByRole("button", { name: "Highlight Yellow" });
+      // Below the selection: iOS puts its own Copy menu above it.
+      expect(parseFloat(yellow.parentElement!.style.top)).toBeGreaterThan(220);
+      fireEvent.click(yellow);
+      await waitFor(() =>
+        expect(calls).toContainEqual({
+          cmd: "add_mark",
+          args: expect.objectContaining({ color: 1, ranges: [expect.objectContaining({ identifier: 16, start: 0, end: 4 })] }),
+        }),
+      );
+    });
+
+    it("takes the colours away when the touch selection is gone", async () => {
+      const verse = await shownVerse();
+      fireEvent.pointerDown(verse, { pointerType: "touch" });
+      window.getSelection()!.selectAllChildren(verse);
+      document.dispatchEvent(new Event("selectionchange"));
+      await screen.findByRole("button", { name: "Highlight Yellow" });
+
+      window.getSelection()!.removeAllRanges();
+      document.dispatchEvent(new Event("selectionchange"));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Highlight Yellow" })).toBeNull());
+    });
+
+    it("waits for the mouse button before offering the colours for a selection dragged with a mouse", async () => {
+      const verse = await shownVerse();
+      fireEvent.pointerDown(verse, { pointerType: "mouse" });
+      window.getSelection()!.selectAllChildren(verse);
+      document.dispatchEvent(new Event("selectionchange"));
+      await act(() => new Promise((done) => setTimeout(done, 500)));
+      expect(screen.queryByRole("button", { name: "Highlight Yellow" })).toBeNull();
+
+      fireEvent.mouseUp(verse);
+      const yellow = await screen.findByRole("button", { name: "Highlight Yellow" });
+      expect(parseFloat(yellow.parentElement!.style.top)).toBeLessThan(200);
+    });
+  });
+
   it("render_page errors show as a toast", async () => {
     backend.render_page = () => {
       throw "publication removed";

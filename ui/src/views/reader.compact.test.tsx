@@ -189,11 +189,11 @@ describe("reader on a phone", () => {
     expect(scroller!.contains(screen.getByLabelText("Close"))).toBe(false);
   });
 
-  it("reserves a gutter for the paging buttons on a phone", async () => {
+  it("uses the normal phone padding without paging buttons", async () => {
     stubCompact(true);
-    await renderReaderWithStudy(); // a chapter is paged
+    await renderReaderWithStudy();
     const column = screen.getByText("For God loved the world").closest(".reader")!.parentElement!;
-    expect(column.className).toContain("px-9");
-    expect(column.className).not.toContain("px-4");
+    expect(column.className).toContain("px-4");
+    expect(column.className).not.toContain("px-9");
   });
 });
