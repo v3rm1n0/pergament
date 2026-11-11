@@ -7,6 +7,7 @@ import { renderMarkdown } from "@/lib/markdown";
 import { linkEdit, useLinkBible } from "@/lib/note-links";
 import type { Book } from "@/lib/bible";
 import { HIGHLIGHT_COLORS } from "@/lib/marks";
+import { canOpenNoteWindow } from "@/lib/platform";
 import { sendNoteLink } from "@/lib/note-window";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -419,7 +420,7 @@ export function InlineNoteEditor({ onAppLink }: { onAppLink?: (href: string) => 
       aria-label={label}
       data-note-editor
       onKeyDown={(e) => {
-        if (isPopOut(e)) {
+        if (canOpenNoteWindow() && isPopOut(e)) {
           e.preventDefault();
           e.stopPropagation();
           void popOutNote();
@@ -432,15 +433,17 @@ export function InlineNoteEditor({ onAppLink }: { onAppLink?: (href: string) => 
     >
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-semibold">{label}</h4>
-        <button
-          type="button"
-          title={t("Open in window (Ctrl+Shift+O)")}
-          aria-label={t("Open in window (Ctrl+Shift+O)")}
-          onClick={() => void popOutNote()}
-          className="p-1 text-muted hover:text-accent"
-        >
-          <SquareArrowOutUpRight size={16} />
-        </button>
+        {canOpenNoteWindow() && (
+          <button
+            type="button"
+            title={t("Open in window (Ctrl+Shift+O)")}
+            aria-label={t("Open in window (Ctrl+Shift+O)")}
+            onClick={() => void popOutNote()}
+            className="p-1 text-muted hover:text-accent"
+          >
+            <SquareArrowOutUpRight size={16} />
+          </button>
+        )}
       </div>
       <NoteForm
         key={`${id}.${note.restart ?? 0}`}

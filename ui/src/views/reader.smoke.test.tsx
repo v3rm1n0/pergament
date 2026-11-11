@@ -236,4 +236,12 @@ describe("Reader", () => {
     expect(await screen.findByText("John 4")).toBeTruthy();
     expect(screen.getByTestId("where").textContent).toBe(where);
   });
+
+  it("render_page errors show as a toast", async () => {
+    backend.render_page = () => {
+      throw "publication removed";
+    };
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    expect(await screen.findByText("Cannot show page: publication removed")).toBeTruthy();
+  });
 });

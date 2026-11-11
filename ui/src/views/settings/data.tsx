@@ -10,6 +10,7 @@ import { api, type CacheUsage } from "@/lib/api";
 import { formatSize, rows } from "@/lib/cache";
 import { t, locale } from "@/lib/i18n";
 import { conflictText } from "@/lib/merge";
+import { isIOS } from "@/lib/platform";
 import { syncErrorText } from "@/lib/sync";
 import type { RollingSettings, SyncStatus } from "@/lib/types";
 
@@ -279,18 +280,20 @@ export function DataTab() {
           <NetworkBadge />
         </p>
       </section>
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">{t("Second display")}</h2>
-        <label className="flex cursor-pointer items-start gap-3">
-          <Switch checked={display.enabled} onCheckedChange={(on) => void display.setEnabled(on)} className="mt-0.5" />
-          <span>{t("Use a second display")}</span>
-        </label>
-        <p className="mt-2 max-w-xl text-sm text-muted">
-          {t(
-            "Opens a black window, fullscreen on another monitor if there is one, that shows the year text. Recordings and pictures you open are shown there too, without controls. If the window opens on the wrong screen, move it there and press F to switch to fullscreen.",
-          )}
-        </p>
-      </section>
+      {!isIOS && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold">{t("Second display")}</h2>
+          <label className="flex cursor-pointer items-start gap-3">
+            <Switch checked={display.enabled} onCheckedChange={(on) => void display.setEnabled(on)} className="mt-0.5" />
+            <span>{t("Use a second display")}</span>
+          </label>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            {t(
+              "Opens a black window, fullscreen on another monitor if there is one, that shows the year text. Recordings and pictures you open are shown there too, without controls. If the window opens on the wrong screen, move it there and press F to switch to fullscreen.",
+            )}
+          </p>
+        </section>
+      )}
       <section>
         <h2 className="mb-3 text-sm font-semibold">{t("Backup")}</h2>
         <div className="flex flex-wrap gap-2">
@@ -309,7 +312,7 @@ export function DataTab() {
           )}
         </p>
       </section>
-      <AutoBackupSection />
+      {!isIOS && <AutoBackupSection />}
       <CacheSection />
     </div>
   );

@@ -35,6 +35,7 @@ import {
   sendToNoteWindow,
   type NoteWindowMessage,
 } from "@/lib/note-window";
+import { canOpenNoteWindow, isIOS } from "@/lib/platform";
 import { DISPLAY_CLOSED, DISPLAY_READY, remember, sendToDisplay, type DisplayMessage } from "@/lib/display";
 import { currentView, initialNav, navReducer, type Section, type View } from "@/lib/nav";
 import {
@@ -485,10 +486,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       // Restoring spreads to every synced computer, so when the settings cannot be read, warn anyway.
-      const syncing = await api.autoSettings().then(
-        (a) => a.sync.folder !== null,
-        () => true,
-      );
+      const syncing = isIOS
+        ? false
+        : await api.autoSettings().then(
+            (a) => a.sync.folder !== null,
+            () => true,
+          );
       const warning = t("Restoring replaces all highlights, notes, tags and bookmarks with those in the backup.");
       const ok = await ask(syncing ? `${warning} ${t("Sync is on: this also changes your data on the other synced computers.")}` : warning, {
         title: t("Restore backup?"),
@@ -545,7 +548,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [toast, turnDisplayOff],
   );
   useEffect(() => {
-    if (loadSecondDisplay()) {
+    if (!isIOS && loadSecondDisplay()) {
       api.openDisplay().catch((e) => {
         toast(t("Cannot open the second display: {error}", { error: String(e) }));
         turnDisplayOff();
@@ -720,7 +723,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const popOutNote = useCallback(() => moveToWindow(false), [moveToWindow]);
   const releaseNote = useCallback(() => {
     if (!noteRef.current || moving.current !== null) return;
-    if (noteDirty.current) return void moveToWindow(true);
+    // Without a window the draft stays and comes back with the pane.
+    if (noteDirty.current) return canOpenNoteWindow() ? void moveToWindow(true) : undefined;
     noteFields.current = null;
     setNote(null);
   }, [moveToWindow]);
@@ -731,7 +735,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
   const openNote = useCallback(
     async (draft: NoteDraft, { in: where = "window" }: { in?: "pane" | "window" } = {}) => {
-      if (where === "window") {
+      if (where === "window" && canOpenNoteWindow()) {
         // Moved text the window has not taken yet would be replaced without a question; its own text it asks about.
         if (movedPending.current) return noteWindowBusy();
         return void (await showInWindow({ id: Date.now(), draft }));
