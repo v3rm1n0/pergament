@@ -2835,6 +2835,9 @@ name = "pergament-ios"
 version = "1.8.0"
 dependencies = [
  "pergament",
+ "pergament-app-core",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

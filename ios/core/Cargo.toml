@@ -8,7 +8,12 @@ publish = false
 
 [lib]
 name = "pergament_ios"
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 pergament = { path = "../..", default-features = false }
+pergament-app-core = { path = "../../app-core" }
+serde_json = "1.0.151"
+
+[dev-dependencies]
+tempfile = "3.27.0"
