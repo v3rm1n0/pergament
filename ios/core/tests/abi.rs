@@ -131,5 +131,18 @@ fn open_failure_reports_the_error() {
     assert!(!err.is_null());
     let msg = unsafe { CStr::from_ptr(err) }.to_str().unwrap();
     assert!(!msg.is_empty());
-    unsafe { pergament_string_free(err as *mut c_char) };
+    unsafe { pergament_string_free(err) };
+}
+
+#[test]
+fn null_name_replies_with_an_error() {
+    let f = open();
+    // SAFETY: handle is live; a NULL name is allowed.
+    unsafe { pergament_invoke(f.handle, 9, ptr::null(), ptr::null()) };
+    let (id, ok, _) =
+        f.rx.recv_timeout(Duration::from_secs(10))
+            .expect("no reply within 10 s");
+    assert_eq!((id, ok), (9, 0));
+    assert!(f.rx.recv_timeout(Duration::from_millis(200)).is_err());
+    unsafe { pergament_close(f.handle) };
 }

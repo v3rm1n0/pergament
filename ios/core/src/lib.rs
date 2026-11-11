@@ -137,7 +137,10 @@ pub unsafe extern "C" fn pergament_open(
     }
 }
 
-/// Run a command on a worker thread; `reply` is called exactly once, on that thread.
+/// Run a command on a worker thread; `reply` is called exactly once. It normally arrives on the
+/// worker thread, but is called on the calling thread, before this returns, if the worker cannot
+/// be started. The caller must therefore register `id` before calling and must not hold a lock
+/// the callback takes.
 ///
 /// # Safety
 /// `handle` must be NULL or from `pergament_open` and not yet closed; the strings NULL or NUL-terminated.
@@ -156,33 +159,30 @@ pub unsafe extern "C" fn pergament_invoke(
     let callbacks = handle.callbacks;
     // SAFETY: per the contract.
     let (name, args) = unsafe { (read_str(name), read_str(args_json)) };
-    let Some(name) = name.map(str::to_owned) else {
-        callbacks.reply_err(id, "the command name is missing or not UTF-8");
-        return;
-    };
+    let name = name.map(str::to_owned);
     let args = match args {
         Some(text) if !text.trim().is_empty() => text.to_owned(),
         _ => "null".to_owned(),
     };
     let core = Arc::clone(&handle.core);
     let spawned = std::thread::Builder::new()
-        .name(format!("pergament-{name}"))
-        .spawn({
-            let name = name.clone();
-            move || {
-                let args = match serde_json::from_str(&args) {
-                    Ok(args) => args,
-                    Err(e) => return callbacks.reply_err(id, &format!("{name}: {e}")),
-                };
-                match catch_unwind(AssertUnwindSafe(|| core.invoke(&name, args))) {
-                    Ok(Ok(value)) => callbacks.reply(id, true, &value.to_string()),
-                    Ok(Err(message)) => callbacks.reply_err(id, &message),
-                    Err(_) => callbacks.reply_err(id, &format!("{name}: internal error")),
-                }
+        .name("pergament-invoke".to_owned())
+        .spawn(move || {
+            let Some(name) = name else {
+                return callbacks.reply_err(id, "the command name is missing or not UTF-8");
+            };
+            let args = match serde_json::from_str(&args) {
+                Ok(args) => args,
+                Err(e) => return callbacks.reply_err(id, &format!("{name}: {e}")),
+            };
+            match catch_unwind(AssertUnwindSafe(|| core.invoke(&name, args))) {
+                Ok(Ok(value)) => callbacks.reply(id, true, &value.to_string()),
+                Ok(Err(message)) => callbacks.reply_err(id, &message),
+                Err(_) => callbacks.reply_err(id, &format!("{name}: internal error")),
             }
         });
     if let Err(e) = spawned {
-        callbacks.reply_err(id, &format!("{name}: could not start a worker: {e}"));
+        callbacks.reply_err(id, &format!("could not start a worker: {e}"));
     }
 }
 
@@ -218,9 +218,9 @@ pub unsafe extern "C" fn pergament_close(handle: *mut c_void) {
 /// # Safety
 /// `s` must be NULL or a string produced by this library, freed at most once.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn pergament_string_free(s: *mut c_char) {
+pub unsafe extern "C" fn pergament_string_free(s: *const c_char) {
     if !s.is_null() {
         // SAFETY: allocated by `CString::into_raw` in `set_error`.
-        drop(unsafe { CString::from_raw(s) });
+        drop(unsafe { CString::from_raw(s.cast_mut()) });
     }
 }

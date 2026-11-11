@@ -34,7 +34,10 @@ void *pergament_open(const char *library_dir, const char *cache_dir,
 
 /*
  * Returns immediately; runs the command on a worker thread and calls reply
- * exactly once for `id`. NULL or empty args_json means JSON null. A NULL
+ * exactly once for `id`. reply normally arrives on the worker thread, but may
+ * be called on the calling thread before this returns if the worker cannot be
+ * started: register `id` before calling and do not hold a lock the callback
+ * takes. NULL or empty args_json means JSON null. A NULL
  * handle is ignored.
  */
 void pergament_invoke(void *handle, uint64_t id, const char *name, const char *args_json);
@@ -46,7 +49,7 @@ void pergament_backup(void *handle);
 void pergament_close(void *handle);
 
 /* Frees a string returned through error_out. NULL is ignored. */
-void pergament_string_free(char *s);
+void pergament_string_free(const char *s);
 
 #ifdef __cplusplus
 }
