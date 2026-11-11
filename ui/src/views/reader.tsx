@@ -601,7 +601,8 @@ export function ReaderView({
             <div
               className={cn(
                 "mx-auto py-6",
-                compact ? "px-4" : "px-12",
+                // The paging buttons are 32px at the edges; 36px keeps the text clear of them.
+                compact ? (paged ? "px-9" : "px-4") : "px-12",
                 layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"),
               )}
             >

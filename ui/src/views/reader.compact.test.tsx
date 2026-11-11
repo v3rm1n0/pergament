@@ -174,4 +174,12 @@ describe("reader on a phone", () => {
     const sheet = screen.getByLabelText("Study pane");
     expect(sheet.className).toContain("pt-[env(safe-area-inset-top)]");
   });
+
+  it("reserves a gutter for the paging buttons on a phone", async () => {
+    stubCompact(true);
+    await renderReaderWithStudy(); // a chapter is paged
+    const column = screen.getByText("For God loved the world").closest(".reader")!.parentElement!;
+    expect(column.className).toContain("px-9");
+    expect(column.className).not.toContain("px-4");
+  });
 });
