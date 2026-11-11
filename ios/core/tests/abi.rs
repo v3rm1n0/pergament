@@ -10,6 +10,9 @@ use pergament_ios::{
     pergament_media_status, pergament_open, pergament_string_free,
 };
 
+#[path = "../../../tests/common/mod.rs"]
+mod common;
+
 type Reply = (u64, c_int, String);
 
 unsafe extern "C" fn on_reply(ctx: *mut c_void, id: u64, ok: c_int, json: *const c_char) {
@@ -60,12 +63,73 @@ fn open() -> Fixture {
     }
 }
 
-fn call(f: &Fixture, id: u64, name: &str, args: &str) -> Reply {
+fn send(f: &Fixture, id: u64, name: &str, args: &str) {
     let (name, args) = (cstr(name), cstr(args));
     // SAFETY: handle is live and the strings outlive the call.
     unsafe { pergament_invoke(f.handle, id, name.as_ptr(), args.as_ptr()) };
+}
+
+fn call(f: &Fixture, id: u64, name: &str, args: &str) -> Reply {
+    send(f, id, name, args);
     f.rx.recv_timeout(Duration::from_secs(10))
         .expect("no reply within 10 s")
+}
+
+/// Import one synthetic publication and return the target of its first document.
+fn import_publication(f: &Fixture) -> serde_json::Value {
+    let file = f.library.with_file_name("tst_E.jwpub");
+    common::Fixture::default().write_to(&file);
+    let args = serde_json::json!({ "paths": [file.to_str().unwrap()] }).to_string();
+    let (_, ok, json) = call(f, 100, "import_files", &args);
+    assert_eq!(ok, 1, "{json}");
+    let dir = pergament::Library::open(&f.library)
+        .unwrap()
+        .list()
+        .unwrap()[0]
+        .dir_name
+        .clone();
+    serde_json::json!({ "publication": dir, "kind": { "document": 1 } })
+}
+
+/// Desktop runs these commands one after another on its main thread; the UI sends a checkbox's
+/// toggles without waiting for each reply and relies on that order.
+#[test]
+fn synchronous_commands_run_in_arrival_order() {
+    let f = open();
+    let target = import_publication(&f);
+    let answer = |value: &str| {
+        serde_json::json!({ "target": target, "tag": "tt1", "value": value }).to_string()
+    };
+    let read = serde_json::json!({ "target": target }).to_string();
+    for round in 0..50u64 {
+        let id = 1000 + round * 4;
+        send(&f, id, "save_answer", &answer("1"));
+        send(&f, id + 1, "page_user_data", &read);
+        send(&f, id + 2, "save_answer", &answer("0"));
+        send(&f, id + 3, "page_user_data", &read);
+        let mut replies = std::collections::BTreeMap::new();
+        for _ in 0..4 {
+            let (rid, ok, json) =
+                f.rx.recv_timeout(Duration::from_secs(10))
+                    .expect("no reply within 10 s");
+            assert_eq!(ok, 1, "{json}");
+            replies.insert(
+                rid,
+                serde_json::from_str::<serde_json::Value>(&json).unwrap(),
+            );
+        }
+        assert_eq!(
+            replies[&(id + 1)]["answers"]["tt1"],
+            "1",
+            "round {round}: a read after a write must see it"
+        );
+        assert_eq!(
+            replies[&(id + 3)]["answers"]["tt1"],
+            "0",
+            "round {round}: the last write must win"
+        );
+    }
+    unsafe { pergament_close(f.handle) };
 }
 
 #[test]

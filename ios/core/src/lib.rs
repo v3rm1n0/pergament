@@ -4,6 +4,7 @@ use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::io::Read;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
+use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, LazyLock};
 
 use pergament_app_core::api;
@@ -59,9 +60,65 @@ impl Host for Callbacks {
     }
 }
 
+/// The commands desktop declares as plain synchronous `#[tauri::command]`s (src-tauri/src/lib.rs).
+/// Tauri runs those on the main thread in arrival order, and the UI relies on it: it sends a
+/// checkbox's toggles without waiting for each reply. They share one serial worker here; the
+/// rest each get their own thread, as desktop's async commands do.
+const SERIAL: &[&str] = &[
+    "list_publications",
+    "publication",
+    "render_page",
+    "link_action",
+    "remove_publication",
+    "page_user_data",
+    "save_answer",
+    "add_mark",
+    "set_mark_color",
+    "delete_mark",
+    "save_note",
+    "delete_note",
+    "all_notes",
+    "tags",
+    "bookmarks",
+    "user_data_summary",
+    "open_location",
+    "running_jobs",
+];
+
+type Job = Box<dyn FnOnce() + Send>;
+
 struct Handle {
     core: Arc<Core>,
     callbacks: Callbacks,
+    /// Feeds the serial worker. Dropping it on close lets the worker finish the queued jobs and exit.
+    serial: Sender<Job>,
+}
+
+fn run_command(core: &Core, callbacks: Callbacks, id: u64, name: Option<String>, args: String) {
+    let Some(name) = name else {
+        return callbacks.reply_err(id, "the command name is missing or not UTF-8");
+    };
+    let args = match serde_json::from_str(&args) {
+        Ok(args) => args,
+        Err(e) => return callbacks.reply_err(id, &format!("{name}: {e}")),
+    };
+    match catch_unwind(AssertUnwindSafe(|| core.invoke(&name, args))) {
+        Ok(Ok(value)) => callbacks.reply(id, true, &value.to_string()),
+        Ok(Err(message)) => callbacks.reply_err(id, &message),
+        Err(_) => callbacks.reply_err(id, &format!("{name}: internal error")),
+    }
+}
+
+fn spawn_serial_worker() -> std::io::Result<Sender<Job>> {
+    let (tx, rx) = channel::<Job>();
+    std::thread::Builder::new()
+        .name("pergament-serial".to_owned())
+        .spawn(move || {
+            for job in rx {
+                job();
+            }
+        })?;
+    Ok(tx)
 }
 
 /// # Safety
@@ -127,23 +184,33 @@ pub unsafe extern "C" fn pergament_open(
         library: PathBuf::from(library),
         cache: PathBuf::from(cache),
     };
-    match Core::open(paths, Arc::new(callbacks)) {
-        Ok(core) => Box::into_raw(Box::new(Handle {
-            core: Arc::new(core),
-            callbacks,
-        }))
-        .cast(),
+    let core = match Core::open(paths, Arc::new(callbacks)) {
+        Ok(core) => core,
         Err(message) => {
             set_error(error_out, &message);
-            std::ptr::null_mut()
+            return std::ptr::null_mut();
         }
-    }
+    };
+    let serial = match spawn_serial_worker() {
+        Ok(serial) => serial,
+        Err(e) => {
+            set_error(error_out, &format!("could not start a worker: {e}"));
+            return std::ptr::null_mut();
+        }
+    };
+    Box::into_raw(Box::new(Handle {
+        core: Arc::new(core),
+        callbacks,
+        serial,
+    }))
+    .cast()
 }
 
-/// Run a command on a worker thread; `reply` is called exactly once. It normally arrives on the
-/// worker thread, but is called on the calling thread, before this returns, if the worker cannot
-/// be started. The caller must therefore register `id` before calling and must not hold a lock
-/// the callback takes.
+/// Run a command on a worker thread; `reply` is called exactly once. The commands desktop runs
+/// synchronously ([`SERIAL`]) run one at a time in the order of the calls; the others each get
+/// their own thread. The reply normally arrives on the worker thread, but is called on the calling
+/// thread, before this returns, if the worker cannot be reached. The caller must therefore
+/// register `id` before calling and must not hold a lock the callback takes.
 ///
 /// # Safety
 /// `handle` must be NULL or from `pergament_open` and not yet closed; the strings NULL or NUL-terminated.
@@ -168,22 +235,17 @@ pub unsafe extern "C" fn pergament_invoke(
         _ => "null".to_owned(),
     };
     let core = Arc::clone(&handle.core);
+    let serial = name.as_deref().is_some_and(|name| SERIAL.contains(&name));
+    let job = move || run_command(&core, callbacks, id, name, args);
+    if serial {
+        if handle.serial.send(Box::new(job)).is_err() {
+            callbacks.reply_err(id, "the command worker has stopped");
+        }
+        return;
+    }
     let spawned = std::thread::Builder::new()
         .name("pergament-invoke".to_owned())
-        .spawn(move || {
-            let Some(name) = name else {
-                return callbacks.reply_err(id, "the command name is missing or not UTF-8");
-            };
-            let args = match serde_json::from_str(&args) {
-                Ok(args) => args,
-                Err(e) => return callbacks.reply_err(id, &format!("{name}: {e}")),
-            };
-            match catch_unwind(AssertUnwindSafe(|| core.invoke(&name, args))) {
-                Ok(Ok(value)) => callbacks.reply(id, true, &value.to_string()),
-                Ok(Err(message)) => callbacks.reply_err(id, &message),
-                Err(_) => callbacks.reply_err(id, &format!("{name}: internal error")),
-            }
-        });
+        .spawn(job);
     if let Err(e) = spawned {
         callbacks.reply_err(id, &format!("could not start a worker: {e}"));
     }
@@ -370,5 +432,55 @@ pub unsafe extern "C" fn pergament_string_free(s: *const c_char) {
     if !s.is_null() {
         // SAFETY: allocated by `CString::into_raw` in `set_error`.
         drop(unsafe { CString::from_raw(s.cast_mut()) });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct NoHost;
+
+    impl Host for NoHost {
+        fn emit(&self, _event: &str, _payload: serde_json::Value) {}
+    }
+
+    /// Names of the plain `#[tauri::command] fn`s, which Tauri runs on the main thread.
+    fn desktop_synchronous() -> Vec<&'static str> {
+        let source = include_str!("../../../src-tauri/src/lib.rs");
+        let mut lines = source.lines();
+        let mut names = Vec::new();
+        while let Some(line) = lines.next() {
+            if line.trim() != "#[tauri::command]" {
+                continue;
+            }
+            let Some(rest) = lines.next().and_then(|l| l.trim().strip_prefix("fn ")) else {
+                continue;
+            };
+            names.push(rest.split(['(', '<']).next().unwrap());
+        }
+        names
+    }
+
+    #[test]
+    fn serial_commands_are_the_synchronous_desktop_commands() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths {
+            library: dir.path().join("lib"),
+            cache: dir.path().join("cache"),
+        };
+        let core = Core::open(paths, Arc::new(NoHost)).unwrap();
+        let dispatched = |name: &str| match core.invoke(name, serde_json::json!({})) {
+            Err(e) => !e.starts_with("unknown command:"),
+            Ok(_) => true,
+        };
+        let mut expected: Vec<_> = desktop_synchronous()
+            .into_iter()
+            .filter(|name| dispatched(name))
+            .collect();
+        let mut serial = SERIAL.to_vec();
+        expected.sort_unstable();
+        serial.sort_unstable();
+        assert_eq!(serial, expected);
     }
 }

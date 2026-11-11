@@ -16,4 +16,9 @@ pergament-app-core = { path = "../../app-core" }
 serde_json = "1.0.151"
 
 [dev-dependencies]
+hex = "0.4.3"
+rusqlite = "0.40.2"
+sha1 = "0.11.0"
+sha2 = "0.11.0"
 tempfile = "3.27.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }

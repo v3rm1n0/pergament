@@ -10,6 +10,9 @@ import WebKit
 @MainActor
 final class Core: NSObject, WKScriptMessageHandler {
     static let messageHandler = "pergament"
+    /// Hands commands to the core in the order they arrive, which the core keeps for the commands
+    /// desktop runs synchronously. Serial is cheap here: `pergament_invoke` only queues the work.
+    private static let commands = DispatchQueue(label: "pergament.commands", qos: .userInitiated)
 
     nonisolated let version = String(cString: pergament_ios_version())
     private let bridge: JSBridge
@@ -71,9 +74,7 @@ final class Core: NSObject, WKScriptMessageHandler {
         nextNativeCall += 1
         return await withCheckedContinuation { continuation in
             bridge.waiting[id] = continuation
-            DispatchQueue.global(qos: .userInitiated).async {
-                pergament_invoke(handle.raw, id, name, args)
-            }
+            Self.commands.async { pergament_invoke(handle.raw, id, name, args) }
         }
     }
 
@@ -108,9 +109,7 @@ final class Core: NSObject, WKScriptMessageHandler {
         case .failure(let error):
             bridge.reply(id: id, ok: 0, json: jsString(error.message))
         case .success(let handle):
-            DispatchQueue.global(qos: .userInitiated).async {
-                pergament_invoke(handle.raw, id, name, args)
-            }
+            Self.commands.async { pergament_invoke(handle.raw, id, name, args) }
         }
     }
 }

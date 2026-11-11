@@ -2834,10 +2834,15 @@ dependencies = [
 name = "pergament-ios"
 version = "1.8.0"
 dependencies = [
+ "hex",
  "pergament",
  "pergament-app-core",
+ "rusqlite",
  "serde_json",
+ "sha1",
+ "sha2 0.11.0",
  "tempfile",
+ "zip",
 ]
 
 [[package]]

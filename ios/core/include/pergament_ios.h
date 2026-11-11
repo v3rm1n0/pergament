@@ -35,11 +35,13 @@ void *pergament_open(const char *library_dir, const char *cache_dir,
 
 /*
  * Returns immediately; runs the command on a worker thread and calls reply
- * exactly once for `id`. reply normally arrives on the worker thread, but may
- * be called on the calling thread before this returns if the worker cannot be
- * started: register `id` before calling and do not hold a lock the callback
- * takes. NULL or empty args_json means JSON null. A NULL
- * handle is ignored.
+ * exactly once for `id`. The commands the desktop app runs synchronously
+ * (user data edits and reads, page rendering, the library list) run one at a
+ * time in call order; the others each run on their own thread. reply normally
+ * arrives on the worker thread, but may be called on the calling thread before
+ * this returns if the worker cannot be reached: register `id` before calling
+ * and do not hold a lock the callback takes. NULL or empty args_json means
+ * JSON null. A NULL handle is ignored.
  */
 void pergament_invoke(void *handle, uint64_t id, const char *name, const char *args_json);
 
