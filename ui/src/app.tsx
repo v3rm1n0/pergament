@@ -1185,7 +1185,7 @@ export function BarButton({
       aria-label={t(label)}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-[719px]:size-11"
+      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 compact:size-11"
     >
       {children}
     </button>
@@ -1289,8 +1289,8 @@ export function AppBar({
   return (
     <header
       className={cn(
-        "flex h-12 shrink-0 items-center gap-1 border-b border-line bg-surface pl-4 pr-2 max-[719px]:h-14",
-        showBack && "max-[719px]:pl-1",
+        "flex h-12 shrink-0 items-center gap-1 border-b border-line bg-surface pl-4 pr-2 compact:h-14",
+        showBack && "compact:pl-1",
       )}
     >
       {showBack && (

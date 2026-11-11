@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* Phone-sized windows; the same width as COMPACT in ui/src/lib/viewport.ts. */
+@custom-variant compact (@media (max-width: 719px));
 
 /* "Ink & amber": charcoal bars and tiles, amber for verses, links and the active state. */
 :root {
@@ -782,7 +784,8 @@ body {
   margin-bottom: 0.4em;
 }
 
-/* iOS zooms the page when a focused field's text is under 16px, so on phone widths no field goes below that. */
+/* iOS zooms the page when a focused field's text is under 16px, so on phone widths no field goes below that.
+   Same width as the `compact` variant above and COMPACT in viewport.ts; raw CSS cannot use the variant. */
 @media (max-width: 719px) {
   input:not([type="checkbox"], [type="radio"]),
   textarea,

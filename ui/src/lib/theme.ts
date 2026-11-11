@@ -1,15 +1,6 @@
-import { useEffect, useState } from "react";
+import { useMediaQuery } from "./media-query";
 
 /** Whether the system asks for a dark appearance; follows changes while mounted. */
 export function useSystemDark(): boolean {
-  const query = "(prefers-color-scheme: dark)";
-  const [dark, setDark] = useState(() => window.matchMedia?.(query).matches ?? false);
-  useEffect(() => {
-    const mq = window.matchMedia?.(query);
-    if (!mq) return;
-    const on = (e: MediaQueryListEvent) => setDark(e.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return dark;
+  return useMediaQuery("(prefers-color-scheme: dark)");
 }
