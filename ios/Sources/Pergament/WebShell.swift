@@ -1,3 +1,4 @@
+import CPergament
 import SwiftUI
 import WebKit
 
@@ -12,6 +13,9 @@ struct WebShell: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(BundleSchemeHandler(), forURLScheme: appScheme)
+        let media = MediaSchemeHandler(core: core.handle)
+        config.setURLSchemeHandler(media, forURLScheme: String(cString: pergament_media_scheme()))
+        config.setURLSchemeHandler(media, forURLScheme: MediaSchemeHandler.assetScheme)
         config.userContentController.add(core, name: Core.messageHandler)
         // Runs before the shim, which reads these globals.
         config.userContentController.addUserScript(

@@ -45,6 +45,23 @@
     });
   }
 
+  // Desktop answers `media` in its Tauri shell; here the page fetches the URL from the jwmedia
+  // scheme handler (MediaSchemeHandler.swift) and the bytes never cross the JSON bridge.
+  const mediaPrefix = "jwmedia://localhost";
+
+  async function media(url) {
+    if (typeof url !== "string" || !url.startsWith(mediaPrefix)) throw "not a media URL";
+    const missing = `no image at ${url.slice(mediaPrefix.length)}`;
+    let response;
+    try {
+      response = await fetch(url);
+    } catch {
+      throw missing;
+    }
+    if (!response.ok) throw missing;
+    return response.arrayBuffer();
+  }
+
   window.__pergament_reply = (id, ok, json) => {
     const call = pending.get(id);
     if (!call) return;
@@ -97,7 +114,7 @@
       Reflect.deleteProperty(window, `_${id}`);
     },
 
-    // Nothing serves asset:// yet; an unencoded path would otherwise be looked up under web/ and 404 quietly.
+    // MediaSchemeHandler serves asset:// from the media folder; the core decodes the encoded path.
     convertFileSrc(path, protocol = "asset") {
       return `${protocol}://localhost/${encodeURIComponent(path)}`;
     },
@@ -120,6 +137,8 @@
           return Promise.resolve();
         case "plugin:app|version":
           return Promise.resolve(window.__PERGAMENT_VERSION__);
+        case "media":
+          return media(args?.url);
       }
       if (cmd.startsWith("plugin:")) {
         console.warn(`[ios] ${cmd} is not available yet`);

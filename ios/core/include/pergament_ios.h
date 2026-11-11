@@ -1,6 +1,7 @@
 #ifndef PERGAMENT_IOS_H
 #define PERGAMENT_IOS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -50,6 +51,42 @@ void pergament_close(void *handle);
 
 /* Frees a string returned through error_out. NULL is ignored. */
 void pergament_string_free(const char *s);
+
+/*
+ * Media responses for the two schemes the web view loads media from:
+ * pergament_media_scheme() (pictures) and "asset" (files in the media folder,
+ * the path being "/" + encodeURIComponent(absolute path)).
+ */
+
+/* The picture scheme ("jwmedia"). Static; do not free. */
+const char *pergament_media_scheme(void);
+
+/*
+ * Opens the response for `path` (the URL path, still percent-encoded) on
+ * `scheme`. `range` is the Range header value or NULL. BLOCKS: an uncached
+ * catalog picture is fetched from the network first, so never call this on the
+ * main thread. Returns NULL for an unknown scheme, a NULL handle, scheme or
+ * path, or an internal error; otherwise a response (possibly 403, 404 or 416)
+ * released by pergament_media_free. The response does not reference the handle,
+ * so it stays usable after pergament_close.
+ */
+void *pergament_media_open(void *handle, const char *scheme, const char *path, const char *range);
+
+/* The HTTP status; 0 for NULL. */
+int pergament_media_status(const void *media);
+
+/* The headers as a JSON object of strings. Valid until pergament_media_free; do not free. */
+const char *pergament_media_headers(const void *media);
+
+/*
+ * Reads up to `cap` body bytes into `buf`: returns the count, 0 at the end of
+ * the body, -1 on a read error or a NULL argument. Use one response from one
+ * thread at a time.
+ */
+intptr_t pergament_media_read(void *media, uint8_t *buf, size_t cap);
+
+/* Releases a response. NULL is ignored. */
+void pergament_media_free(void *media);
 
 #ifdef __cplusplus
 }

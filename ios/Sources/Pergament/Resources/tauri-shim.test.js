@@ -148,3 +148,61 @@ test("emit and emit_to to this webview reach local listeners", async () => {
   expect(seen).toEqual(["a", "b"]);
   expect(posted).toEqual([]);
 });
+
+function fakeFetch(respond) {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return respond(url);
+  };
+  return { calls, restore: () => (globalThis.fetch = original) };
+}
+
+test("media resolves with the bytes the jwmedia handler serves", async () => {
+  const bytes = new Uint8Array([1, 2, 3]).buffer;
+  const fetch = fakeFetch(() => ({ ok: true, status: 200, arrayBuffer: async () => bytes }));
+  try {
+    const result = await internals().invoke("media", { url: "jwmedia://localhost/w_E/img_1.jpg" });
+    expect(new Uint8Array(result)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(fetch.calls).toEqual(["jwmedia://localhost/w_E/img_1.jpg"]);
+    expect(posted).toEqual([]);
+  } finally {
+    fetch.restore();
+  }
+});
+
+test("media rejects a missing picture with desktop's text", async () => {
+  const fetch = fakeFetch(() => ({ ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) }));
+  try {
+    await expect(internals().invoke("media", { url: "jwmedia://localhost/w_E/no.jpg" })).rejects.toBe(
+      "no image at /w_E/no.jpg",
+    );
+  } finally {
+    fetch.restore();
+  }
+});
+
+test("media rejects a failed fetch with desktop's text", async () => {
+  const fetch = fakeFetch(() => {
+    throw new TypeError("Load failed");
+  });
+  try {
+    await expect(internals().invoke("media", { url: "jwmedia://localhost/catalog/x.jpg" })).rejects.toBe(
+      "no image at /catalog/x.jpg",
+    );
+  } finally {
+    fetch.restore();
+  }
+});
+
+test("media rejects a URL on another scheme without fetching it", async () => {
+  const fetch = fakeFetch(() => ({ ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(0) }));
+  try {
+    await expect(internals().invoke("media", { url: "https://example.org/x.jpg" })).rejects.toBe("not a media URL");
+    expect(fetch.calls).toEqual([]);
+    expect(posted).toEqual([]);
+  } finally {
+    fetch.restore();
+  }
+});

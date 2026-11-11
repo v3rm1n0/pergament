@@ -1,10 +1,13 @@
 //! C bridge from the Pergament core to the iOS shell.
 
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
+use std::io::Read;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
+use pergament_app_core::api;
+use pergament_app_core::media::{self, MediaBody, MediaRoute};
 use pergament_app_core::{Core, Host, Paths};
 
 const VERSION: &CStr =
@@ -211,6 +214,147 @@ pub unsafe extern "C" fn pergament_close(handle: *mut c_void) {
     // SAFETY: the handle came from `Box::into_raw` and the caller gives up ownership.
     let handle = unsafe { Box::from_raw(handle.cast::<Handle>()) };
     handle.core.backup_on_close();
+}
+
+static MEDIA_SCHEME: LazyLock<CString> =
+    LazyLock::new(|| CString::new(api::MEDIA_SCHEME).expect("the media scheme has no NUL byte"));
+
+/// The scheme of picture URLs. The pointer is `'static`; the caller must not free it.
+#[unsafe(no_mangle)]
+pub extern "C" fn pergament_media_scheme() -> *const c_char {
+    MEDIA_SCHEME.as_ptr()
+}
+
+/// An opened media response. Owns its file, so it does not depend on the handle staying open.
+struct Media {
+    status: c_int,
+    headers: CString,
+    body: MediaBody,
+}
+
+/// Open the response for a picture (`jwmedia`) or media folder file (`asset`) URL path. Blocks,
+/// possibly on the network. Returns NULL for an unknown scheme, a NULL or non-UTF-8 argument, or
+/// an internal error; otherwise a response released by `pergament_media_free`.
+///
+/// # Safety
+/// `handle` must be NULL or from `pergament_open` and not yet closed; the strings NULL or NUL-terminated.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pergament_media_open(
+    handle: *mut c_void,
+    scheme: *const c_char,
+    path: *const c_char,
+    range: *const c_char,
+) -> *mut c_void {
+    if handle.is_null() {
+        return std::ptr::null_mut();
+    }
+    // SAFETY: per the contract.
+    let (scheme, path) = unsafe { (read_str(scheme), read_str(path)) };
+    let (Some(scheme), Some(path)) = (scheme, path) else {
+        return std::ptr::null_mut();
+    };
+    let route = match scheme {
+        "asset" => MediaRoute::File,
+        s if s == api::MEDIA_SCHEME => MediaRoute::Picture,
+        _ => return std::ptr::null_mut(),
+    };
+    // SAFETY: per the contract.
+    let range = unsafe { read_str(range) };
+    // SAFETY: a live handle per the contract; the Arc keeps the core alive past a close.
+    let core = Arc::clone(&unsafe { &*handle.cast::<Handle>() }.core);
+    let opened = catch_unwind(AssertUnwindSafe(|| {
+        let response = media::media_response(&core, route, path, range);
+        let headers: serde_json::Map<String, serde_json::Value> = response
+            .headers
+            .into_iter()
+            .map(|(name, value)| (name, value.into()))
+            .collect();
+        Media {
+            status: c_int::from(response.status),
+            headers: CString::new(serde_json::Value::Object(headers).to_string())
+                .unwrap_or_default(),
+            body: response.body,
+        }
+    }));
+    match opened {
+        Ok(media) => Box::into_raw(Box::new(media)).cast(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// The HTTP status of a response; 0 for NULL.
+///
+/// # Safety
+/// `media` must be NULL or from `pergament_media_open` and not yet freed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pergament_media_status(media: *const c_void) -> c_int {
+    if media.is_null() {
+        return 0;
+    }
+    // SAFETY: a live response per the contract.
+    unsafe { &*media.cast::<Media>() }.status
+}
+
+/// The response headers as a JSON object of strings, valid until `pergament_media_free`.
+/// NULL for a NULL response.
+///
+/// # Safety
+/// `media` must be NULL or from `pergament_media_open` and not yet freed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pergament_media_headers(media: *const c_void) -> *const c_char {
+    if media.is_null() {
+        return std::ptr::null();
+    }
+    // SAFETY: a live response per the contract.
+    unsafe { &*media.cast::<Media>() }.headers.as_ptr()
+}
+
+/// Read up to `cap` body bytes into `buf`. Returns the count, 0 at the end, -1 on a read error
+/// or a NULL argument.
+///
+/// # Safety
+/// `media` must be NULL or from `pergament_media_open` and not yet freed, used by one thread at a
+/// time; `buf` must be NULL or writable for `cap` bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pergament_media_read(
+    media: *mut c_void,
+    buf: *mut u8,
+    cap: usize,
+) -> isize {
+    if media.is_null() || buf.is_null() {
+        return -1;
+    }
+    // SAFETY: a live response used by this thread alone, and a writable buffer, per the contract.
+    let (media, buf) = unsafe {
+        (
+            &mut *media.cast::<Media>(),
+            std::slice::from_raw_parts_mut(buf, cap.min(isize::MAX as usize)),
+        )
+    };
+    let read = catch_unwind(AssertUnwindSafe(|| {
+        loop {
+            match media.body.read(buf) {
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                other => return other,
+            }
+        }
+    }));
+    match read {
+        Ok(Ok(n)) => n as isize,
+        _ => -1,
+    }
+}
+
+/// Release a response. NULL is ignored.
+///
+/// # Safety
+/// `media` must be NULL or from `pergament_media_open`, freed at most once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pergament_media_free(media: *mut c_void) {
+    if !media.is_null() {
+        // SAFETY: the response came from `Box::into_raw` and the caller gives up ownership.
+        drop(unsafe { Box::from_raw(media.cast::<Media>()) });
+    }
 }
 
 /// Free a string returned through `error_out`. NULL is ignored.

@@ -4,7 +4,9 @@ use std::sync::mpsc::{Sender, channel};
 use std::time::Duration;
 
 use pergament_ios::{
-    pergament_backup, pergament_close, pergament_invoke, pergament_open, pergament_string_free,
+    pergament_backup, pergament_close, pergament_invoke, pergament_media_free,
+    pergament_media_headers, pergament_media_open, pergament_media_read, pergament_media_scheme,
+    pergament_media_status, pergament_open, pergament_string_free,
 };
 
 type Reply = (u64, c_int, String);
@@ -25,6 +27,7 @@ fn cstr(s: &str) -> CString {
 struct Fixture {
     handle: *mut c_void,
     rx: std::sync::mpsc::Receiver<Reply>,
+    library: std::path::PathBuf,
     _dir: tempfile::TempDir,
 }
 
@@ -51,6 +54,7 @@ fn open() -> Fixture {
     Fixture {
         handle,
         rx,
+        library: dir.path().join("lib"),
         _dir: dir,
     }
 }
@@ -145,4 +149,95 @@ fn null_name_replies_with_an_error() {
     assert_eq!((id, ok), (9, 0));
     assert!(f.rx.recv_timeout(Duration::from_millis(200)).is_err());
     unsafe { pergament_close(f.handle) };
+}
+
+/// `/` + encodeURIComponent(path), as the shim's convertFileSrc builds it.
+fn asset_path(path: &std::path::Path) -> CString {
+    let mut out = String::from("/");
+    for b in path.to_str().unwrap().bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    cstr(&out)
+}
+
+#[test]
+fn media_scheme_is_the_picture_scheme() {
+    let scheme = unsafe { CStr::from_ptr(pergament_media_scheme()) };
+    assert_eq!(scheme.to_str().unwrap(), "jwmedia");
+}
+
+#[test]
+fn media_serves_a_byte_range_and_outlives_the_handle() {
+    let f = open();
+    let media_dir = pergament::Library::open(&f.library).unwrap().media_dir();
+    let file = media_dir.join("a b.mp4");
+    std::fs::write(&file, (0u8..10).collect::<Vec<_>>()).unwrap();
+    let (scheme, path, range) = (cstr("asset"), asset_path(&file), cstr("bytes=2-4"));
+    // SAFETY: handle is live and the strings outlive the call.
+    let media =
+        unsafe { pergament_media_open(f.handle, scheme.as_ptr(), path.as_ptr(), range.as_ptr()) };
+    assert!(!media.is_null());
+    unsafe { pergament_close(f.handle) };
+
+    assert_eq!(unsafe { pergament_media_status(media) }, 206);
+    let headers = unsafe { CStr::from_ptr(pergament_media_headers(media)) };
+    let headers: serde_json::Value = serde_json::from_str(headers.to_str().unwrap()).unwrap();
+    assert_eq!(headers["Content-Range"], "bytes 2-4/10");
+    assert_eq!(headers["Content-Length"], "3");
+    assert_eq!(headers["Content-Type"], "video/mp4");
+
+    let mut body = Vec::new();
+    let mut buf = [0u8; 2];
+    loop {
+        let n = unsafe { pergament_media_read(media, buf.as_mut_ptr(), buf.len()) };
+        assert!(n >= 0);
+        if n == 0 {
+            break;
+        }
+        body.extend_from_slice(&buf[..n as usize]);
+    }
+    assert_eq!(body, [2, 3, 4]);
+    unsafe { pergament_media_free(media) };
+}
+
+#[test]
+fn a_missing_picture_is_an_empty_404() {
+    let f = open();
+    let (scheme, path) = (cstr("jwmedia"), cstr("/nope/img_1.jpg"));
+    let media =
+        unsafe { pergament_media_open(f.handle, scheme.as_ptr(), path.as_ptr(), ptr::null()) };
+    assert!(!media.is_null());
+    assert_eq!(unsafe { pergament_media_status(media) }, 404);
+    let headers = unsafe { CStr::from_ptr(pergament_media_headers(media)) };
+    assert_eq!(headers.to_str().unwrap(), "{}");
+    let mut buf = [0u8; 4];
+    assert_eq!(
+        unsafe { pergament_media_read(media, buf.as_mut_ptr(), buf.len()) },
+        0
+    );
+    unsafe { pergament_media_free(media) };
+    unsafe { pergament_close(f.handle) };
+}
+
+#[test]
+fn media_open_rejects_an_unknown_scheme_and_null_arguments() {
+    let f = open();
+    let (other, asset, path) = (cstr("https"), cstr("asset"), cstr("/x"));
+    unsafe {
+        assert!(
+            pergament_media_open(f.handle, other.as_ptr(), path.as_ptr(), ptr::null()).is_null()
+        );
+        assert!(pergament_media_open(f.handle, asset.as_ptr(), ptr::null(), ptr::null()).is_null());
+        assert!(pergament_media_open(f.handle, ptr::null(), path.as_ptr(), ptr::null()).is_null());
+        assert!(
+            pergament_media_open(ptr::null_mut(), asset.as_ptr(), path.as_ptr(), ptr::null())
+                .is_null()
+        );
+        pergament_media_free(ptr::null_mut());
+        pergament_close(f.handle);
+    }
 }

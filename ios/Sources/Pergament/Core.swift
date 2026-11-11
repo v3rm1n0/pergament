@@ -45,6 +45,11 @@ final class Core: NSObject, WKScriptMessageHandler {
         }
     }
 
+    /// The open core, or nil if it failed to open.
+    var handle: CoreHandle? {
+        if case .success(let handle) = opened { handle } else { nil }
+    }
+
     /// Where replies and events go. Held weakly; the web view owns this handler through its configuration.
     func attach(_ webView: WKWebView) {
         bridge.webView = webView
@@ -75,7 +80,7 @@ private struct OpenError: Error {
 }
 
 // The header makes the handle usable from any thread; the raw pointer type just can't say so.
-private struct CoreHandle: @unchecked Sendable {
+struct CoreHandle: @unchecked Sendable {
     let raw: UnsafeMutableRawPointer
 }
 
