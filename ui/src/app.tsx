@@ -509,6 +509,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         toast(t("Restore failed: {error}", { error: String(e) }));
       }
+    } catch (e) {
+      toast(t("Restore failed: {error}", { error: String(e) }));
     } finally {
       restoring.current = false;
     }
