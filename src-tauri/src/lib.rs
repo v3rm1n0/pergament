@@ -5,6 +5,7 @@ pub mod app_update;
 pub use pergament_app_core::{api, auto};
 
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, OnceLock};
@@ -21,6 +22,7 @@ use pergament::remote;
 use pergament::sync_snapshot::DeleteGuard;
 use pergament::userdata::{Loc, NoteInput, Range};
 use pergament_app_core::core::{CacheUsage, ImportResult};
+use pergament_app_core::media::{self, MediaRoute};
 use pergament_app_core::{Core, Host, Paths};
 use serde::Serialize;
 use tauri::http::{Response, StatusCode};
@@ -609,40 +611,21 @@ fn restart_app(app: AppHandle) {
 
 /// Whether serving `path` requires a network fetch (an uncached remote image).
 fn needs_fetch(app: &AppHandle, path: &str) -> bool {
-    api::remote_image(app.state::<Core>().cache(), path).is_some_and(|(_, f)| !f.is_file())
+    media::needs_fetch(&app.state::<Core>(), path)
 }
 
-/// Catalog and media images are fetched once (rate limited) and cached; publication
-/// images are read from the library.
+/// A picture, whole and with the two headers this protocol has always sent.
 fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
-    let state = app.state::<Core>();
-    let file = match api::remote_image(state.cache(), path) {
-        Some((url, cached)) => {
-            if !cached.is_file() {
-                let fetched = state.image_client().lock().ok().and_then(|client| {
-                    let mut ignore = |_: u64, _: Option<u64>| {};
-                    client
-                        .download(&url, &cached, &Default::default(), &mut ignore)
-                        .ok()
-                });
-                if fetched.is_none() {
-                    let _ = std::fs::remove_file(pergament::net::part_path(&cached));
-                }
-            }
-            cached.is_file().then_some(cached)
-        }
-        None => state
-            .lib()
-            .ok()
-            .and_then(|lib| api::media_file(&lib, &state.root().join("publications"), path)),
-    };
-    match file.and_then(|f| std::fs::read(&f).ok().map(|bytes| (f, bytes))) {
-        Some((f, bytes)) => Response::builder()
-            .header("Content-Type", api::mime_for(&f))
+    let mut picture = media::media_response(&app.state::<Core>(), MediaRoute::Picture, path);
+    let mut bytes = Vec::new();
+    let read = picture.status == 200 && picture.body.read_to_end(&mut bytes).is_ok();
+    match (read, picture.header("Content-Type")) {
+        (true, Some(mime)) => Response::builder()
+            .header("Content-Type", mime)
             .header("Cache-Control", "max-age=3600")
             .body(bytes)
             .unwrap_or_default(),
-        None => Response::builder()
+        _ => Response::builder()
             .status(StatusCode::NOT_FOUND)
             .body(Vec::new())
             .unwrap_or_default(),

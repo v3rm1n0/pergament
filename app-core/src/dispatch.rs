@@ -19,7 +19,7 @@ use crate::core::Core;
 /// Builders for synthetic `.jwpub` files, shared with the root crate's integration tests.
 #[cfg(test)]
 #[path = "../../tests/common/mod.rs"]
-mod common;
+pub(crate) mod common;
 
 /// Commands without arguments that go to the network when they run.
 #[cfg(test)]
