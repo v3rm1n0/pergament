@@ -28,4 +28,4 @@ cd ios && xtool dev     # builds, installs and launches on a connected device
 
 - Cross-compile the `pergament` crate for `aarch64-apple-ios` and route
   `invoke` to it over a C FFI or a `WKScriptMessageHandler`.
-- Touch-sized layout; the UI is laid out for a desktop window.
+- Sheet transition for the reader's study pane; the compact layout has no animation yet.

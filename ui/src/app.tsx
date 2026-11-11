@@ -70,6 +70,7 @@ import { useSystemDark } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { isoDate } from "@/lib/dates";
 import { scroller } from "@/lib/scroll";
+import { useCompact } from "@/lib/viewport";
 import { nothingSeen, syncNotices } from "@/lib/sync";
 import { resolveUiLang, setUiLang, t, type UiLangSetting } from "@/lib/i18n";
 import { LanguageMenu, type Translations } from "@/components/language-menu";
@@ -1120,6 +1121,53 @@ export function Rail() {
   );
 }
 
+/**
+ * The rail's sections as an iOS-style tab bar along the bottom, for windows too narrow for the rail. Settings is
+ * not a tab here; it stays in the top bar's menu.
+ */
+export function TabBar() {
+  const { section, switchTo, publications, lang, bibles } = useApp();
+  const bible = pickBible(bibleChoices(lang, publications, []), bibles[lang] ?? null);
+  const go = (to: Section, view: View) => switchTo(to, view, scroller()?.scrollTop);
+  const icon = { size: 22, strokeWidth: 1.6 };
+  const tabs: { to: Section; label: string; icon: ReactNode; view: View }[] = [
+    { to: "home", label: "Home", icon: <Home {...icon} />, view: { name: "home" } },
+    {
+      to: "bible",
+      label: "Bible",
+      icon: <BookOpen {...icon} />,
+      view: bible ? { name: "publication", dir: bible.dir! } : { name: "bible" },
+    },
+    { to: "library", label: "Library", icon: <LibraryBig {...icon} />, view: { name: "library" } },
+    { to: "meetings", label: "Meetings", icon: <Users {...icon} />, view: { name: "meetings" } },
+    { to: "personal", label: "Personal Study", icon: <Gem {...icon} />, view: { name: "personal" } },
+  ];
+  return (
+    <nav
+      aria-label={t("Main navigation")}
+      className="flex shrink-0 items-stretch border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+    >
+      {tabs.map((tab) => {
+        const active = section === tab.to;
+        return (
+          <button
+            key={tab.to}
+            onClick={() => go(tab.to, tab.view)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 pt-1.5 pb-1 text-[10px] leading-none",
+              active ? "text-accent" : "text-muted",
+            )}
+          >
+            {tab.icon}
+            <span className="max-w-full truncate">{t(tab.label)}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function BarButton({
   label,
   onClick,
@@ -1137,7 +1185,7 @@ export function BarButton({
       aria-label={t(label)}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-bar hover:text-fg focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-[719px]:size-11"
     >
       {children}
     </button>
@@ -1231,11 +1279,25 @@ export function AppBar({
   subtitle?: string;
   children?: ReactNode;
 }) {
-  const { push, lang, setLang, publications, section } = useApp();
+  const { push, back, canGoBack, lang, setLang, publications, section } = useApp();
   const libraryCodes = [...new Set(publications.map((p) => p.langCode).filter((c): c is string => !!c))];
   const translations = useBibleTranslations(section === "bible");
+  // Narrow windows have no title strip, so the back arrow lives here. A root screen has nothing to go back to,
+  // and iOS draws no arrow there either — so the tight gutter that makes room for it only applies when it exists.
+  const compact = useCompact();
+  const showBack = compact && canGoBack;
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-surface pl-4 pr-2">
+    <header
+      className={cn(
+        "flex h-12 shrink-0 items-center gap-1 border-b border-line bg-surface pl-4 pr-2 max-[719px]:h-14",
+        showBack && "max-[719px]:pl-1",
+      )}
+    >
+      {showBack && (
+        <BarButton label="Back" onClick={back}>
+          <ArrowLeft size={20} strokeWidth={1.6} />
+        </BarButton>
+      )}
       <div className="min-w-0 flex-1 leading-tight">
         <h1 className="truncate text-sm font-semibold">{title}</h1>
         {subtitle && <div className="truncate text-[13px] text-muted">{subtitle}</div>}

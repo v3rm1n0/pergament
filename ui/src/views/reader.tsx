@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChevronLeft, ChevronRight, Newspaper, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Newspaper, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { AppBar, BarButton, useApp } from "@/app";
 import {
   api,
@@ -25,6 +25,7 @@ import { GoToButton } from "@/components/go-to";
 import { OutlineSection } from "@/components/outline-section";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
+import { useCompact } from "@/lib/viewport";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
 import { ReferencePane, type PaneRef } from "@/components/reference-pane";
 import { usePublication } from "./publication";
@@ -88,6 +89,8 @@ export function ReaderView({
   const [research, setResearch] = useState<number[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [paneOpen, setPaneOpen] = useState(true);
+  // On a phone the study pane is a sheet over the text, not a column beside it.
+  const compact = useCompact();
   const articleRef = useRef<HTMLDivElement>(null);
   /** Answers typed on this page, which win over the loaded ones until they are reloaded. */
   const answers = useRef<Record<string, string>>({});
@@ -594,7 +597,13 @@ export function ReaderView({
             </>
           )}
           <div className="h-full overflow-y-auto bg-surface">
-            <div className={cn("mx-auto px-12 py-6", layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"))}>
+            <div
+              className={cn(
+                "mx-auto py-6",
+                compact ? "px-4" : "px-12",
+                layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"),
+              )}
+            >
               {split && (
                 <div
                   ref={articleRef}
@@ -616,14 +625,25 @@ export function ReaderView({
           </div>
         </div>
         {hasPane && paneOpen && refs.length > 0 && (
-          <aside aria-label={t("Study pane")} className="study-pane w-[min(44%,640px)] shrink-0 border-l border-line bg-surface text-[0.93rem] leading-relaxed">
-            <ReferencePane
-              pref={refs[refs.length - 1]}
-              onBack={() => setRefs((r) => r.slice(0, -1))}
-              onFollow={(href) => void follow(href, "push")}
-              onOpenSource={(href, url) => void openSource(href, url)}
-              onRetry={() => void follow(refs[refs.length - 1].href, "replace")}
-            />
+          <aside
+            aria-label={t("Study pane")}
+            className={cn(
+              "study-pane bg-surface text-[0.93rem] leading-relaxed",
+              compact
+                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+                : "w-[min(44%,640px)] shrink-0 border-l border-line",
+            )}
+          >
+            {compact && <SheetBar onClose={() => setPaneOpen(false)} />}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <ReferencePane
+                pref={refs[refs.length - 1]}
+                onBack={() => setRefs((r) => r.slice(0, -1))}
+                onFollow={(href) => void follow(href, "push")}
+                onOpenSource={(href, url) => void openSource(href, url)}
+                onRetry={() => void follow(refs[refs.length - 1].href, "replace")}
+              />
+            </div>
           </aside>
         )}
         {hasPane && paneOpen && refs.length === 0 && (
@@ -631,8 +651,14 @@ export function ReaderView({
             aria-label={t("Study pane")}
             ref={paneRef}
             onClick={onPaneClick}
-            className="study-pane w-[min(44%,640px)] shrink-0 overflow-y-auto border-l border-line bg-surface px-5 py-4 text-[0.93rem] leading-relaxed"
+            className={cn(
+              "study-pane overflow-y-auto bg-surface text-[0.93rem] leading-relaxed",
+              compact
+                ? "fixed inset-0 z-30 px-5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+                : "w-[min(44%,640px)] shrink-0 border-l border-line px-5 py-4",
+            )}
           >
+            {compact && <SheetBar onClose={() => setPaneOpen(false)} sticky />}
             {(user.notes.length > 0 || detached) && (
               <section className="mb-6 flex flex-col gap-2">
                 <h3 className="text-sm font-semibold">{t("My notes")}</h3>
@@ -699,6 +725,21 @@ export function ReaderView({
         />
       )}
     </>
+  );
+}
+
+/** On a phone the study pane covers the text, so it needs its own way back. `sticky` keeps it in view while the pane scrolls. */
+function SheetBar({ onClose, sticky }: { onClose: () => void; sticky?: boolean }) {
+  return (
+    <div className={cn("flex h-11 items-center justify-end", sticky && "sticky top-0 z-10 -mx-5 bg-surface px-5")}>
+      <button
+        aria-label={t("Close")}
+        onClick={onClose}
+        className="flex size-11 items-center justify-center text-muted hover:text-fg"
+      >
+        <X size={20} strokeWidth={1.6} />
+      </button>
+    </div>
   );
 }
 

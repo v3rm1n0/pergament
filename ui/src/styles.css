@@ -782,6 +782,20 @@ body {
   margin-bottom: 0.4em;
 }
 
+/* iOS zooms the page when a focused field's text is under 16px, so on phone widths no field goes below that. */
+@media (max-width: 719px) {
+  input:not([type="checkbox"], [type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  /* A reader answer line inherits the text size, which may be smaller still. */
+  .reader input.gen-field-line,
+  .reader textarea.gen-field-input {
+    font-size: max(16px, 1em);
+  }
+}
+
 /* ---------- Accessibility ---------- */
 /* Whatever has no focus style of its own gets the same outline, and nothing is left without one. */
 @layer base {
