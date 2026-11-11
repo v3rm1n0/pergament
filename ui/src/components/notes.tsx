@@ -17,10 +17,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
 import { useLongPress } from "@/lib/use-long-press";
 
-/** Color swatches plus note and delete actions, shown at a selection or highlight. */
+/** How close the toolbar may come to the edge of the screen. */
+const EDGE = 8;
+
+/**
+ * Color swatches plus note and delete actions, shown at a selection or highlight: centered above the point
+ * (`x`, `y`), or under it with `below`.
+ */
 export function MarkToolbar({
   x,
   y,
+  below,
   current,
   onColor,
   onNote,
@@ -29,6 +36,7 @@ export function MarkToolbar({
 }: {
   x: number;
   y: number;
+  below?: boolean;
   current?: number;
   onColor: (color: number) => void;
   onNote: () => void;
@@ -48,11 +56,22 @@ export function MarkToolbar({
       document.removeEventListener("keydown", esc);
     };
   }, [onClose]);
+  // Kept on the screen: on a phone the text reaches the edges and the toolbar is most of the width.
+  const [at, setAt] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const within = (v: number, room: number) => Math.max(EDGE, Math.min(v, room - EDGE));
+    setAt({
+      left: within(x - el.offsetWidth / 2, window.innerWidth - el.offsetWidth),
+      top: within(below ? y : y - el.offsetHeight, window.innerHeight - el.offsetHeight),
+    });
+  }, [x, y, below]);
   return (
     <div
       ref={ref}
-      style={{ left: x, top: y }}
-      className="fixed z-50 flex -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 shadow-sm"
+      style={at}
+      className="fixed z-50 flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 shadow-sm"
     >
       {HIGHLIGHT_COLORS.map((c) => (
         <button

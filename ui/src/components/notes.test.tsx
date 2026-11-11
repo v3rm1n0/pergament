@@ -11,7 +11,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: vi.fn() }));
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo } from "@tauri-apps/api/event";
-import { NoteCard, NoteForm } from "./notes";
+import { MarkToolbar, NoteCard, NoteForm } from "./notes";
 import type { Note } from "@/lib/api";
 
 const note: Note = {
@@ -27,7 +27,7 @@ const note: Note = {
   location: null,
 };
 
-const layout = ["scrollHeight", "clientHeight"].map((key) => [key, Object.getOwnPropertyDescriptor(HTMLElement.prototype, key)] as const);
+const layout = ["scrollHeight", "clientHeight", "offsetWidth", "offsetHeight"].map((key) => [key, Object.getOwnPropertyDescriptor(HTMLElement.prototype, key)] as const);
 
 afterEach(() => {
   cleanup();
@@ -132,6 +132,33 @@ describe("NoteCard", () => {
     render(<NoteCard note={{ ...note, title: "" }} expanded onClick={onClick} onToggle={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("MarkToolbar", () => {
+  const toolbar = (x: number, y: number, below?: boolean) => (
+    <MarkToolbar x={x} y={y} below={below} onColor={() => undefined} onNote={() => undefined} onClose={() => undefined} />
+  );
+  const box = () => screen.getByRole("button", { name: "Highlight Yellow" }).parentElement!.style;
+
+  it("stays on the screen when its text is at the edge", () => {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 280 });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 40 });
+    render(toolbar(20, 10));
+    expect([box().left, box().top]).toEqual(["8px", "8px"]);
+    cleanup();
+    render(toolbar(window.innerWidth - 20, window.innerHeight - 10, true));
+    expect([box().left, box().top]).toEqual([`${window.innerWidth - 288}px`, `${window.innerHeight - 48}px`]);
+  });
+
+  it("sits above its point, or under it when asked", () => {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 280 });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 40 });
+    render(toolbar(400, 300));
+    expect([box().left, box().top]).toEqual(["260px", "260px"]);
+    cleanup();
+    render(toolbar(400, 300, true));
+    expect([box().left, box().top]).toEqual(["260px", "300px"]);
   });
 });
 
