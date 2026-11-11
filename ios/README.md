@@ -28,4 +28,5 @@ cd ios && xtool dev     # builds, installs and launches on a connected device
 
 - Cross-compile the `pergament` crate for `aarch64-apple-ios` and route
   `invoke` to it over a C FFI or a `WKScriptMessageHandler`.
+- Clipboard and other secure-context APIs: `pergament://` is not a secure context, so `navigator.clipboard` is undefined until a native bridge exists.
 - Sheet transition for the reader's study pane; the compact layout has no animation yet.
