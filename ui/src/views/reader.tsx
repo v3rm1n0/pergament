@@ -25,7 +25,7 @@ import { GoToButton } from "@/components/go-to";
 import { OutlineSection } from "@/components/outline-section";
 import { splitPage, verseKeyFromId } from "@/lib/page";
 import { cn } from "@/lib/utils";
-import { useCompact } from "@/lib/viewport";
+import { isCompact, useCompact } from "@/lib/viewport";
 import { addDays, fromDateNumber, isoDate, longDate } from "@/lib/dates";
 import { ReferencePane, type PaneRef } from "@/components/reference-pane";
 import { usePublication } from "./publication";
@@ -88,7 +88,8 @@ export function ReaderView({
   /** Verses of the chapter the Research Guide has excerpts for. */
   const [research, setResearch] = useState<number[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [paneOpen, setPaneOpen] = useState(true);
+  // A phone shows the pane as a sheet over the text, so it waits for a tap; a desktop column is open from the start.
+  const [paneOpen, setPaneOpen] = useState(() => !isCompact());
   // On a phone the study pane is a sheet over the text, not a column beside it.
   const compact = useCompact();
   const articleRef = useRef<HTMLDivElement>(null);
