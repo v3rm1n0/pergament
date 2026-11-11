@@ -161,18 +161,32 @@ describe("reader on a phone", () => {
     expect(screen.getByLabelText("Study pane")).toBeTruthy();
   });
 
+  it("closes the sheet when another page replaces the chapter", async () => {
+    stubCompact(true);
+    const { rerender } = render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await paneToggle();
+    fireEvent.click(screen.getByRole("link", { name: /footnote/i }));
+    expect(screen.getByLabelText("Study pane")).toBeTruthy();
+    rerender(reader(chapterTarget("nwtsty_E", 43, 4)));
+    expect(screen.queryByLabelText("Study pane")).toBeNull();
+  });
+
   it("keeps the column open by default on desktop", async () => {
     stubCompact(false);
     await renderReaderWithStudy();
     expect(screen.getByLabelText("Study pane")).toBeTruthy();
   });
 
-  it("gives the notes sheet the top inset", async () => {
+  it("keeps the notes sheet's close bar below the status bar", async () => {
     stubCompact(true);
     await renderReaderWithNotes();
     fireEvent.click(screen.getByLabelText("Show study pane"));
     const sheet = screen.getByLabelText("Study pane");
     expect(sheet.className).toContain("pt-[env(safe-area-inset-top)]");
+    // The sheet itself does not scroll; a sticky bar would slide under the status bar.
+    const scroller = sheet.querySelector("[data-sheet-scroll]");
+    expect(scroller).toBeTruthy();
+    expect(scroller!.contains(screen.getByLabelText("Close"))).toBe(false);
   });
 
   it("reserves a gutter for the paging buttons on a phone", async () => {

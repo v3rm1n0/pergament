@@ -109,6 +109,8 @@ export function ReaderView({
     setSelected(null);
     answers.current = {};
     setRefs([]);
+    // A new page on a phone starts with the sheet shut; a note on it opens the sheet again once loaded.
+    if (isCompact()) setPaneOpen(false);
     api
       .renderPage(target)
       .then((p) => live && setPage(p))
@@ -654,64 +656,69 @@ export function ReaderView({
             ref={paneRef}
             onClick={onPaneClick}
             className={cn(
-              "study-pane overflow-y-auto bg-surface text-[0.93rem] leading-relaxed",
+              "study-pane bg-surface text-[0.93rem] leading-relaxed",
               compact
-                ? "fixed inset-0 z-30 px-5 pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))]"
-                : "w-[min(44%,640px)] shrink-0 border-l border-line px-5 py-4",
+                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)]"
+                : "overflow-y-auto w-[min(44%,640px)] shrink-0 border-l border-line px-5 py-4",
             )}
           >
             {compact && <SheetBar onClose={() => setPaneOpen(false)} />}
-            {(user.notes.length > 0 || detached) && (
-              <section className="mb-6 flex flex-col gap-2">
-                <h3 className="text-sm font-semibold">{t("My notes")}</h3>
-                {detached && <InlineNoteEditor onAppLink={followNoteLink} />}
-                {user.notes.map((n) => (
-                  <div key={n.guid} data-note={n.guid}>
-                    {inlineNote?.draft.note.guid === n.guid ? (
-                      <InlineNoteEditor onAppLink={followNoteLink} />
-                    ) : (
-                      <NoteCard
-                        note={n}
-                        expanded={expanded.has(n.guid)}
-                        onToggle={() => toggleNote(n.guid)}
-                        onClick={() => void openNote({ note: n }, { in: "pane" })}
-                        onAppLink={followNoteLink}
-                      />
-                    )}
-                  </div>
-                ))}
-              </section>
-            )}
-            {chapter && study ? (
-              <StudyPane
-                book={chapter.book}
-                chapter={chapter.chapter}
-                study={study}
-                selected={selected}
-                research={research}
-                onResearch={(verse) =>
-                  showRef(
-                    {
-                      kind: "research",
-                      href: `research:${target.publication}:${chapter.book}:${chapter.chapter}:${verse}`,
-                      dir: target.publication,
-                      book: chapter.book,
-                      chapter: chapter.chapter,
-                      verse,
-                    },
-                    "root",
-                  )
-                }
-              />
-            ) : (
-              docFootnotes.map((id) => (
-                <div
-                  key={id}
-                  className={cn("pane-content mb-3", selected === id && "selected")}
-                  dangerouslySetInnerHTML={{ __html: split!.footnotes[id] }}
+            <div
+              data-sheet-scroll={compact || undefined}
+              className={compact ? "min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(1rem+env(safe-area-inset-bottom))]" : undefined}
+            >
+              {(user.notes.length > 0 || detached) && (
+                <section className="mb-6 flex flex-col gap-2">
+                  <h3 className="text-sm font-semibold">{t("My notes")}</h3>
+                  {detached && <InlineNoteEditor onAppLink={followNoteLink} />}
+                  {user.notes.map((n) => (
+                    <div key={n.guid} data-note={n.guid}>
+                      {inlineNote?.draft.note.guid === n.guid ? (
+                        <InlineNoteEditor onAppLink={followNoteLink} />
+                      ) : (
+                        <NoteCard
+                          note={n}
+                          expanded={expanded.has(n.guid)}
+                          onToggle={() => toggleNote(n.guid)}
+                          onClick={() => void openNote({ note: n }, { in: "pane" })}
+                          onAppLink={followNoteLink}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+              {chapter && study ? (
+                <StudyPane
+                  book={chapter.book}
+                  chapter={chapter.chapter}
+                  study={study}
+                  selected={selected}
+                  research={research}
+                  onResearch={(verse) =>
+                    showRef(
+                      {
+                        kind: "research",
+                        href: `research:${target.publication}:${chapter.book}:${chapter.chapter}:${verse}`,
+                        dir: target.publication,
+                        book: chapter.book,
+                        chapter: chapter.chapter,
+                        verse,
+                      },
+                      "root",
+                    )
+                  }
                 />
-              ))
-            )}
+              ) : (
+                docFootnotes.map((id) => (
+                  <div
+                    key={id}
+                    className={cn("pane-content mb-3", selected === id && "selected")}
+                    dangerouslySetInnerHTML={{ __html: split!.footnotes[id] }}
+                  />
+                ))
+              )}
+            </div>
           </aside>
         )}
       </div>
@@ -730,10 +737,10 @@ export function ReaderView({
   );
 }
 
-/** On a phone the notes sheet covers the text, so it needs its own way back. It stays in view while the sheet scrolls. */
+/** On a phone the notes sheet covers the text, so it needs its own way back. It sits above the sheet's scrolling part. */
 function SheetBar({ onClose }: { onClose: () => void }) {
   return (
-    <div className="sticky top-0 z-10 -mx-5 flex h-11 items-center justify-end bg-surface px-5">
+    <div className="flex h-11 shrink-0 items-center justify-end px-5">
       <button
         aria-label={t("Close")}
         onClick={onClose}
