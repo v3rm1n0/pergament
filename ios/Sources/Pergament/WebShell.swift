@@ -33,7 +33,11 @@ final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
     private let root = Bundle.module.resourceURL!.appendingPathComponent("web", isDirectory: true)
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
-        guard let url = task.request.url else { return }
+        guard let url = task.request.url else {
+            // WebKit waits on a task that never finishes; fail it so the page sees an error instead.
+            task.didFailWithError(URLError(.badURL))
+            return
+        }
         var path = url.path
         if path.isEmpty || path == "/" { path = "/index.html" }
         let file = root.appendingPathComponent(path).standardizedFileURL
