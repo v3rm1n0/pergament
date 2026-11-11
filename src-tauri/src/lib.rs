@@ -616,7 +616,7 @@ fn needs_fetch(app: &AppHandle, path: &str) -> bool {
 
 /// A picture, whole and with the two headers this protocol has always sent.
 fn media_response(app: &AppHandle, path: &str) -> Response<Vec<u8>> {
-    let mut picture = media::media_response(&app.state::<Core>(), MediaRoute::Picture, path);
+    let mut picture = media::media_response(&app.state::<Core>(), MediaRoute::Picture, path, None);
     let mut bytes = Vec::new();
     let read = picture.status == 200 && picture.body.read_to_end(&mut bytes).is_ok();
     match (read, picture.header("Content-Type")) {
