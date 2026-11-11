@@ -43,6 +43,8 @@ final class Native {
     private let exportDir: URL
     /// The delegate of the picker or alert on screen, which UIKit holds only weakly.
     private var presenting: AnyObject?
+    /// Fails the dialog being waited for; set while one is.
+    private var refuse: (() -> Void)?
 
     init(core: @escaping (String, String) async -> NativeReply) {
         self.core = core
@@ -127,7 +129,17 @@ final class Native {
             return delegate
         }
         guard let urls, !urls.isEmpty else { return nil }
+        // The answer comes before UIKit finishes dismissing the picker; a dialog shown before then lands on the picker.
+        await waitUntilGone(picker)
         return try copyIn(urls)
+    }
+
+    private func waitUntilGone(_ controller: UIViewController) async {
+        for _ in 0..<40 {
+            if !onScreen(controller) { return }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        trace("the document picker was still on screen after 2 seconds")
     }
 
     private func copyIn(_ urls: [URL]) throws -> [String] {
@@ -173,8 +185,9 @@ final class Native {
         sheet.completionWithItemsHandler = { _, _, _, _ in
             if ours { try? FileManager.default.removeItem(at: file) }
         }
+        // The sheet is hosted in a system service, so UIKit's presentingViewController can stay nil
+        // even when the sheet appears; checking it here reports a failure for a sheet that is on screen.
         host.present(sheet, animated: true)
-        if sheet.presentingViewController == nil { throw NativeError(message: "could not show the share sheet") }
     }
 
     /// Presents `controller` and waits for the answer its delegate (made by `wire`) gives.
@@ -184,8 +197,21 @@ final class Native {
         guard presenting == nil else { throw NativeError(message: "another dialog is still open") }
         // Held while waiting below, so a second dialog cannot slip in.
         presenting = controller
-        defer { presenting = nil }
+        defer {
+            presenting = nil
+            refuse = nil
+        }
         let host = try await settledPresenter()
+        // UIKit refuses a presentation with only a log line, and then the answer would never come.
+        // Right after present() a controller that does appear is not attached to its presenter yet
+        // (the picker reported a failure while it was on screen), so the check waits.
+        let watchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self, !self.onScreen(controller) else { return }
+            trace("UIKit did not show \(type(of: controller)) on \(type(of: host)), in window \(host.view.window != nil)")
+            self.refuse?()
+        }
+        defer { watchdog.cancel() }
         return try await withCheckedThrowingContinuation { continuation in
             var resumed = false
             func resume(_ result: Result<T, NativeError>) {
@@ -194,12 +220,13 @@ final class Native {
                 continuation.resume(with: result)
             }
             presenting = wire { resume(.success($0)) }
+            refuse = { resume(.failure(NativeError(message: "could not show the dialog"))) }
             host.present(controller, animated: true)
-            // UIKit refuses a presentation with only a log line; without this the answer would never come.
-            if controller.presentingViewController == nil {
-                resume(.failure(NativeError(message: "could not show the dialog")))
-            }
         }
+    }
+
+    private func onScreen(_ controller: UIViewController) -> Bool {
+        controller.presentingViewController != nil || controller.viewIfLoaded?.window != nil
     }
 
     /// The presenter once no presentation or dismissal is running on it. The UI opens an alert
@@ -220,7 +247,10 @@ final class Native {
         guard var top = webView?.window?.rootViewController else {
             throw NativeError(message: "no window to show the dialog in")
         }
-        while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
+        // A controller that is not on screen cannot take a presentation, so it is never the presenter.
+        while let next = top.presentedViewController, !next.isBeingDismissed, next.isViewLoaded, next.view.window != nil {
+            top = next
+        }
         return top
     }
 

@@ -2,6 +2,7 @@ import CPergament
 import Foundation
 import UIKit
 import WebKit
+import os
 
 /// The Rust core for the app's lifetime. Receives `{id, name, args}` from the
 /// shim through the `pergament` script message handler and answers through
@@ -29,7 +30,8 @@ final class Core: NSObject, WKScriptMessageHandler {
         let ctx = Unmanaged.passRetained(bridge).toOpaque()
         opened = Self.open(ctx: ctx)
         super.init()
-        if case .failure(let error) = opened { NSLog("[pergament] core failed to open: %@", error.message) }
+        trace("started \(version)")
+        if case .failure(let error) = opened { trace("core failed to open: \(error.message)") }
     }
 
     private static func open(ctx: UnsafeMutableRawPointer) -> Result<CoreHandle, OpenError> {
@@ -91,7 +93,7 @@ final class Core: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let id = (body["id"] as? NSNumber)?.uint64Value else {
-            NSLog("[pergament] dropped a message without an id")
+            trace("dropped a message without an id")
             return
         }
         guard let name = body["name"] as? String, let args = body["args"] as? String else {
@@ -99,8 +101,10 @@ final class Core: NSObject, WKScriptMessageHandler {
             return
         }
         if Native.commands.contains(name) {
+            trace("\(name) asked")
             Task {
                 let reply = await native.run(name, args: args)
+                trace("\(name) answered \(reply.ok ? "ok" : "an error"): \(reply.json.prefix(200))")
                 bridge.reply(id: id, ok: reply.ok ? 1 : 0, json: reply.json)
             }
             return
@@ -112,6 +116,13 @@ final class Core: NSObject, WKScriptMessageHandler {
             Self.commands.async { pergament_invoke(handle.raw, id, name, args) }
         }
     }
+}
+
+private let logger = Logger(subsystem: "io.github.v3rm1n.pergament", category: "app")
+
+/// A line in the device log. NSLog text arrives there redacted as <private>, so this marks it public.
+func trace(_ text: String) {
+    logger.notice("[pergament] \(text, privacy: .public)")
 }
 
 private struct OpenError: Error {
@@ -158,6 +169,7 @@ private final class JSBridge {
             waiter.resume(returning: NativeReply(ok: ok != 0, json: json))
             return
         }
+        if ok == 0 { trace("a core command failed: \(json.prefix(200))") }
         run("window.__pergament_reply(\(id), \(ok), \(jsString(json)))")
     }
 
