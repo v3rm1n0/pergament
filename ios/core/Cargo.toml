@@ -1,0 +1,14 @@
+[package]
+name = "pergament-ios"
+version = "1.8.0"
+edition = "2024"
+description = "Pergament core as a static library for the iOS shell"
+license = "GPL-3.0-only"
+publish = false
+
+[lib]
+name = "pergament_ios"
+crate-type = ["staticlib"]
+
+[dependencies]
+pergament = { path = "../..", default-features = false }

@@ -48,6 +48,9 @@
             ./src
             ./tests
             ./src-tauri
+            # A workspace member, so cargo needs its manifest even when not building it.
+            ./ios/core/Cargo.toml
+            ./ios/core/src
             ./ui
             ./package.json
             ./bun.lock
@@ -219,6 +222,13 @@
             file
             xxd
             hexyl
+
+            # The nix rustc has no iOS std. rustup supplies a matching 1.98.1
+            # toolchain with aarch64-apple-ios for the ios/core build:
+            #   rustup toolchain install 1.98.1 --profile minimal --target aarch64-apple-ios
+            #   rustup run 1.98.1 cargo build -p pergament-ios --target aarch64-apple-ios
+            # It comes after cargo/rustc so their binaries win on PATH.
+            rustup
           ];
 
           buildInputs =

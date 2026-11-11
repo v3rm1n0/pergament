@@ -2815,6 +2815,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pergament-ios"
+version = "1.8.0"
+dependencies = [
+ "pergament",
+]
+
+[[package]]
 name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
