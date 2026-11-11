@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useLongPress } from "@/lib/use-long-press";
 
-function Target({ onPress }: { onPress: (e: { clientX: number; clientY: number }) => void }) {
-  return <div data-testid="t" {...useLongPress(onPress)} />;
+function Target({ onPress, onClick }: { onPress: (e: { clientX: number; clientY: number }) => void; onClick?: () => void }) {
+  return <div data-testid="t" onClick={onClick} {...useLongPress(onPress)} />;
 }
 
 const touch = { pointerType: "touch", clientX: 10, clientY: 20, pointerId: 1 };
@@ -71,5 +71,26 @@ describe("useLongPress", () => {
     fireEvent.pointerDown(screen.getByTestId("t"), { ...touch, pointerType: "mouse" });
     vi.advanceTimersByTime(1000);
     expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it("swallows the click that follows the release of a fired press", () => {
+    const onClick = vi.fn();
+    render(<Target onPress={vi.fn()} onClick={onClick} />);
+    fireEvent.pointerDown(screen.getByTestId("t"), touch);
+    vi.advanceTimersByTime(500);
+    fireEvent.pointerUp(screen.getByTestId("t"), touch);
+    fireEvent.click(screen.getByTestId("t"));
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("lets a later click through when none followed the fired press", () => {
+    const onClick = vi.fn();
+    render(<Target onPress={vi.fn()} onClick={onClick} />);
+    fireEvent.pointerDown(screen.getByTestId("t"), touch);
+    vi.advanceTimersByTime(500);
+    fireEvent.pointerUp(screen.getByTestId("t"), touch);
+    vi.advanceTimersByTime(100);
+    fireEvent.click(screen.getByTestId("t"));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 export interface PressPoint {
   clientX: number;
@@ -24,24 +24,42 @@ const SLOP = 10;
  */
 export function useLongPress(handler: (e: PressPoint) => void, ms = 500): PressHandlers {
   const latest = useRef(handler);
-  latest.current = handler;
+  useLayoutEffect(() => {
+    latest.current = handler;
+  });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const origin = useRef<PressPoint | null>(null);
   const fired = useRef(false);
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const cancel = () => {
     clearTimeout(timer.current);
     origin.current = null;
     window.removeEventListener("scroll", cancel, true);
   };
-  useEffect(() => cancel, []);
+  useEffect(
+    () => () => {
+      cancel();
+      clearTimeout(settle.current);
+    },
+    [],
+  );
+
+  /** The click of a fired press follows its release at once; if none comes, the next click is a real one. */
+  const release = () => {
+    cancel();
+    if (!fired.current) return;
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => (fired.current = false), 50);
+  };
 
   return useMemo(
     () => ({
       onPointerDown: (e) => {
+        clearTimeout(settle.current);
+        fired.current = false;
         if (e.pointerType === "mouse") return;
         cancel();
-        fired.current = false;
         origin.current = { clientX: e.clientX, clientY: e.clientY };
         const point = origin.current;
         window.addEventListener("scroll", cancel, true);
@@ -55,8 +73,8 @@ export function useLongPress(handler: (e: PressPoint) => void, ms = 500): PressH
         const o = origin.current;
         if (o && Math.hypot(e.clientX - o.clientX, e.clientY - o.clientY) >= SLOP) cancel();
       },
-      onPointerUp: cancel,
-      onPointerCancel: cancel,
+      onPointerUp: release,
+      onPointerCancel: release,
       onClickCapture: (e) => {
         if (!fired.current) return;
         fired.current = false;

@@ -274,10 +274,6 @@ export function NoteForm({
   useEffect(() => {
     if (focus) titleRef.current?.focus();
   }, [focus]);
-  /**
-   * Ctrl+L, or Cmd+L on a Mac, makes the selection a link; a Bible reference links to its verses. Ctrl+P does the same
-   * and opens the first verses linked, where the form can open them.
-   */
   /** Makes the selection a link, and opens the first verses linked when `open` and the form can open them. */
   const insertLink = (area: HTMLTextAreaElement, open: boolean) => {
     const edit = linkEdit(area.value, area.selectionStart, area.selectionEnd, books);
@@ -291,6 +287,10 @@ export function NoteForm({
     }
     if (open && edit.href) onOpenLink?.(edit.href);
   };
+  /**
+   * Ctrl+L, or Cmd+L on a Mac, makes the selection a link; a Bible reference links to its verses. Ctrl+P does the same
+   * and opens the first verses linked, where the form can open them.
+   */
   const onContentKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.nativeEvent.isComposing) return;
     const key = e.key.toLowerCase();
