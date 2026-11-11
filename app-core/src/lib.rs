@@ -3,5 +3,6 @@
 pub mod api;
 pub mod auto;
 pub mod core;
+mod dispatch;
 
 pub use crate::core::{Core, Host, Paths};

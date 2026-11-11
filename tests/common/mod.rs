@@ -86,11 +86,12 @@ impl Fixture {
         conn.execute_batch(
             "CREATE TABLE Publication (PublicationId INTEGER PRIMARY KEY, Title TEXT, ShortTitle TEXT,
                  Symbol TEXT NOT NULL, Year INTEGER NOT NULL, MepsLanguageIndex INTEGER NOT NULL,
-                 IssueTagNumber TEXT, PublicationType TEXT);",
+                 IssueTagNumber TEXT, PublicationType TEXT, UndatedSymbol TEXT);",
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO Publication VALUES (1, ?1, 'Test', ?2, ?3, ?4, ?5, 'Book')",
+            "INSERT INTO Publication (PublicationId, Title, ShortTitle, Symbol, Year, MepsLanguageIndex,
+                 IssueTagNumber, PublicationType) VALUES (1, ?1, 'Test', ?2, ?3, ?4, ?5, 'Book')",
             rusqlite::params![self.title, SYMBOL, YEAR, LANG, self.issue],
         )
         .unwrap();
