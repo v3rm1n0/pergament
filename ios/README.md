@@ -1,9 +1,10 @@
 # Pergament for iOS (experimental)
 
 An unstable, early port. It is a `WKWebView` shell around the desktop
-frontend, built with [xtool](https://xtool.sh) instead of Xcode. There is no
-Rust core yet: the UI renders, but every command fails with "not available on
-iOS yet".
+frontend, built with [xtool](https://xtool.sh) instead of Xcode. The Rust
+core (`app-core`, linked through `ios/core`) runs in the app and answers the
+UI's commands. Folder sync, background downloads and in-app updates are not
+available on iOS.
 
 ## Build
 
@@ -27,7 +28,7 @@ cd ios && xtool dev     # builds, installs and launches on a connected device
 
 ## Next
 
-- Cross-compile the `pergament` crate for `aarch64-apple-ios` and route
-  `invoke` to it over a C FFI or a `WKScriptMessageHandler`.
+- Check the app on a device; nothing has run on hardware yet (blocked by pairing).
+- Folder sync on iOS: needs security-scoped bookmarks through a document picker.
 - Clipboard and other secure-context APIs: `pergament://` is not a secure context, so `navigator.clipboard` is undefined until a native bridge exists.
-- Sheet transition for the reader's study pane; the compact layout has no animation yet.
+- Signing and App Store distribution.
