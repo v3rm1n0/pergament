@@ -7,9 +7,15 @@ let appScheme = "pergament"
 
 /// A full-screen web view showing the frontend from the bundled `web/` folder.
 struct WebShell: UIViewRepresentable {
+    let core: Core
+
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(BundleSchemeHandler(), forURLScheme: appScheme)
+        config.userContentController.add(core, name: Core.messageHandler)
+        // Runs before the shim, which reads these globals.
+        config.userContentController.addUserScript(
+            WKUserScript(source: nativeGlobals(), injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let shim = Bundle.module.url(forResource: "tauri-shim", withExtension: "js"),
             let source = try? String(contentsOf: shim, encoding: .utf8)
         {
@@ -21,8 +27,17 @@ struct WebShell: UIViewRepresentable {
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.scrollView.bounces = false
         web.isInspectable = true
+        core.attach(web)
         web.load(URLRequest(url: URL(string: "\(appScheme)://localhost/index.html")!))
         return web
+    }
+
+    private func nativeGlobals() -> String {
+        let device = UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+        return """
+            window.__PERGAMENT_DEVICE__ = \(jsString(device));
+            window.__PERGAMENT_VERSION__ = \(jsString(core.version));
+            """
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}

@@ -229,7 +229,7 @@
             # toolchain with aarch64-apple-ios for the ios/core build:
             #   rustup toolchain install 1.98.1 --profile minimal --target aarch64-apple-ios
             # Build with the nix cargo and the rustup rustc (`rustup run` doesn't
-            # work, the nix rustc wins on PATH). ios/build-core.sh will hold this:
+            # work, the nix rustc wins on PATH). ios/build-core.sh runs this:
             #   RUSTC=$(rustup which --toolchain 1.98.1 rustc) \
             #   SDKROOT=<xtool sdk path>/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.2.sdk \
             #   CC_aarch64_apple_ios=clang CARGO_TARGET_AARCH64_APPLE_IOS_LINKER=clang \

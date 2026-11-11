@@ -2,9 +2,11 @@ import SwiftUI
 
 @main
 struct PergamentApp: App {
+    private let core = Core()
+
     var body: some Scene {
         WindowGroup {
-            WebShell()
+            WebShell(core: core)
                 .ignoresSafeArea()
         }
     }

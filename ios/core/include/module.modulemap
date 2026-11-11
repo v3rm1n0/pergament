@@ -1,0 +1,5 @@
+module CPergament {
+    header "pergament_ios.h"
+    link "pergament_ios"
+    export *
+}
