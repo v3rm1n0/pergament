@@ -149,6 +149,7 @@ export const fr: Record<string, string> = {
   "Discard": "Abandonner",
   "Open in window (Ctrl+Shift+O)": "Ouvrir dans une fenêtre (Ctrl+Maj+O)",
   "Ctrl+L: link a Bible reference": "Ctrl+L : lier un passage biblique",
+  "Insert link": "Insérer un lien",
   "Ctrl+P: link and open a Bible reference": "Ctrl+P : lier et ouvrir un passage biblique",
   "Write": "Rédiger",
   "Preview": "Aperçu",

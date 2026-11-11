@@ -153,6 +153,21 @@ describe("NoteForm", () => {
     expect(area.selectionStart).toBe(area.value.indexOf(" now"));
   });
 
+  it("offers Insert link on a long press, which links like Ctrl+L", () => {
+    vi.useFakeTimers();
+    try {
+      render(<NoteForm note={{ content: "See Mt 24:14 now" }} focus={false} onSave={() => undefined} onCancel={() => undefined} books={books} />);
+      const area = screen.getByPlaceholderText<HTMLTextAreaElement>("Note");
+      area.setSelectionRange(4, 12);
+      fireEvent.pointerDown(area, { pointerType: "touch", clientX: 5, clientY: 5 });
+      act(() => void vi.advanceTimersByTime(500));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Insert link" }));
+      expect(area.value).toBe("See [Mt 24:14](pergament://bible/40:24:14-40:24:14) now");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("links a range of verses, leaving spaces around the selection outside", () => {
     expect(link(" Mt 24:14-16 ", 0, 13).value).toBe(" [Mt 24:14-16](pergament://bible/40:24:14-40:24:16) ");
   });

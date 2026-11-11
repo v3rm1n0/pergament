@@ -164,6 +164,7 @@ export const ptBR: Record<string, string> = {
   "Discard": "Descartar",
   "Open in window (Ctrl+Shift+O)": "Abrir em uma janela (Ctrl+Shift+O)",
   "Ctrl+L: link a Bible reference": "Ctrl+L: vincular um texto bíblico",
+  "Insert link": "Inserir link",
   "Ctrl+P: link and open a Bible reference": "Ctrl+P: vincular e abrir um texto bíblico",
   "Write": "Escrever",
   "Preview": "Visualizar",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, MoreHorizontal } from "lucide-react";
 import { useApp } from "@/app";
 import { api, type CatalogEntry, type Language, type LanguageEntry, type PubCard } from "@/lib/api";
@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { mediaLink, pubKey, publicationLink } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { useLongPress } from "@/lib/use-long-press";
 
 export interface PubTarget {
   kind: "pub";
@@ -154,6 +155,29 @@ export function TileMenu({
   const { toast, favorites, toggleFavorite, removePublication } = useApp();
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const press = useLongPress(() => setOpen(true));
+  // The tile is the button's parent; a long press anywhere on it opens the menu the button opens.
+  useEffect(() => {
+    const tile = trigger.current?.parentElement;
+    if (!tile) return;
+    const { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onClickCapture } = press;
+    tile.style.setProperty("-webkit-touch-callout", "none");
+    tile.addEventListener("pointerdown", onPointerDown);
+    tile.addEventListener("pointermove", onPointerMove);
+    tile.addEventListener("pointerup", onPointerUp);
+    tile.addEventListener("pointercancel", onPointerCancel);
+    tile.addEventListener("click", onClickCapture, true);
+    return () => {
+      tile.style.removeProperty("-webkit-touch-callout");
+      tile.removeEventListener("pointerdown", onPointerDown);
+      tile.removeEventListener("pointermove", onPointerMove);
+      tile.removeEventListener("pointerup", onPointerUp);
+      tile.removeEventListener("pointercancel", onPointerCancel);
+      tile.removeEventListener("click", onClickCapture, true);
+    };
+  }, [press]);
   const key = target.kind === "pub" ? pubKey(target.symbol, target.mepsLanguage, target.issueTag) : null;
   const favorite = key != null && favorites.includes(key);
 
@@ -173,9 +197,10 @@ export function TileMenu({
   return (
     <>
       {/* Not modal, so a dialog opened from it gets the pointer and the focus. */}
-      <DropdownMenu modal={false}>
+      <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button
+            ref={trigger}
             aria-label={t("More")}
             title={t("More")}
             // The tile under it opens on click.

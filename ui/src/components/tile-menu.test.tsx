@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 afterEach(cleanup);
 
@@ -45,6 +45,36 @@ describe("TileMenu", () => {
     openMenu();
     fireEvent.click(screen.getByText("Share Link"));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("https://www.jw.org/finder?pub=lff&wtlocale=X"));
+  });
+});
+
+describe("long press", () => {
+  const press = (el: HTMLElement) => fireEvent.pointerDown(el, { pointerType: "touch", clientX: 5, clientY: 5 });
+
+  it("opens the menu from a long press on the tile", () => {
+    vi.useFakeTimers();
+    try {
+      render(<div data-testid="tile" className="group relative"><TileMenu target={target} /></div>);
+      press(screen.getByTestId("tile"));
+      expect(screen.queryByText("Share Link")).toBeNull();
+      act(() => void vi.advanceTimersByTime(500));
+      expect(screen.getByText("Share Link")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not open it from a short press", () => {
+    vi.useFakeTimers();
+    try {
+      render(<div data-testid="tile" className="group relative"><TileMenu target={target} /></div>);
+      press(screen.getByTestId("tile"));
+      fireEvent.pointerUp(screen.getByTestId("tile"));
+      act(() => void vi.advanceTimersByTime(1000));
+      expect(screen.queryByText("Share Link")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

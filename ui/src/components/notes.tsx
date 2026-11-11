@@ -11,9 +11,11 @@ import { canOpenNoteWindow } from "@/lib/platform";
 import { sendNoteLink } from "@/lib/note-window";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
+import { useLongPress } from "@/lib/use-long-press";
 
 /** Color swatches plus note and delete actions, shown at a selection or highlight. */
 export function MarkToolbar({
@@ -276,12 +278,8 @@ export function NoteForm({
    * Ctrl+L, or Cmd+L on a Mac, makes the selection a link; a Bible reference links to its verses. Ctrl+P does the same
    * and opens the first verses linked, where the form can open them.
    */
-  const onContentKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.nativeEvent.isComposing) return;
-    const key = e.key.toLowerCase();
-    if (key !== "l" && !(key === "p" && onOpenLink)) return;
-    e.preventDefault();
-    const area = e.currentTarget;
+  /** Makes the selection a link, and opens the first verses linked when `open` and the form can open them. */
+  const insertLink = (area: HTMLTextAreaElement, open: boolean) => {
     const edit = linkEdit(area.value, area.selectionStart, area.selectionEnd, books);
     area.setSelectionRange(edit.start, edit.end);
     // Typed through the browser, the link can be undone; where that is missing, the text is set directly.
@@ -291,8 +289,18 @@ export function NoteForm({
       caret.current = edit.caret;
       setContent(area.value.slice(0, edit.start) + edit.text + area.value.slice(edit.end));
     }
-    if (key === "p" && edit.href) onOpenLink?.(edit.href);
+    if (open && edit.href) onOpenLink?.(edit.href);
   };
+  const onContentKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.nativeEvent.isComposing) return;
+    const key = e.key.toLowerCase();
+    if (key !== "l" && !(key === "p" && onOpenLink)) return;
+    e.preventDefault();
+    insertLink(e.currentTarget, key === "p");
+  };
+  /** Where a long press in the editor opened its menu, which stands in for Ctrl+L on a touch screen. */
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const press = useLongPress((p) => setMenuAt({ x: p.clientX, y: p.clientY }));
   /** Links in the preview open in the app or the browser, not in the editor's window. */
   const openLink = (e: React.MouseEvent) => {
     const a = (e.target as HTMLElement).closest("a");
@@ -354,9 +362,27 @@ export function NoteForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={onContentKey}
+          {...press}
+          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
           className="min-h-0 flex-1 resize-none text-base"
         />
       )}
+      <DropdownMenu modal={false} open={menuAt != null} onOpenChange={(o) => !o && setMenuAt(null)}>
+        <DropdownMenuTrigger asChild>
+          <span aria-hidden className="fixed size-0" style={{ left: menuAt?.x ?? 0, top: menuAt?.y ?? 0 }} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            contentRef.current?.focus();
+          }}
+        >
+          <DropdownMenuItem onSelect={() => contentRef.current && insertLink(contentRef.current, false)}>
+            {t("Insert link")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Input
         id="note-tags"
         placeholder={t("Tags, separated by commas")}
