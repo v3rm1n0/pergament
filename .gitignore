@@ -6,3 +6,8 @@
 /dist/
 node_modules/
 /.idea/
+/ui/dist/
+
+# Device syslog captures
+/ios/ioslogs.log
+/ios/raw-syslog.log
