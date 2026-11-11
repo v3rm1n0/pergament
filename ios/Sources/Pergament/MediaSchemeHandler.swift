@@ -12,6 +12,20 @@ import WebKit
 final class MediaSchemeHandler: NSObject, WKURLSchemeHandler {
     static let assetScheme = "asset"
     nonisolated private static let chunk = 256 * 1024
+    /// Each request blocks a thread until its response is read, and uncached catalog pictures
+    /// wait their turn on the network, so a page of covers would otherwise take every thread GCD
+    /// has to give, commands included. Pictures and media files get separate width-limited queues,
+    /// so a long video stream does not hold up pictures either.
+    private static let pictures = queue("pergament.pictures")
+    private static let files = queue("pergament.files")
+
+    private static func queue(_ name: String) -> OperationQueue {
+        let queue = OperationQueue()
+        queue.name = name
+        queue.maxConcurrentOperationCount = 4
+        queue.qualityOfService = .userInitiated
+        return queue
+    }
 
     private let core: CoreHandle?
     private var live = Set<ObjectIdentifier>()
@@ -30,7 +44,8 @@ final class MediaSchemeHandler: NSObject, WKURLSchemeHandler {
         let range = task.request.value(forHTTPHeaderField: "Range")
         live.insert(ObjectIdentifier(task))
         let job = Job(task: task, url: url, scheme: scheme, path: path, range: range)
-        DispatchQueue.global(qos: .userInitiated).async {
+        let queue = scheme == Self.assetScheme ? Self.files : Self.pictures
+        queue.addOperation {
             self.serve(job, core: core)
         }
     }
