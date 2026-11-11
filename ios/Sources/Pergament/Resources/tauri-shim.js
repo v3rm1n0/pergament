@@ -34,15 +34,17 @@
       Reflect.deleteProperty(window, `_${id}`);
     },
 
-    convertFileSrc(path) {
-      return `pergament://localhost/${path}`;
+    // Nothing serves asset:// yet; an unencoded path would otherwise be looked up under web/ and 404 quietly.
+    convertFileSrc(path, protocol = "asset") {
+      return `${protocol}://localhost/${encodeURIComponent(path)}`;
     },
 
     invoke(cmd) {
       if (cmd === "plugin:event|listen") return Promise.resolve(nextId++);
       if (cmd === "plugin:event|unlisten" || cmd === "plugin:event|emit") return Promise.resolve();
       console.warn(`[ios] ${cmd} is not available yet`);
-      return Promise.reject(new Error("not available on iOS yet"));
+      // Tauri rejects with the command's Err string, and the UI toasts String(e); an Error would show "Error: ...".
+      return Promise.reject("not available on iOS yet");
     },
   };
 })();
