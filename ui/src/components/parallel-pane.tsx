@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleMinus, CirclePlus } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleMinus, CirclePlus, X } from "lucide-react";
 import { useApp } from "@/app";
 import { api, chapterTarget, type Mark, type PubCard } from "@/lib/api";
 import { applyMarks } from "@/lib/marks";
@@ -9,9 +9,21 @@ import { t } from "@/lib/i18n";
 import { extractVerses, rangeText, type BibleRange } from "@/lib/parallel";
 import { loadParallel, saveParallel } from "@/lib/settings";
 import { MediaImg } from "@/components/media-img";
+import { cn } from "@/lib/utils";
 
 /** Verses of a Bible link in every included Bible of the library. */
-export function ParallelPane({ href, range, onBack }: { href: string; range: BibleRange; onBack: () => void }) {
+export function ParallelPane({
+  href,
+  range,
+  onBack,
+  onClose,
+}: {
+  href: string;
+  range: BibleRange;
+  onBack: () => void;
+  /** Set on a phone, where the pane is a sheet and needs its own way out. */
+  onClose?: () => void;
+}) {
   const { publications, lang, languageName, openTarget, userVersion } = useApp();
   const bibles = useMemo(() => publications.filter((p) => p.isBible), [publications]);
   const [included, setIncluded] = useState<string[] | null>(loadParallel);
@@ -113,10 +125,15 @@ export function ParallelPane({ href, range, onBack }: { href: string; range: Bib
         <button aria-label={t("Back")} onClick={onBack} className="flex h-11 w-11 items-center justify-center text-accent">
           <ChevronLeft size={20} />
         </button>
-        <div className="flex-1 pr-11 text-center leading-tight">
+        <div className={cn("flex-1 text-center leading-tight", !onClose && "pr-11")}>
           <div className="text-sm">{t("Parallel Translations")}</div>
           {bookTitle && <div className="text-xs text-muted">{rangeText(bookTitle, range)}</div>}
         </div>
+        {onClose && (
+          <button aria-label={t("Close")} onClick={onClose} className="flex h-11 w-11 items-center justify-center text-muted hover:text-fg">
+            <X size={20} strokeWidth={1.6} />
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {shown.map((b) => (

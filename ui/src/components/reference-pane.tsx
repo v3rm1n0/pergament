@@ -1,7 +1,7 @@
 import { MediaImg } from "@/components/media-img";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { BookOpen, ChevronLeft, ChevronRight, CloudDownload } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, CloudDownload, X } from "lucide-react";
 import { taskKey, useApp } from "@/app";
 import { api, type CatalogEntry, type Mark, type Page, type Target } from "@/lib/api";
 import { applyMarks } from "@/lib/marks";
@@ -41,6 +41,7 @@ export function ReferencePane({
   onFollow,
   onOpenSource,
   onRetry,
+  onClose,
 }: {
   pref: PaneRef;
   onBack: () => void;
@@ -50,9 +51,11 @@ export function ReferencePane({
   onOpenSource: (href: string, url: string | null) => void;
   /** The missing publication was downloaded; resolve the link again. */
   onRetry: () => void;
+  /** Set on a phone, where the pane is a sheet; the header then carries a Close button. */
+  onClose?: () => void;
 }) {
   const { userVersion } = useApp();
-  if (pref.kind === "bible") return <ParallelPane href={pref.href} range={pref.range} onBack={onBack} />;
+  if (pref.kind === "bible") return <ParallelPane href={pref.href} range={pref.range} onBack={onBack} onClose={onClose} />;
   if (pref.kind === "research") {
     return (
       <ResearchPane
@@ -62,6 +65,7 @@ export function ReferencePane({
         verse={pref.verse}
         onBack={onBack}
         onFollow={onFollow}
+        onClose={onClose}
       />
     );
   }
@@ -71,7 +75,12 @@ export function ReferencePane({
         <button aria-label={t("Back")} onClick={onBack} className="flex h-11 w-11 items-center justify-center text-accent">
           <ChevronLeft size={20} />
         </button>
-        <span className="flex-1 pr-11 text-center text-sm">{t("Publication Reference")}</span>
+        <span className={cn("flex-1 text-center text-sm", !onClose && "pr-11")}>{t("Publication Reference")}</span>
+        {onClose && (
+          <button aria-label={t("Close")} onClick={onClose} className="flex h-11 w-11 items-center justify-center text-muted hover:text-fg">
+            <X size={20} strokeWidth={1.6} />
+          </button>
+        )}
       </div>
       {pref.kind === "page" ? (
         <ReferencePage key={`${JSON.stringify(pref.target)}|${pref.href}|${userVersion}`} pref={pref} onFollow={onFollow} />

@@ -635,7 +635,6 @@ export function ReaderView({
                 : "w-[min(44%,640px)] shrink-0 border-l border-line",
             )}
           >
-            {compact && <SheetBar onClose={() => setPaneOpen(false)} />}
             <div className="flex min-h-0 flex-1 flex-col">
               <ReferencePane
                 pref={refs[refs.length - 1]}
@@ -643,6 +642,7 @@ export function ReaderView({
                 onFollow={(href) => void follow(href, "push")}
                 onOpenSource={(href, url) => void openSource(href, url)}
                 onRetry={() => void follow(refs[refs.length - 1].href, "replace")}
+                onClose={compact ? () => setPaneOpen(false) : undefined}
               />
             </div>
           </aside>
@@ -655,11 +655,11 @@ export function ReaderView({
             className={cn(
               "study-pane overflow-y-auto bg-surface text-[0.93rem] leading-relaxed",
               compact
-                ? "fixed inset-0 z-30 px-5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+                ? "fixed inset-0 z-30 px-5 pt-[env(safe-area-inset-top)] pb-[calc(1rem+env(safe-area-inset-bottom))]"
                 : "w-[min(44%,640px)] shrink-0 border-l border-line px-5 py-4",
             )}
           >
-            {compact && <SheetBar onClose={() => setPaneOpen(false)} sticky />}
+            {compact && <SheetBar onClose={() => setPaneOpen(false)} />}
             {(user.notes.length > 0 || detached) && (
               <section className="mb-6 flex flex-col gap-2">
                 <h3 className="text-sm font-semibold">{t("My notes")}</h3>
@@ -729,10 +729,10 @@ export function ReaderView({
   );
 }
 
-/** On a phone the study pane covers the text, so it needs its own way back. `sticky` keeps it in view while the pane scrolls. */
-function SheetBar({ onClose, sticky }: { onClose: () => void; sticky?: boolean }) {
+/** On a phone the notes sheet covers the text, so it needs its own way back. It stays in view while the sheet scrolls. */
+function SheetBar({ onClose }: { onClose: () => void }) {
   return (
-    <div className={cn("flex h-11 items-center justify-end", sticky && "sticky top-0 z-10 -mx-5 bg-surface px-5")}>
+    <div className="sticky top-0 z-10 -mx-5 flex h-11 items-center justify-end bg-surface px-5">
       <button
         aria-label={t("Close")}
         onClick={onClose}

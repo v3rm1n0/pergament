@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react";
+import { ChevronLeft, ChevronRight, Newspaper, X } from "lucide-react";
 import { api, type ResearchEntry } from "@/lib/api";
 import { t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 /** What the Research Guide lists for one verse: excerpts of other publications. */
 export function ResearchPane({
@@ -12,6 +13,7 @@ export function ResearchPane({
   verse,
   onBack,
   onFollow,
+  onClose,
 }: {
   dir: string;
   book: number;
@@ -19,6 +21,8 @@ export function ResearchPane({
   verse: number;
   onBack: () => void;
   onFollow: (href: string) => void;
+  /** Set on a phone, where the pane is a sheet and needs its own way out. */
+  onClose?: () => void;
 }) {
   const [entries, setEntries] = useState<ResearchEntry[] | null>(null);
   const [bookTitle, setBookTitle] = useState("");
@@ -53,7 +57,7 @@ export function ResearchPane({
         <button aria-label={t("Back")} onClick={onBack} className="flex h-11 w-11 items-center justify-center text-accent">
           <ChevronLeft size={20} />
         </button>
-        <div className="flex-1 pr-11 text-center leading-tight">
+        <div className={cn("flex-1 text-center leading-tight", !onClose && "pr-11")}>
           <div className="text-sm">{t("Research Guide")}</div>
           {bookTitle && (
             <div className="text-xs text-muted">
@@ -61,6 +65,11 @@ export function ResearchPane({
             </div>
           )}
         </div>
+        {onClose && (
+          <button aria-label={t("Close")} onClick={onClose} className="flex h-11 w-11 items-center justify-center text-muted hover:text-fg">
+            <X size={20} strokeWidth={1.6} />
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {entries?.map((e, i) => (

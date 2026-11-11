@@ -166,4 +166,12 @@ describe("reader on a phone", () => {
     await renderReaderWithStudy();
     expect(screen.getByLabelText("Study pane")).toBeTruthy();
   });
+
+  it("gives the notes sheet the top inset", async () => {
+    stubCompact(true);
+    await renderReaderWithNotes();
+    fireEvent.click(screen.getByLabelText("Show study pane"));
+    const sheet = screen.getByLabelText("Study pane");
+    expect(sheet.className).toContain("pt-[env(safe-area-inset-top)]");
+  });
 });
