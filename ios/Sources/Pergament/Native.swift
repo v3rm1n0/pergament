@@ -100,7 +100,7 @@ final class Native {
         let file = try path.map { URL(fileURLWithPath: $0) } ?? exportPath(nil, extensions: ["jwlibrary"])
         let written = await core("export_backup", encoded(PathArg(path: file.path)))
         guard written.ok else { return written }
-        try share(file)
+        try await share(file)
         return .null
     }
 
@@ -159,8 +159,8 @@ final class Native {
         return .value(label)
     }
 
-    private func share(_ file: URL) throws {
-        let host = try presenter()
+    private func share(_ file: URL) async throws {
+        let host = try await settledPresenter()
         let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
         // iPad shows the sheet as a popover, which UIKit refuses to present without an anchor.
         if let popover = sheet.popoverPresentationController {
@@ -168,8 +168,13 @@ final class Native {
             popover.sourceRect = CGRect(x: host.view.bounds.midX, y: host.view.bounds.midY, width: 0, height: 0)
             popover.permittedArrowDirections = []
         }
-        sheet.completionWithItemsHandler = { _, _, _, _ in try? FileManager.default.removeItem(at: file) }
+        // Only a file this class made is removed; a path the page passed in stays where it is.
+        let ours = file.standardizedFileURL.path.hasPrefix(exportDir.standardizedFileURL.path + "/")
+        sheet.completionWithItemsHandler = { _, _, _, _ in
+            if ours { try? FileManager.default.removeItem(at: file) }
+        }
         host.present(sheet, animated: true)
+        if sheet.presentingViewController == nil { throw NativeError(message: "could not show the share sheet") }
     }
 
     /// Presents `controller` and waits for the answer its delegate (made by `wire`) gives.
@@ -177,17 +182,38 @@ final class Native {
         _ controller: UIViewController, wire: (@escaping (T) -> Void) -> AnyObject
     ) async throws -> T {
         guard presenting == nil else { throw NativeError(message: "another dialog is still open") }
-        let host = try presenter()
+        // Held while waiting below, so a second dialog cannot slip in.
+        presenting = controller
         defer { presenting = nil }
-        return await withCheckedContinuation { continuation in
+        let host = try await settledPresenter()
+        return try await withCheckedThrowingContinuation { continuation in
             var resumed = false
-            presenting = wire { value in
+            func resume(_ result: Result<T, NativeError>) {
                 guard !resumed else { return }
                 resumed = true
-                continuation.resume(returning: value)
+                continuation.resume(with: result)
             }
+            presenting = wire { resume(.success($0)) }
             host.present(controller, animated: true)
+            // UIKit refuses a presentation with only a log line; without this the answer would never come.
+            if controller.presentingViewController == nil {
+                resume(.failure(NativeError(message: "could not show the dialog")))
+            }
         }
+    }
+
+    /// The presenter once no presentation or dismissal is running on it. The UI opens an alert
+    /// right after a picker answers, while the picker is still animating away, and UIKit refuses
+    /// to present during that. Waits at most about a second, then tries anyway.
+    private func settledPresenter() async throws -> UIViewController {
+        for _ in 0..<20 {
+            let host = try presenter()
+            if host.transitionCoordinator == nil, host.presentedViewController?.isBeingDismissed != true {
+                return host
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return try presenter()
     }
 
     private func presenter() throws -> UIViewController {
