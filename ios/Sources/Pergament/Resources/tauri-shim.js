@@ -3,7 +3,8 @@
 // (Core.swift), which answers with window.__pergament_reply and pushes core
 // events through window.__pergament_event. Event subscriptions live here, and
 // plugin commands without an iOS stand-in fail with a short message that the
-// UI shows as a toast.
+// UI shows as a toast. Native.swift answers the commands that need UIKit
+// (open_external, the dialogs, import, export and restore) before the core.
 (() => {
   if (window.__TAURI_INTERNALS__) return;
 
@@ -60,6 +61,41 @@
     }
     if (!response.ok) throw missing;
     return response.arrayBuffer();
+  }
+
+  // The dialog plugin's commands are answered by Native.swift with UIKit pickers and alerts.
+  // The options are reduced here to what those need, so Swift reads one fixed shape.
+  const extensions = (options) => (options?.filters ?? []).flatMap((f) => f.extensions ?? []);
+
+  function openDialog(options) {
+    // A picked folder would only be readable while a security-scoped bookmark is held, which sync does not do.
+    if (options?.directory) return Promise.reject(unavailable);
+    return callNative("plugin:dialog|open", { multiple: !!options?.multiple, extensions: extensions(options) });
+  }
+
+  function saveDialog(options) {
+    return callNative("plugin:dialog|save", { defaultPath: options?.defaultPath ?? null, extensions: extensions(options) });
+  }
+
+  // The labels Tauri shows for each button set; it resolves with the tapped label, which ask() compares with okLabel.
+  const presetButtons = { Ok: ["Ok"], OkCancel: ["Ok", "Cancel"], YesNo: ["Yes", "No"], YesNoCancel: ["Yes", "No", "Cancel"] };
+
+  function buttonLabels(buttons) {
+    if (typeof buttons === "string") return presetButtons[buttons] ?? ["Ok"];
+    if (buttons?.OkCustom != null) return [buttons.OkCustom];
+    return buttons?.OkCancelCustom ?? buttons?.YesNoCancelCustom ?? ["Ok"];
+  }
+
+  function messageDialog(args) {
+    const buttons = buttonLabels(args?.buttons);
+    return callNative("plugin:dialog|message", {
+      message: String(args?.message ?? ""),
+      title: args?.title ?? null,
+      kind: args?.kind ?? null,
+      buttons,
+      // With more than one button the last one cancels, as in Tauri's sets.
+      cancel: buttons.length > 1,
+    });
   }
 
   window.__pergament_reply = (id, ok, json) => {
@@ -139,6 +175,12 @@
           return Promise.resolve(window.__PERGAMENT_VERSION__);
         case "media":
           return media(args?.url);
+        case "plugin:dialog|open":
+          return openDialog(args?.options);
+        case "plugin:dialog|save":
+          return saveDialog(args?.options);
+        case "plugin:dialog|message":
+          return messageDialog(args);
       }
       if (cmd.startsWith("plugin:")) {
         console.warn(`[ios] ${cmd} is not available yet`);

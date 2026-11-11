@@ -29,7 +29,7 @@ async function listen(event, callback) {
 
 test("a plugin command without an iOS stand-in rejects with Tauri's plain string", async () => {
   const warn = spyOn(console, "warn").mockImplementation(() => {});
-  await expect(internals().invoke("plugin:dialog|open")).rejects.toBe("not available on iOS yet");
+  await expect(internals().invoke("plugin:opener|open_url")).rejects.toBe("not available on iOS yet");
   expect(posted).toEqual([]);
   warn.mockRestore();
 });
@@ -205,4 +205,69 @@ test("media rejects a URL on another scheme without fetching it", async () => {
   } finally {
     fetch.restore();
   }
+});
+
+// The argument shapes @tauri-apps/plugin-dialog 2.8.1 sends.
+const sent = () => ({ ...posted.at(-1), args: JSON.parse(posted.at(-1).args) });
+
+test("open_external goes to the native side with its url", () => {
+  void internals().invoke("open_external", { url: "https://www.jw.org/" });
+  expect(sent()).toEqual({ id: expect.any(Number), name: "open_external", args: { url: "https://www.jw.org/" } });
+});
+
+test("the open dialog goes native with the multiple flag and the filter extensions", async () => {
+  const picked = internals().invoke("plugin:dialog|open", {
+    options: { multiple: true, directory: false, filters: [{ name: "JW publications", extensions: ["jwpub"] }] },
+  });
+  expect(sent()).toEqual({
+    id: expect.any(Number),
+    name: "plugin:dialog|open",
+    args: { multiple: true, extensions: ["jwpub"] },
+  });
+  window.__pergament_reply(posted[0].id, 1, '["/c/import/a.jwpub"]');
+  await expect(picked).resolves.toEqual(["/c/import/a.jwpub"]);
+});
+
+test("the open dialog defaults to one file of any type", () => {
+  void internals().invoke("plugin:dialog|open", { options: {} });
+  expect(sent().args).toEqual({ multiple: false, extensions: [] });
+});
+
+test("a folder picker is not offered on iOS", async () => {
+  await expect(
+    internals().invoke("plugin:dialog|open", { options: { directory: true, multiple: false } }),
+  ).rejects.toBe("not available on iOS yet");
+  expect(posted).toEqual([]);
+});
+
+test("the save dialog goes native with the default name and extensions", () => {
+  void internals().invoke("plugin:dialog|save", {
+    options: { defaultPath: "Backup.jwlibrary", filters: [{ name: "Backup", extensions: ["jwlibrary"] }] },
+  });
+  expect(sent()).toEqual({
+    id: expect.any(Number),
+    name: "plugin:dialog|save",
+    args: { defaultPath: "Backup.jwlibrary", extensions: ["jwlibrary"] },
+  });
+});
+
+test("message dialogs go native with their buttons spelled out, the cancel button last", () => {
+  const message = (buttons) => {
+    void internals().invoke("plugin:dialog|message", { message: "m", title: "t", kind: "warning", buttons });
+    return sent().args;
+  };
+  expect(message(undefined)).toEqual({ message: "m", title: "t", kind: "warning", buttons: ["Ok"], cancel: false });
+  expect(message("YesNo")).toMatchObject({ buttons: ["Yes", "No"], cancel: true });
+  expect(message("OkCancel")).toMatchObject({ buttons: ["Ok", "Cancel"], cancel: true });
+  expect(message("YesNoCancel")).toMatchObject({ buttons: ["Yes", "No", "Cancel"], cancel: true });
+  expect(message({ OkCustom: "Got it" })).toMatchObject({ buttons: ["Got it"], cancel: false });
+  expect(message({ OkCancelCustom: ["Restore", "No"] })).toMatchObject({ buttons: ["Restore", "No"], cancel: true });
+  expect(message({ YesNoCancelCustom: ["A", "B", "C"] })).toMatchObject({ buttons: ["A", "B", "C"], cancel: true });
+});
+
+test("a message dialog resolves with the label of the tapped button, as ask() expects", async () => {
+  const answer = internals().invoke("plugin:dialog|message", { message: "m", buttons: { OkCancelCustom: ["Restore", "No"] } });
+  window.__pergament_reply(posted[0].id, 1, '"Restore"');
+  await expect(answer).resolves.toBe("Restore");
+  expect(sent().args).toEqual({ message: "m", title: null, kind: null, buttons: ["Restore", "No"], cancel: true });
 });
