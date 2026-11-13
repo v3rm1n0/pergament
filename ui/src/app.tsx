@@ -1075,7 +1075,7 @@ export function Rail() {
   return (
     <nav
       aria-label={t("Main navigation")}
-      className={cn("flex shrink-0 flex-col gap-1 border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
+      className={cn("flex shrink-0 flex-col gap-1 overflow-x-hidden overflow-y-auto border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
       <RailButton label="Menu" toggles active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
         <Menu {...icon} />
       </RailButton>
