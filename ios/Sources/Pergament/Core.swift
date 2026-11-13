@@ -66,6 +66,11 @@ final class Core: NSObject, WKScriptMessageHandler {
         native.webView = webView
     }
 
+    /// Tells the page which edge its navigation belongs on now (`UITraitCollection.navEdge`).
+    func navEdgeChanged(_ edge: String?) {
+        bridge.event("nav-edge", json: edge.map(jsString) ?? "null")
+    }
+
     /// Calls the core and waits for its reply, which goes here instead of to the page.
     func call(_ name: String, args: String) async -> NativeReply {
         guard case .success(let handle) = opened else {

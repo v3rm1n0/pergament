@@ -4,7 +4,7 @@
 // events through window.__pergament_event. Event subscriptions live here, and
 // plugin commands without an iOS stand-in fail with a short message that the
 // UI shows as a toast. Native.swift answers the commands that need UIKit
-// (open_external, the dialogs, import, export and restore) before the core.
+// (open_external, the dialogs, import, export, restore and nav_edge) before the core.
 (() => {
   if (window.__TAURI_INTERNALS__) return;
 

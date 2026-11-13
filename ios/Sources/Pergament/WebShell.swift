@@ -27,7 +27,8 @@ struct WebShell: UIViewRepresentable {
                 WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
 
-        let web = WKWebView(frame: .zero, configuration: config)
+        let web = ShellWebView(frame: .zero, configuration: config)
+        web.onNavEdge = { [core] edge in core.navEdgeChanged(edge) }
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.scrollView.bounces = false
         web.isInspectable = true
@@ -45,6 +46,45 @@ struct WebShell: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
+}
+
+/// The web view, which reports when the edge for the page's navigation changes. The page asks for
+/// the first value itself (`nav_edge` in Native.swift), once it can listen.
+final class ShellWebView: WKWebView {
+    var onNavEdge: ((String?) -> Void)?
+
+    override init(frame: CGRect, configuration: WKWebViewConfiguration) {
+        super.init(frame: frame, configuration: configuration)
+        var traits: [UITrait] = [UITraitHorizontalSizeClass.self, UITraitLayoutDirection.self]
+        if #available(iOS 27.1, *) { traits += UITraitCollection.systemTraitsAffectingVerticalBarEdge }
+        registerForTraitChanges(traits) { (view: ShellWebView, _: UITraitCollection) in
+            view.onNavEdge?(view.traitCollection.navEdge)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("made in code only") }
+}
+
+extension UITraitCollection {
+    /// The side edge the page draws its navigation along, "left" or "right": where the system
+    /// puts its own vertical bar (a folding iPhone), or else the leading edge of a window of
+    /// regular width. nil in a narrow window, where the page keeps its bar along the bottom.
+    ///
+    /// The system moves only the bars of its own containers to that edge; the page's bar is HTML,
+    /// so the page follows by hand.
+    var navEdge: String? {
+        let rightToLeft = layoutDirection == .rightToLeft
+        let leading = rightToLeft ? "right" : "left"
+        if #available(iOS 27.1, *) {
+            switch verticalBarEdge {
+            case .leading: return leading
+            case .trailing: return rightToLeft ? "left" : "right"
+            default: break
+            }
+        }
+        return horizontalSizeClass == .regular ? leading : nil
+    }
 }
 
 /// Serves `pergament://localhost/<path>` from the `web/` resource folder.

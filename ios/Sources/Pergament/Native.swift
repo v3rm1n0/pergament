@@ -25,7 +25,8 @@ private struct NativeError: Error {
 }
 
 /// The commands that need UIKit, answered here before the core sees them: links,
-/// the dialog plugin's pickers and alerts, and import, export and restore.
+/// the dialog plugin's pickers and alerts, import, export and restore, and the
+/// edge for the page's navigation.
 ///
 /// Pickers and the save dialog hand the UI paths under `Caches/Pergament/`,
 /// which the core can read and write; the UI then passes them back to
@@ -33,7 +34,7 @@ private struct NativeError: Error {
 @MainActor
 final class Native {
     static let commands: Set<String> = [
-        "open_external", "import_files", "export_backup", "restore_backup",
+        "open_external", "import_files", "export_backup", "restore_backup", "nav_edge",
         "plugin:dialog|open", "plugin:dialog|save", "plugin:dialog|message",
     ]
 
@@ -58,6 +59,7 @@ final class Native {
         do {
             switch name {
             case "open_external": return try await openExternal(decode(UrlArgs.self, args).url)
+            case "nav_edge": return .value(webView?.traitCollection.navEdge)
             case "plugin:dialog|open":
                 let options = try decode(OpenArgs.self, args)
                 let multiple = options.multiple ?? false

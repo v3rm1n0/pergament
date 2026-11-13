@@ -33,6 +33,11 @@ without that it stamps 17.0 and the app runs in a compatibility mode.
   origin and the absolute `/assets/...` paths from Vite work.
 - `Sources/Pergament/Resources/tauri-shim.js` is injected at document start and
   stands in for `window.__TAURI_INTERNALS__`.
+- iOS moves only the bars of its own containers to a side edge (the vertical
+  bar of a folding iPhone, the sidebar of a wide window). The navigation here
+  is HTML, so `WebShell.swift` tells the page which edge to draw it along
+  (`nav_edge`, and the `nav-edge` event when it changes); `ui/src/lib/nav-edge.ts`
+  reads it.
 - The app icon is `AppIcon.png` (1024 px, opaque), named by `iconPath` in
   `xtool.yml`; xtool copies it into the bundle and sets `CFBundleIconFile`.
 
