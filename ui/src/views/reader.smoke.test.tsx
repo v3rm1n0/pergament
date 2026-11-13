@@ -291,6 +291,42 @@ describe("Reader", () => {
       expect(start.defaultPrevented).toBe(true);
     });
 
+    it("allows selection and dragging outside reader text, including note fields", async () => {
+      const verse = await shownVerse();
+      fireEvent.click(screen.getByRole("button", { name: /Loved the world/ }));
+      const area = await screen.findByPlaceholderText("Note");
+      const title = screen.getByPlaceholderText("Title");
+      for (const target of [area, title, screen.getByTestId("where")]) {
+        for (const type of ["selectstart", "dragstart"]) {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          target.dispatchEvent(event);
+          expect(event.defaultPrevented).toBe(false);
+        }
+      }
+      for (const type of ["selectstart", "dragstart"]) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        verse.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(true);
+      }
+    });
+
+    it("leaves answer fields inside the reader to native selection", async () => {
+      const verse = await shownVerse();
+      const root = verse.closest(".reader")!;
+      for (const tag of ["input", "textarea", "div"]) {
+        const field = document.createElement(tag);
+        if (tag === "div") field.setAttribute("contenteditable", "true");
+        root.append(field);
+        const event = new Event("selectstart", { bubbles: true, cancelable: true });
+        field.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        fireEvent.pointerDown(field, { pointerType: "touch", clientX: 10, clientY: 10 });
+        await held();
+        expect(window.getSelection()!.toString()).toBe("");
+        fireEvent.pointerUp(field);
+      }
+    });
+
     it("leaves the selection to the browser off iOS", async () => {
       window.__PERGAMENT_PLATFORM__ = undefined;
       await shownVerse();

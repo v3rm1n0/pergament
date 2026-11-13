@@ -393,6 +393,11 @@ export function ReaderView({
   // On iOS the reader selects text itself, so the system's selection and its Copy menu never start. A long press
   // selects the word under the finger; moving the finger extends the selection to the words it passes.
   const ownSel = ownSelection();
+  const readerText = (target: EventTarget | null) => {
+    const node = target instanceof Node ? target : null;
+    const el = node instanceof Element ? node : node?.parentElement;
+    return !!el && !!articleRef.current?.contains(el) && !el.closest("input, textarea, [contenteditable]");
+  };
   const selecting = useRef(false);
   const press = useLongPress(({ clientX, clientY }) => {
     selecting.current = selectWordAt(clientX, clientY);
@@ -400,6 +405,7 @@ export function ReaderView({
   const pressHandlers = ownSel
     ? {
         onPointerDown: (e: ReactPointerEvent) => {
+          if (!readerText(e.target)) return;
           if (e.pointerType !== "mouse") window.getSelection()?.removeAllRanges();
           press.onPointerDown(e);
         },
@@ -419,7 +425,9 @@ export function ReaderView({
     };
     const end = () => (selecting.current = false);
     // Cancels the system's own long-press selection and text drag; a selection made by script is not a selectstart.
-    const block = (e: Event) => e.preventDefault();
+    const block = (e: Event) => {
+      if (readerText(e.target)) e.preventDefault();
+    };
     document.addEventListener("touchmove", move, { passive: false });
     document.addEventListener("pointerup", end);
     document.addEventListener("pointercancel", end);
@@ -664,6 +672,7 @@ export function ReaderView({
                 compact ? "px-4" : "px-12",
                 layout === "centered" && (chapter ? "max-w-[46rem]" : "max-w-3xl"),
               )}
+              style={{ paddingLeft: "calc(1rem + env(safe-area-inset-left))", paddingRight: "calc(1rem + env(safe-area-inset-right))" }}
             >
               {split && (
                 <div

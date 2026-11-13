@@ -151,6 +151,22 @@ describe("MarkToolbar", () => {
     expect([box().left, box().top]).toEqual([`${window.innerWidth - 288}px`, `${window.innerHeight - 48}px`]);
   });
 
+  it("reclamps after rotation without changing the selection", () => {
+    vi.stubGlobal("innerWidth", 1024);
+    vi.stubGlobal("innerHeight", 768);
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 280 });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 40 });
+    try {
+      render(toolbar(900, 650, true));
+      vi.stubGlobal("innerWidth", 390);
+      vi.stubGlobal("innerHeight", 600);
+      fireEvent(window, new Event("resize"));
+      expect([box().left, box().top]).toEqual(["102px", "552px"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("sits above its point, or under it when asked", () => {
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 280 });
     Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 40 });
@@ -180,16 +196,23 @@ describe("NoteForm", () => {
     expect(area.selectionStart).toBe(area.value.indexOf(" now"));
   });
 
-  it("offers Insert link on a long press, which links like Ctrl+L", () => {
+  it("leaves long press to native selection and links through a button", () => {
     vi.useFakeTimers();
     try {
       render(<NoteForm note={{ content: "See Mt 24:14 now" }} focus={false} onSave={() => undefined} onCancel={() => undefined} books={books} />);
       const area = screen.getByPlaceholderText<HTMLTextAreaElement>("Note");
+      area.focus();
       area.setSelectionRange(4, 12);
       fireEvent.pointerDown(area, { pointerType: "touch", clientX: 5, clientY: 5 });
-      act(() => void vi.advanceTimersByTime(500));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Insert link" }));
+      act(() => void vi.advanceTimersByTime(600));
+      expect(screen.queryByRole("menuitem", { name: "Insert link" })).toBeNull();
+      const button = screen.getByRole("button", { name: "Insert link" });
+      button.focus();
+      fireEvent.click(button);
+      expect(document.activeElement).toBe(area);
       expect(area.value).toBe("See [Mt 24:14](pergament://bible/40:24:14-40:24:14) now");
+      fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+      expect(screen.queryByRole("button", { name: "Insert link" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }

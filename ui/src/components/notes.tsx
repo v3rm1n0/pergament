@@ -11,11 +11,9 @@ import { canOpenNoteWindow } from "@/lib/platform";
 import { sendNoteLink } from "@/lib/note-window";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
-import { useLongPress } from "@/lib/use-long-press";
 
 /** How close the toolbar may come to the edge of the screen. */
 const EDGE = 8;
@@ -59,13 +57,18 @@ export function MarkToolbar({
   // Kept on the screen: on a phone the text reaches the edges and the toolbar is most of the width.
   const [at, setAt] = useState({ left: x, top: y });
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const within = (v: number, room: number) => Math.max(EDGE, Math.min(v, room - EDGE));
-    setAt({
-      left: within(x - el.offsetWidth / 2, window.innerWidth - el.offsetWidth),
-      top: within(below ? y : y - el.offsetHeight, window.innerHeight - el.offsetHeight),
-    });
+    const measure = () => {
+      const el = ref.current;
+      if (!el) return;
+      const within = (v: number, room: number) => Math.max(EDGE, Math.min(v, room - EDGE));
+      setAt({
+        left: within(x - el.offsetWidth / 2, window.innerWidth - el.offsetWidth),
+        top: within(below ? y : y - el.offsetHeight, window.innerHeight - el.offsetHeight),
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [x, y, below]);
   return (
     <div
@@ -296,6 +299,7 @@ export function NoteForm({
   /** Makes the selection a link, and opens the first verses linked when `open` and the form can open them. */
   const insertLink = (area: HTMLTextAreaElement, open: boolean) => {
     const edit = linkEdit(area.value, area.selectionStart, area.selectionEnd, books);
+    area.focus({ preventScroll: true });
     area.setSelectionRange(edit.start, edit.end);
     // Typed through the browser, the link can be undone; where that is missing, the text is set directly.
     if (document.execCommand?.("insertText", false, edit.text)) {
@@ -317,9 +321,6 @@ export function NoteForm({
     e.preventDefault();
     insertLink(e.currentTarget, key === "p");
   };
-  /** Where a long press in the editor opened its menu, which stands in for Ctrl+L on a touch screen. */
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
-  const press = useLongPress((p) => setMenuAt({ x: p.clientX, y: p.clientY }));
   /** Links in the preview open in the app or the browser, not in the editor's window. */
   const openLink = (e: React.MouseEvent) => {
     const a = (e.target as HTMLElement).closest("a");
@@ -339,7 +340,7 @@ export function NoteForm({
         onChange={(e) => setTitle(e.target.value)}
         className="h-auto py-2 text-base"
       />
-      <div role="group" aria-label={t("Note")} className="-mb-1.5 flex items-center justify-end gap-1 text-xs">
+      <div role="group" aria-label={t("Note")} className="-mb-1.5 flex flex-wrap items-center justify-end gap-1 text-xs">
         {!preview && (
           <span className="mr-auto text-muted">
             {t("Ctrl+L: link a Bible reference")}
@@ -350,6 +351,16 @@ export function NoteForm({
               </>
             )}
           </span>
+        )}
+        {!preview && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => contentRef.current && insertLink(contentRef.current, false)}
+            className="rounded px-2 py-2 text-muted hover:text-fg"
+          >
+            {t("Insert link")}
+          </button>
         )}
         {[false, true].map((on) => (
           <button
@@ -381,27 +392,9 @@ export function NoteForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={onContentKey}
-          {...press}
-          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
           className="min-h-0 flex-1 resize-none text-base"
         />
       )}
-      <DropdownMenu modal={false} open={menuAt != null} onOpenChange={(o) => !o && setMenuAt(null)}>
-        <DropdownMenuTrigger asChild>
-          <span aria-hidden className="fixed size-0" style={{ left: menuAt?.x ?? 0, top: menuAt?.y ?? 0 }} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            contentRef.current?.focus();
-          }}
-        >
-          <DropdownMenuItem onSelect={() => contentRef.current && insertLink(contentRef.current, false)}>
-            {t("Insert link")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
       <Input
         id="note-tags"
         placeholder={t("Tags, separated by commas")}
