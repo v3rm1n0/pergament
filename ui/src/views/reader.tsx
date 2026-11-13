@@ -692,7 +692,7 @@ export function ReaderView({
             className={cn(
               "study-pane bg-surface text-[0.93rem] leading-relaxed",
               compact
-                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
                 : "w-[min(44%,640px)] shrink-0 border-l border-line",
             )}
           >
@@ -716,7 +716,7 @@ export function ReaderView({
             className={cn(
               "study-pane bg-surface text-[0.93rem] leading-relaxed",
               compact
-                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)]"
+                ? "fixed inset-0 z-30 flex flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
                 : "overflow-y-auto w-[min(44%,640px)] shrink-0 border-l border-line px-5 py-4",
             )}
           >

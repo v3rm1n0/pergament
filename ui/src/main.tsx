@@ -23,6 +23,7 @@ import { t } from "./lib/i18n";
 import { installFocusModality } from "./lib/focus";
 import { watchDesignClasses } from "./lib/design-classes";
 import { restoreScroll, scroller } from "./lib/scroll";
+import { cn } from "./lib/utils";
 import { useCompact } from "./lib/viewport";
 import "./styles.css";
 
@@ -63,11 +64,16 @@ function CurrentView() {
 
 function Shell() {
   const { back } = useApp();
-  // Narrow windows (phones) get a tab bar along the bottom instead of the rail, and clear the notch and the home bar.
+  // Narrow windows (phones) get a tab bar along the bottom instead of the rail. Every edge clears what the screen
+  // cuts off there (notch, camera, rounded corners, home bar), whichever way the device is held; the tab bar clears
+  // the bottom itself.
   const compact = useCompact();
   return (
     <div
-      className="flex h-full flex-col pt-[env(safe-area-inset-top)]"
+      className={cn(
+        "flex h-full flex-col bg-surface pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]",
+        !compact && "pb-[env(safe-area-inset-bottom)]",
+      )}
       onMouseUp={(e) => {
         // Mouse "back" button.
         if (e.button === 3) back();
