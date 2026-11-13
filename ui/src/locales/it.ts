@@ -367,4 +367,3 @@ export const it: Record<string, string> = {
   "Choose a folder that Nextcloud, Syncthing, Dropbox or another sync app keeps in sync. Each computer writes its own file there and merges the others; deletions carry over.": "Scegli una cartella sincronizzata da Nextcloud, Syncthing, Dropbox o da un'altra applicazione di sincronizzazione. Ogni computer vi salva il proprio file e integra quelli degli altri dispositivi; anche le eliminazioni vengono sincronizzate.",
   "Sync is on: this also changes your data on the other synced computers.": "La sincronizzazione è attiva: questa operazione modificherà anche i tuoi dati sugli altri computer sincronizzati.",
 };
-```
