@@ -1,0 +1,21 @@
+name: Frontend checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Type check
+        run: bun run lint
+      - name: Verify translations
+        run: bun run i18n
+      - name: Test locale validation
+        run: bun run test --run ui/src/locales
