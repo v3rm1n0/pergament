@@ -104,7 +104,7 @@ impl JwPub {
         let mut total: u64 = 0;
         for i in 0..inner.len() {
             let mut entry = inner.by_index(i)?;
-            let name = entry.name().to_owned();
+            let name = entry.name()?.into_owned();
             if entry.is_symlink() {
                 return Err(Error::UnsafePath(name));
             }
