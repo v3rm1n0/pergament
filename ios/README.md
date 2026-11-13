@@ -16,6 +16,10 @@ Needs xtool with the Darwin SDK installed (`xtool setup`) and `bun`.
 cd ios && xtool dev     # builds, installs and launches on a connected device
 ```
 
+xtool's template allows only portrait on iPhone. `Info.plist`, named by
+`infoPath` in `xtool.yml`, is merged over it and allows every orientation, so
+the app turns and fills a large unfolded screen.
+
 Which display modes iOS gives the app depends on the SDK version stamped into
 the binary, not on the deployment target (iOS 17). `Package.swift` makes the
 linker stamp the installed SDK's version (`LC_BUILD_VERSION` in the binary);
