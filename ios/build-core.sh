@@ -5,7 +5,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-sdk="${PERGAMENT_IOS_SDK:-$HOME/.config/swiftpm/swift-sdks/darwin.artifactbundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS27.2.sdk}"
+sdk="${PERGAMENT_IOS_SDK:-$HOME/.config/swiftpm/swift-sdks/darwin.artifactbundle/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk}"
 toolchain="${PERGAMENT_RUST_TOOLCHAIN:-1.98.1}"
 clang="${PERGAMENT_IOS_CLANG:-/run/current-system/sw/bin/clang}"
 
