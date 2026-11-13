@@ -60,11 +60,22 @@ final class ShellWebView: WKWebView {
 
     override func buildMenu(with builder: UIMenuBuilder) {
         super.buildMenu(with: builder)
-        guard let title = insertLinkTitle else { return }
+        guard let title = insertLinkTitle else {
+            trace("edit menu built without a focused note")
+            return
+        }
         let action = UIAction(title: title) { [weak self] _ in
             self?.evaluateJavaScript("window.__pergamentInsertLink?.()", completionHandler: nil)
         }
-        builder.insertChild(UIMenu(options: .displayInline, children: [action]), atStartOfMenu: .standardEdit)
+        let group = UIMenu(options: .displayInline, children: [action])
+        // An edit menu need not have the menu bar's Edit menu; inserting next to a menu that is missing does nothing.
+        if builder.menu(for: .standardEdit) != nil {
+            builder.insertChild(group, atStartOfMenu: .standardEdit)
+            trace("edit menu: added Insert link to the standard Edit menu")
+        } else {
+            builder.insertChild(group, atStartOfMenu: .root)
+            trace("edit menu: added Insert link to the root menu")
+        }
     }
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
@@ -86,8 +97,9 @@ final class NoteFocusHandler: NSObject, WKScriptMessageHandler {
     var onChange: ((String?) -> Void)?
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        let body = message.body as? [String: Any]
-        onChange?(body?["title"] as? String)
+        let title = (message.body as? [String: Any])?["title"] as? String
+        trace("note focus: \(title ?? "lost")")
+        onChange?(title)
     }
 }
 
