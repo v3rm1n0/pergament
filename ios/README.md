@@ -14,6 +14,7 @@ Needs xtool with the Darwin SDK installed (`xtool setup`) and `bun`.
 ./ios/sync-web.sh       # builds the frontend into ios/Sources/Pergament/web
 ./ios/build-core.sh     # builds the Rust core into ios/lib (enters `nix develop` itself)
 cd ios && xtool dev     # builds, installs and launches on a connected device
+./ios/build-ipa.sh      # unsigned release IPA at ios/xtool/Pergament.ipa
 ```
 
 xtool's template allows only portrait on iPhone. `Info.plist`, named by
