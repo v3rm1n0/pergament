@@ -16,6 +16,11 @@ Needs xtool with the Darwin SDK installed (`xtool setup`) and `bun`.
 cd ios && xtool dev     # builds, installs and launches on a connected device
 ```
 
+Which display modes iOS gives the app depends on the SDK version stamped into
+the binary, not on the deployment target (iOS 17). `Package.swift` makes the
+linker stamp the installed SDK's version (`LC_BUILD_VERSION` in the binary);
+without that it stamps 17.0 and the app runs in a compatibility mode.
+
 ## How it works
 
 - `Sources/Pergament/WebShell.swift` serves the bundled `web/` folder on
