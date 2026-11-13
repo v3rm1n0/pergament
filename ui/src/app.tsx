@@ -72,6 +72,7 @@ import { cn } from "@/lib/utils";
 import { isoDate } from "@/lib/dates";
 import { scroller } from "@/lib/scroll";
 import { useCompact } from "@/lib/viewport";
+import type { NavEdge } from "@/lib/nav-edge";
 import { nothingSeen, syncNotices } from "@/lib/sync";
 import { resolveUiLang, setUiLang, t, type UiLangSetting } from "@/lib/i18n";
 import { LanguageMenu, type Translations } from "@/components/language-menu";
@@ -1060,8 +1061,8 @@ function RailButton({
   );
 }
 
-/** Icon rail on the left; the menu button expands labels. */
-export function Rail() {
+/** Icon rail on the left, or on the right when the shell asks for that edge; the menu button expands labels. */
+export function Rail({ edge = null }: { edge?: NavEdge }) {
   const { view, switchTo, publications, lang, bibles } = useApp();
   const [expanded, setExpanded] = useState(false);
   const bible = pickBible(bibleChoices(lang, publications, []), bibles[lang] ?? null);
@@ -1075,7 +1076,12 @@ export function Rail() {
   return (
     <nav
       aria-label={t("Main navigation")}
-      className={cn("flex shrink-0 flex-col gap-1 overflow-x-hidden overflow-y-auto border-r border-line bg-surface p-2 transition-[width] motion-reduce:transition-none", expanded ? "w-52" : "w-[52px]")}>
+      className={cn(
+        "flex shrink-0 flex-col gap-1 overflow-x-hidden overflow-y-auto border-line bg-surface p-2 transition-[width] motion-reduce:transition-none",
+        edge === "right" ? "border-l" : "border-r",
+        expanded ? "w-52" : "w-[52px]",
+      )}
+    >
       <RailButton label="Menu" toggles active={false} expanded={expanded} onClick={() => setExpanded((e) => !e)}>
         <Menu {...icon} />
       </RailButton>
@@ -1128,10 +1134,11 @@ export function Rail() {
 }
 
 /**
- * The rail's sections as an iOS-style tab bar along the bottom, for windows too narrow for the rail. Settings is
- * not a tab here; it stays in the top bar's menu.
+ * The rail's sections as an iOS-style tab bar, for windows too narrow for the rail: along the bottom, or along
+ * `edge` with icons only, as iOS draws its own bar on a side edge. Settings is not a tab here; it stays in the top
+ * bar's menu.
  */
-export function TabBar() {
+export function TabBar({ edge = null }: { edge?: NavEdge }) {
   const { section, switchTo, publications, lang, bibles } = useApp();
   const bible = pickBible(bibleChoices(lang, publications, []), bibles[lang] ?? null);
   const go = (to: Section, view: View) => switchTo(to, view, scroller()?.scrollTop);
@@ -1151,22 +1158,30 @@ export function TabBar() {
   return (
     <nav
       aria-label={t("Main navigation")}
-      className="flex shrink-0 items-stretch border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+      className={cn(
+        "flex shrink-0 border-line bg-surface",
+        edge
+          ? // Centered so a thumb reaches every tab on a tall screen; "safe" keeps the first ones reachable in a short one.
+            cn("w-14 flex-col justify-center-safe gap-2 overflow-y-auto", edge === "right" ? "border-l" : "border-r")
+          : "items-stretch border-t pb-[env(safe-area-inset-bottom)]",
+      )}
     >
       {tabs.map((tab) => {
         const active = section === tab.to;
         return (
           <button
             key={tab.to}
+            title={edge ? t(tab.label) : undefined}
             onClick={() => go(tab.to, tab.view)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 px-1 pt-1.5 pb-1 text-[10px] leading-none",
+              "flex min-h-12 shrink-0 flex-col items-center justify-center gap-1 px-1 pt-1.5 pb-1 text-[10px] leading-none",
+              !edge && "flex-1",
               active ? "text-accent" : "text-muted",
             )}
           >
             {tab.icon}
-            <span className="max-w-full truncate">{t(tab.label)}</span>
+            <span className={edge ? "sr-only" : "max-w-full truncate"}>{t(tab.label)}</span>
           </button>
         );
       })}

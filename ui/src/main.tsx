@@ -23,6 +23,7 @@ import { t } from "./lib/i18n";
 import { installFocusModality } from "./lib/focus";
 import { watchDesignClasses } from "./lib/design-classes";
 import { restoreScroll, scroller } from "./lib/scroll";
+import { useNavEdge } from "./lib/nav-edge";
 import { cn } from "./lib/utils";
 import { useCompact } from "./lib/viewport";
 import "./styles.css";
@@ -64,15 +65,17 @@ function CurrentView() {
 
 function Shell() {
   const { back } = useApp();
-  // Narrow windows (phones) get a tab bar along the bottom instead of the rail. Every edge clears what the screen
-  // cuts off there (notch, camera, rounded corners, home bar), whichever way the device is held; the tab bar clears
-  // the bottom itself.
+  // Narrow windows (phones) get a tab bar instead of the rail: along the bottom, or along the side edge the iOS shell
+  // names. Every edge clears what the screen cuts off there (notch, camera, rounded corners, home bar), whichever way
+  // the device is held; the bottom tab bar clears the bottom itself.
   const compact = useCompact();
+  const edge = useNavEdge();
+  const bottomBar = compact && !edge;
   return (
     <div
       className={cn(
         "flex h-full flex-col bg-surface pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]",
-        !compact && "pb-[env(safe-area-inset-bottom)]",
+        !bottomBar && "pb-[env(safe-area-inset-bottom)]",
       )}
       onMouseUp={(e) => {
         // Mouse "back" button.
@@ -90,8 +93,8 @@ function Shell() {
         {t("Skip to content")}
       </a>
       {!compact && <TitleStrip />}
-      <div className="flex min-h-0 flex-1">
-        {!compact && <Rail />}
+      <div className={cn("flex min-h-0 flex-1", edge === "right" && "flex-row-reverse")}>
+        {compact ? edge && <TabBar edge={edge} /> : <Rail edge={edge} />}
         <main id="content" tabIndex={-1} className="relative flex min-w-0 flex-1 flex-col bg-bg outline-none">
           <div className="flex min-h-0 flex-1 flex-col">
             <CurrentView />
@@ -101,7 +104,7 @@ function Shell() {
           <GoTo />
         </main>
       </div>
-      {compact && <TabBar />}
+      {bottomBar && <TabBar />}
     </div>
   );
 }
