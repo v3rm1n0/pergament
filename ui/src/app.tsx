@@ -239,6 +239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<PublicationKey[]>([]);
   const favoriteWrites = useRef<PublicationKey[]>([]);
   const favoriteRevision = useRef(0);
+  const favoriteMigration = useRef<Promise<void> | null>(null);
   const [player, setPlayer] = useState<AppContextValue["player"]>(null);
   const [note, setNote] = useState<AppContextValue["note"]>(null);
   const noteRef = useRef(note);
@@ -299,12 +300,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { live = false; };
   }, [userVersion, toast]);
 
+  useEffect(() => {
+    if (!libraryReady || favoriteMigration.current) return;
+    let stored: unknown;
+    try {
+      stored = JSON.parse(localStorage.getItem("favorites") ?? "[]");
+    } catch (e) {
+      toast(String(e));
+      return;
+    }
+    if (!Array.isArray(stored)) return;
+    const legacy = [...new Set(stored.filter((key): key is string => typeof key === "string"))];
+    if (!legacy.length) return;
+    const matched = legacy.flatMap((dir) => {
+      const pub = publications.find((p) => p.dir === dir);
+      return pub ? [{ dir, key: { keySymbol: pub.keySymbol, mepsLanguage: pub.mepsLanguage, issueTag: Number(pub.issueTag) || 0 } }] : [];
+    });
+    if (!matched.length) return;
+    const migration = (async () => {
+      try {
+        const rows = [...await api.favorites()];
+        for (const { dir, key } of matched) {
+          if (!rows.some((row) => samePublication(row, key))) {
+            await api.setFavorite(key, true);
+            rows.push(key);
+          }
+          const pending: unknown = JSON.parse(localStorage.getItem("favorites") ?? "[]");
+          if (Array.isArray(pending)) {
+            const remaining = pending.filter((item) => item !== dir);
+            if (remaining.length) localStorage.setItem("favorites", JSON.stringify(remaining));
+            else localStorage.removeItem("favorites");
+          }
+        }
+        favoriteRevision.current++;
+        setUserVersion((v) => v + 1);
+      } catch (e) {
+        toast(String(e));
+      }
+    })();
+    favoriteMigration.current = migration;
+    void migration.finally(() => { favoriteMigration.current = null; });
+  }, [libraryReady, publications, toast]);
+
   const setFavorite = useCallback(async ({ keySymbol, mepsLanguage, issueTag }: PublicationKey, favorite: boolean) => {
     const key = { keySymbol, mepsLanguage, issueTag };
     if (favoriteWrites.current.some((k) => samePublication(k, key))) return;
     favoriteWrites.current.push(key);
     favoriteRevision.current++;
     try {
+      if (favoriteMigration.current) await favoriteMigration.current;
       await api.setFavorite(key, favorite);
       setFavorites((rows) => favorite
         ? rows.some((k) => samePublication(k, key)) ? rows : [...rows, key]

@@ -194,19 +194,25 @@ describe("Home with tile menus", () => {
     await waitFor(() => expect(titles()).toEqual(["Glücklich", "German brochure"]));
   });
 
-  it("ignores localStorage favorites without reading or changing them", async () => {
-    localStorage.setItem("favorites", JSON.stringify(["lff_2", "ll_2"]));
-    const read = vi.spyOn(Storage.prototype, "getItem");
+  it("migrates legacy favorites once, keeping existing favorites and unresolved entries", async () => {
+    favorites = [key("ll")];
+    localStorage.setItem("favorites", JSON.stringify(["lff_2", "unknown_2", "lff_2"]));
+    renderHome();
+    await waitFor(() => expect(favorites).toEqual([key("ll"), key("lff")]));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["unknown_2"]));
+    expect(calls.filter((c) => c.cmd === "set_favorite")).toHaveLength(1);
+    cleanup();
     renderHome();
     await screen.findByText("Höre auf Gott");
-    const section = screen.getByText("Favorites").closest("section")!;
-    expect(within(section).queryByText("Glücklich")).toBeNull();
-    expect(within(section).queryByText("Höre auf Gott")).toBeNull();
-    expect(read.mock.calls.some(([k]) => k === "favorites")).toBe(false);
-    read.mockRestore();
-    fireEvent.click(within(await tile("Höre auf Gott")).getByLabelText("Add to favorites"));
-    await waitFor(() => expect(favorites).toEqual([key("ll")]));
-    expect(localStorage.getItem("favorites")).toBe(JSON.stringify(["lff_2", "ll_2"]));
+    expect(calls.filter((c) => c.cmd === "set_favorite")).toHaveLength(1);
+  });
+
+  it("retains legacy favorites when a database write fails", async () => {
+    localStorage.setItem("favorites", JSON.stringify(["lff_2"]));
+    backend.set_favorite = () => { throw new Error("migration failed"); };
+    renderHome();
+    expect((await screen.findAllByText("Error: migration failed")).length).toBeGreaterThan(0);
+    expect(JSON.parse(localStorage.getItem("favorites")!)).toEqual(["lff_2"]);
   });
 
   it("waits for persistence and ignores repeated in-flight actions", async () => {
