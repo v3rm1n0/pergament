@@ -228,7 +228,7 @@ jobs:
     needs: release
     # On a tag the release job has to succeed first; when started by hand it is skipped.
     if: ${{ !cancelled() && (needs.release.result == 'success' || needs.release.result == 'skipped') }}
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
 
