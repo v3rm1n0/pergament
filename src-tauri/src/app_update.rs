@@ -284,7 +284,7 @@ fn zip_binary(archive: &mut zip::ZipArchive<File>, name: &str) -> Result<Vec<u8>
         .find(|&i| {
             archive
                 .name_for_index(i)
-                .is_some_and(|n| n.ends_with(&suffix))
+                .is_some_and(|n| n.is_ok_and(|name| name.ends_with(&suffix)))
         })
         .ok_or_else(|| format!("the download has no bin/{name}"))?;
     let mut entry = archive.by_index(index).map_err(|e| e.to_string())?;
@@ -359,6 +359,29 @@ mod tests {
         InstallKind::Zip {
             bin_dir: PathBuf::from("/home/u/.local/bin"),
         }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn reads_binaries_from_release_zip() {
+        use std::io::Write;
+        let file = tempfile::tempfile().unwrap();
+        let mut writer = zip::ZipWriter::new(file);
+        writer
+            .start_file(
+                "Pergament/bin/pergament",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        writer.write_all(b"cli").unwrap();
+        let file = writer.finish().unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(zip_binary(&mut archive, "pergament").unwrap(), b"cli");
+        assert!(
+            zip_binary(&mut archive, "pergament-app")
+                .unwrap_err()
+                .contains("no bin/pergament-app")
+        );
     }
 
     #[test]
