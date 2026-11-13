@@ -160,6 +160,12 @@ body {
   font-weight: 700;
   margin: 0.08em 0.25em 0 0;
   cursor: pointer;
+  /* On mobile, clear the float so the following text doesn't wrap awkwardly in narrow viewports. */
+  @media (max-width: 480px) {
+    float: none;
+    display: block;
+    margin-bottom: 0.1em;
+  }
 }
 .reader .vl {
   font-size: 0.68em;
@@ -351,6 +357,10 @@ body {
   color: var(--verse);
   margin: 0 0.15em 0 -1.2em;
   line-height: 1;
+  /* Ensure chapter numbers don't hang off the edge of small screens. */
+  @media (max-width: 480px) {
+    margin-left: 0;
+  }
 }
 .reader.bible .vl {
   vertical-align: baseline;
