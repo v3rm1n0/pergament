@@ -73,7 +73,7 @@ export const it: Record<string, string> = {
   "Article Series": "Serie di articoli",
   "Watchtower": "La Torre di Guardia",
   "Awake!": "Svegliatevi!",
-  "Meeting Workbooks": "Guido per l'adunanza",
+  "Meeting Workbooks": "Guida per l'adunanza",
   "Kingdom Ministry": "Il ministero del Regno",
   "Programs": "Programmi",
   "Index": "Indice",
