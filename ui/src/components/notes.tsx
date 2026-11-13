@@ -7,13 +7,20 @@ import { renderMarkdown } from "@/lib/markdown";
 import { linkEdit, useLinkBible } from "@/lib/note-links";
 import type { Book } from "@/lib/bible";
 import { HIGHLIGHT_COLORS } from "@/lib/marks";
-import { canOpenNoteWindow } from "@/lib/platform";
+import { canOpenNoteWindow, reportNoteFocus } from "@/lib/platform";
 import { sendNoteLink } from "@/lib/note-window";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
+
+declare global {
+  interface Window {
+    /** Set while the note text has focus, so the iOS shell can offer Insert link in the native edit menu. */
+    __pergamentInsertLink?: () => void;
+  }
+}
 
 /** How close the toolbar may come to the edge of the screen. */
 const EDGE = 8;
@@ -392,6 +399,14 @@ export function NoteForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={onContentKey}
+          onFocus={() => {
+            window.__pergamentInsertLink = () => contentRef.current && insertLink(contentRef.current, false);
+            reportNoteFocus(t("Insert link"));
+          }}
+          onBlur={() => {
+            delete window.__pergamentInsertLink;
+            reportNoteFocus(null);
+          }}
           className="min-h-0 flex-1 resize-none text-base"
         />
       )}

@@ -218,6 +218,32 @@ describe("NoteForm", () => {
     }
   });
 
+  it("offers Insert link to the native edit menu while the text is focused", () => {
+    render(<NoteForm note={{ content: "See Mt 24:14 now" }} focus={false} onSave={() => undefined} onCancel={() => undefined} books={books} />);
+    const area = screen.getByPlaceholderText<HTMLTextAreaElement>("Note");
+    area.focus();
+    area.setSelectionRange(4, 12);
+    act(() => window.__pergamentInsertLink?.());
+    expect(area.value).toBe("See [Mt 24:14](pergament://bible/40:24:14-40:24:14) now");
+    area.blur();
+    expect(window.__pergamentInsertLink).toBeUndefined();
+  });
+
+  it("tells the iOS shell when the note text gains and loses focus, with the menu's title", () => {
+    const postMessage = vi.fn();
+    window.webkit = { messageHandlers: { noteFocus: { postMessage } } };
+    try {
+      render(<NoteForm note={{ content: "x" }} focus={false} onSave={() => undefined} onCancel={() => undefined} />);
+      const area = screen.getByPlaceholderText<HTMLTextAreaElement>("Note");
+      area.focus();
+      expect(postMessage).toHaveBeenLastCalledWith({ title: "Insert link" });
+      area.blur();
+      expect(postMessage).toHaveBeenLastCalledWith(null);
+    } finally {
+      delete window.webkit;
+    }
+  });
+
   it("links a range of verses, leaving spaces around the selection outside", () => {
     expect(link(" Mt 24:14-16 ", 0, 13).value).toBe(" [Mt 24:14-16](pergament://bible/40:24:14-40:24:16) ");
   });

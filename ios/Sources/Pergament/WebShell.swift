@@ -27,7 +27,10 @@ struct WebShell: UIViewRepresentable {
                 WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
 
+        let noteFocus = NoteFocusHandler()
+        config.userContentController.add(noteFocus, name: NoteFocusHandler.name)
         let web = ShellWebView(frame: .zero, configuration: config)
+        noteFocus.onChange = { [weak web] title in web?.insertLinkTitle = title }
         web.onNavEdge = { [core] edge in core.navEdgeChanged(edge) }
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.scrollView.bounces = false
@@ -52,6 +55,17 @@ struct WebShell: UIViewRepresentable {
 /// the first value itself (`nav_edge` in Native.swift), once it can listen.
 final class ShellWebView: WKWebView {
     var onNavEdge: ((String?) -> Void)?
+    /// The title of the Insert link action in the system's edit menu, set while a note's text has focus.
+    var insertLinkTitle: String?
+
+    override func buildMenu(with builder: UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        guard let title = insertLinkTitle else { return }
+        let action = UIAction(title: title) { [weak self] _ in
+            self?.evaluateJavaScript("window.__pergamentInsertLink?.()", completionHandler: nil)
+        }
+        builder.insertChild(UIMenu(options: .displayInline, children: [action]), atStartOfMenu: .standardEdit)
+    }
 
     override init(frame: CGRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
@@ -64,6 +78,17 @@ final class ShellWebView: WKWebView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("made in code only") }
+}
+
+/// Receives `noteFocus` messages from the page: the title of the edit-menu action while note text has focus, else null.
+final class NoteFocusHandler: NSObject, WKScriptMessageHandler {
+    static let name = "noteFocus"
+    var onChange: ((String?) -> Void)?
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        let body = message.body as? [String: Any]
+        onChange?(body?["title"] as? String)
+    }
 }
 
 extension UITraitCollection {
