@@ -7,7 +7,7 @@ echo 'For Linux, each release has an AppImage, a .deb, a .rpm and a .flatpak for
 echo
 echo 'For Windows x86_64, extract `Pergament-X.Y.Z-windows-x86_64.zip` and run `pergament-app.exe`. The [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) is required and is already installed on most Windows systems. Check the zip against the SHA-256 digest GitHub shows next to it.'
 echo
-echo 'The `.dmg` is a build for Macs with Apple Silicon. It is not signed with an Apple Developer ID and not notarized, so macOS blocks the first start: right-click the app and choose Open, or allow it in System Settings under Privacy & Security. Check the download with `shasum -a 256 -c`. It has not been tested by the maintainer on a Mac.'
+echo 'The `.dmg` is a build for Macs with Apple Silicon. It is not signed with an Apple Developer ID and not notarized, so macOS blocks the first start: right-click the app and choose Open, or allow it in System Settings under Privacy & Security. Run `shasum -a 256 Pergament-X.Y.Z-macos-arm64.dmg` and compare the output with the SHA-256 digest GitHub shows next to the download. It has not been tested by the maintainer on a Mac.'
 echo
 # The in-app updater shows only what follows this marker.
 echo '<!-- changes -->'
