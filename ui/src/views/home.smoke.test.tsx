@@ -3,8 +3,8 @@
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { samePublication, type PublicationKey, type CatalogEntry, type PubCard, type WhatsNewRow } from "@/lib/api";
-import { card, entry } from "@/lib/fixtures";
+import { samePublication, type PublicationKey, type CatalogEntry, type MediaCategory, type PubCard, type WhatsNewRow } from "@/lib/api";
+import { card, entry, media } from "@/lib/fixtures";
 
 const calls: { cmd: string; args: unknown }[] = [];
 let backend: Record<string, (args: any) => unknown> = {};
@@ -29,6 +29,7 @@ import { HomeView } from "@/views/home";
 let publications: PubCard[];
 let toolbox: CatalogEntry[];
 let whatsNewRows: WhatsNewRow[];
+let ministryVideos: MediaCategory;
 let favorites: PublicationKey[];
 const key = (keySymbol: string, mepsLanguage = 2, issueTag = 0): PublicationKey => ({ keySymbol, mepsLanguage, issueTag });
 
@@ -46,6 +47,21 @@ beforeEach(() => {
     entry("odd", null, null, "Ohne Kategorie"),
   ];
   whatsNewRows = [{ ...entry("ll", "Brochures and Booklets", null, "Frisch erschienen"), langCode: "X" }];
+  ministryVideos = {
+    key: "VODMinistryTools",
+    name: "Ministry tools",
+    container: false,
+    image: null,
+    subcategories: [],
+    media: [
+      media("pub-wsb_X_2_VIDEO", "Why study the Bible?"),
+      media("pub-wsb_X_1_VIDEO", "Why study the Bible? (full version)"),
+      media("pub-whbs_X_1_VIDEO", "How is a Bible study conducted?"),
+      media("pub-whkh_X_1_VIDEO", "What happens at the Kingdom Hall?"),
+      media("pub-imv_X_5_VIDEO", "Who are Jehovah's Witnesses?"),
+      media("unrelated", "Not a featured video"),
+    ],
+  };
   backend = {
     list_publications: () => publications,
     languages: () => [
@@ -73,6 +89,8 @@ beforeEach(() => {
     },
     download_publication: () => "ll_2",
     catalog_languages: () => [],
+    media_category: () => ministryVideos,
+    media_downloads: () => [],
   };
   Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => undefined) } });
 });
@@ -93,12 +111,41 @@ const tile = async (title: string) => (await screen.findByText(title)).closest("
 const openMenu = (t: HTMLElement) => fireEvent.pointerDown(within(t).getByLabelText("More"), { button: 0, ctrlKey: false });
 
 describe("Home with tile menus", () => {
-  it("renders the toolbox in two rows without the hidden publications", async () => {
+  it("renders five ministry videos, category groups, and tracts in the second row", async () => {
     renderHome();
     await screen.findByText("Höre auf Gott");
+    for (const title of [
+      "Why study the Bible?",
+      "Why study the Bible? (full version)",
+      "How is a Bible study conducted?",
+      "What happens at the Kingdom Hall?",
+      "Who are Jehovah's Witnesses?",
+    ]) expect(await screen.findByText(title)).toBeTruthy();
+    expect(screen.queryByText("Not a featured video")).toBeNull();
     expect(screen.queryByText("Was lehrt die Bibel wirklich?")).toBeNull();
     expect(screen.getByText("Zukunft")).toBeTruthy();
     expect(screen.getByText("Ohne Kategorie")).toBeTruthy();
+    const rows = screen.getByRole("tabpanel").children;
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).not.toContain("Ohne Kategorie");
+    expect(rows[0].textContent).toContain("Höre auf Gott");
+    expect(rows[0].textContent).not.toContain("Zukunft");
+    expect(rows[1].textContent).toContain("Zukunft");
+    expect(rows[1].textContent).toContain("Ohne Kategorie");
+    expect(rows[0].children).toHaveLength(3); // Videos, brochures, books.
+    expect(rows[0].className).toContain("gap-x-6");
+    for (const group of rows[0].children) expect(group.className).toContain("gap-x-1");
+    for (const row of rows) {
+      expect(row.className).toContain("flex-nowrap");
+      expect(row.className).toContain("overflow-x-auto");
+      for (const group of row.children) expect(group.className).toContain("flex-nowrap");
+    }
+    expect(rows[0].querySelectorAll(".aspect-square")).toHaveLength(0);
+    expect(calls.find((c) => c.cmd === "media_category")?.args).toEqual({
+      lang: "X",
+      key: "VODMinistryTools",
+      detailed: true,
+    });
   });
 
   it("shows the toolbox right away when the view is opened again", async () => {
@@ -129,6 +176,7 @@ describe("Home with tile menus", () => {
     await waitFor(() => expect(favorites).toEqual([key("ll")]));
     await waitFor(() => expect(calls.some((c) => c.cmd === "favorite_entry")).toBe(true));
     await waitFor(() => expect(screen.getAllByText("Höre auf Gott").length).toBe(2)); // toolbox + favorites
+    expect(screen.getByText("Favorites").closest("section")?.querySelector(".flex.flex-wrap")?.className).toContain("gap-x-1");
     // Menu now offers removal from favorites.
     openMenu((await screen.findAllByText("Höre auf Gott"))[0].closest(".group") as HTMLElement);
     expect(screen.getByText("Remove from Favorites")).toBeTruthy();
