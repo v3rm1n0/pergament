@@ -22,8 +22,9 @@ const lists = new Set<() => Promise<void>>();
 const refreshAll = () => Promise.all([...lists].map((refresh) => refresh()));
 
 /** Downloaded recordings, the downloads in flight, and the actions on them. */
-export function useMediaDownloads() {
+export function useMediaDownloads(language?: string) {
   const { toast, lang } = useApp();
+  const effectiveLang = language ?? lang;
   const [list, setList] = useState<MediaDownload[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
 
@@ -66,7 +67,7 @@ export function useMediaDownloads() {
       const size = media.files.find((f) => f.label === label)?.size ?? null;
       setProgress((p) => ({ ...p, [media.key]: { task: media.key, done: 0, total: size } }));
       try {
-        await api.downloadMedia(lang, from.category, from.detailed, media.key, label);
+        await api.downloadMedia(effectiveLang, from.category, from.detailed, media.key, label);
         toast(t("Downloaded {title}", { title: media.title }));
         await refreshAll();
       } catch (e) {
@@ -78,7 +79,7 @@ export function useMediaDownloads() {
         });
       }
     },
-    [lang, toast],
+    [effectiveLang, toast],
   );
 
   const remove = useCallback(
@@ -95,8 +96,8 @@ export function useMediaDownloads() {
   );
 
   const downloaded = useMemo(
-    () => new Map(list.filter((m) => m.langCode === lang).map((m) => [m.key, m])),
-    [list, lang],
+    () => new Map(list.filter((m) => m.langCode === effectiveLang).map((m) => [m.key, m])),
+    [list, effectiveLang],
   );
   return { list, downloaded, progress, download, remove };
 }
@@ -187,16 +188,18 @@ interface CardProps {
   from: MediaSource;
   store: MediaDownloads;
   onPlay: () => void;
+  lang?: string;
+  compact?: boolean;
 }
 
 /** A video: wide thumbnail with its length, title below. Click streams it. */
-export function MediaCard({ media, from, store, onPlay }: CardProps) {
-  const { lang } = useApp();
+export function MediaCard({ media, from, store, onPlay, lang, compact }: CardProps) {
+  const { lang: appLang } = useApp();
   return (
-    <div className="group w-[176px] shrink-0">
+    <div className={cn("group shrink-0", compact ? "w-[104px]" : "w-[176px]")}>
       <div className="relative">
         <button onClick={onPlay} title={media.title} aria-label={media.title} className="block w-full">
-          <Thumb src={media.image} className="aspect-video w-full" />
+          <Thumb src={media.image} className={cn("w-full", compact ? "aspect-[4/5]" : "aspect-video")} />
         </button>
         {media.duration != null && (
           <span className="pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-1 rounded border border-line bg-surface px-1 text-xs tabular-nums text-fg">
@@ -204,7 +207,7 @@ export function MediaCard({ media, from, store, onPlay }: CardProps) {
           </span>
         )}
         <DownloadButton media={media} from={from} store={store} className="absolute bottom-1.5 right-1.5" />
-        <TileMenu target={{ kind: "media", key: media.key, langCode: lang }} />
+        <TileMenu target={{ kind: "media", key: media.key, langCode: lang ?? appLang }} />
       </div>
       <button onClick={onPlay} className="mt-1.5 line-clamp-2 text-left text-[13px] font-medium leading-snug hover:underline">
         {media.title}
