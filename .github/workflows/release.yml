@@ -113,7 +113,7 @@ jobs:
       # the .zsync file on the latest release.
       - name: Bundle deb, rpm and AppImage
         env:
-          LDAI_UPDATE_INFORMATION: gh-releases-zsync|v3rm1n0|pergament|latest|Pergament-*x86_64.AppImage.zsync
+          LDAI_UPDATE_INFORMATION: gh-releases-zsync|pergament-project|pergament|latest|Pergament-*x86_64.AppImage.zsync
         run: >
           bun run tauri build --bundles deb,rpm,appimage
           --config '{"bundle":{"active":true,"externalBin":["../target/release/pergament"]}}'

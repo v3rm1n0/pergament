@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// The minisign key the release workflow signs updates with (base64, as Tauri writes it).
 pub const PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5NTJCRjMwMzRCRjhDNjUKUldSbGpMODBNTDlTcWRKOW9tOEhpcHlkYmtJWjNFemtLajBUZXlyTWNub3BxNWloTjlaY2RNdUQK";
 
-pub const RELEASES_URL: &str = "https://api.github.com/repos/v3rm1n0/pergament/releases/latest";
+pub const RELEASES_URL: &str = "https://api.github.com/repos/pergament-project/pergament/releases/latest";
 
 /// Where the release notes GitHub generates start; the install text in front is skipped.
 const NOTES_MARKER: &str = "<!-- changes -->";

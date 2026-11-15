@@ -6,7 +6,7 @@
 #   bun install --frozen-lockfile
 #   cargo build --release -p pergament
 #   cp target/release/pergament target/release/pergament-x86_64-unknown-linux-gnu
-#   LDAI_UPDATE_INFORMATION='gh-releases-zsync|v3rm1n0|pergament|latest|Pergament-*x86_64.AppImage.zsync' \
+#   LDAI_UPDATE_INFORMATION='gh-releases-zsync|pergament-project|pergament|latest|Pergament-*x86_64.AppImage.zsync' \
 #   bun run tauri build --bundles deb,rpm,appimage \
 #       --config '{"bundle":{"active":true,"externalBin":["../target/release/pergament"]}}'
 set -euo pipefail

@@ -19,8 +19,8 @@
     <category>Office</category>
     <category>Viewer</category>
   </categories>
-  <url type="homepage">https://github.com/v3rm1n0/pergament</url>
-  <url type="bugtracker">https://github.com/v3rm1n0/pergament/issues</url>
+  <url type="homepage">https://github.com/pergament-project/pergament</url>
+  <url type="bugtracker">https://github.com/pergament-project/pergament/issues</url>
   <releases>
     <release version="1.9.2" date="2026-11-15"/>
     <release version="1.9.1" date="2026-11-13"/>

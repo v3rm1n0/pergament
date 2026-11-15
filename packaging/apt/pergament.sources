@@ -1,4 +1,4 @@
 Types: deb
-URIs: https://v3rm1n0.github.io/pergament/apt/
+URIs: https://pergament-project.github.io/pergament/apt/
 Suites: ./
 Signed-By: /etc/apt/keyrings/pergament.gpg

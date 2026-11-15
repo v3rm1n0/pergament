@@ -2,7 +2,7 @@
 # Build Pergament from source and install it for the current user.
 #
 #   scripts/install.sh                 # from a checkout
-#   curl -fsSL https://raw.githubusercontent.com/v3rm1n0/pergament/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/pergament-project/pergament/main/scripts/install.sh | bash
 #
 # With Nix it installs the flake package into your profile. Without Nix it
 # builds with cargo and bun and copies the files below ~/.local (or --prefix).
@@ -14,8 +14,8 @@
 #   --uninstall    remove what this script installed
 set -euo pipefail
 
-repo=https://github.com/v3rm1n0/pergament.git
-flake=github:v3rm1n0/pergament
+repo=https://github.com/pergament-project/pergament.git
+flake=github:pergament-project/pergament
 app_id=io.github.v3rm1n.pergament
 
 prefix=${HOME}/.local

@@ -48,7 +48,7 @@ More in [docs/screenshots](docs/screenshots). All content shown is invented.
 
 ## Install
 
-Releases are on the [releases page](https://github.com/v3rm1n0/pergament/releases).
+Releases are on the [releases page](https://github.com/pergament-project/pergament/releases).
 Check every download against the SHA-256 digest shown next to it before
 installing it.
 
@@ -66,7 +66,7 @@ flatpak install --user Pergament-X.Y.Z-linux-x86_64.flatpak
 ```
 
 Installing the `.deb` also adds the Pergament apt repository
-(`https://v3rm1n0.github.io/pergament/apt/`), so later versions arrive with the
+(`https://pergament-project.github.io/pergament/apt/`), so later versions arrive with the
 normal system update. The repository is signed with the key
 `71162C8E5F5EFABAA6ECB400A8001EBD72C3A8BF`. `sudo apt remove pergament` removes
 the repository again; so does `apt purge`.
@@ -76,11 +76,11 @@ To add the repository first and install from it instead:
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSLo /etc/apt/keyrings/pergament.gpg \
-  https://raw.githubusercontent.com/v3rm1n0/pergament/main/packaging/apt/pergament.gpg
+  https://raw.githubusercontent.com/pergament-project/pergament/main/packaging/apt/pergament.gpg
 gpg --show-keys /etc/apt/keyrings/pergament.gpg   # check the fingerprint above
 sudo tee /etc/apt/sources.list.d/pergament.sources > /dev/null <<'EOF'
 Types: deb
-URIs: https://v3rm1n0.github.io/pergament/apt/
+URIs: https://pergament-project.github.io/pergament/apt/
 Suites: ./
 Signed-By: /etc/apt/keyrings/pergament.gpg
 EOF
@@ -90,6 +90,11 @@ sudo apt update && sudo apt install pergament
 These are the same two files the package installs, so the package takes them
 over and removing it removes the repository as well.
 
+**Already installed before the move to the GitHub organization?** The old APT
+address may no longer work. Run the commands above to replace the source and
+refresh the signing key, then run `sudo apt update && sudo apt upgrade`.
+This also restores updates if your installed package still uses the old address.
+
 **Linux zip:** unpack it and run `./install.sh`. It needs WebKitGTK 4.1, GTK 3,
 libsoup 3, OpenSSL and SQLite. Video needs `gst-libav` (`gstreamer1-libav` on
 Fedora); the packages above already include it.
@@ -97,7 +102,7 @@ Fedora); the packages above already include it.
 **Mac (Apple Silicon):** open the `.dmg` and drag Pergament to Applications.
 The app isn't signed, so the first time, right-click it and choose Open.
 
-**Nix:** `nix profile install github:v3rm1n0/pergament`
+**Nix:** `nix profile install github:pergament-project/pergament`
 
 **From source:** clone the repository and run `scripts/install.sh`. It uses Nix
 if you have it, and otherwise builds with cargo and bun. Run it with
