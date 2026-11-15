@@ -423,4 +423,15 @@ export const ptBR: Record<string, string> = {
     "Escolha uma pasta que o Nextcloud, o Syncthing, o Dropbox ou outro aplicativo de sincronização mantém sincronizada. Cada computador grava ali o seu próprio arquivo e mescla os dos outros; as exclusões são aplicadas.",
   "Sync is on: this also changes your data on the other synced computers.":
     "A sincronização está ativada: isso também altera seus dados nos outros computadores sincronizados.",
+  "Unmatched quotation mark": "Aspas não correspondentes",
+  "Search library": "Pesquisar na biblioteca",
+  "Search scope": "Escopo da pesquisa",
+  "All downloaded content": "Todo o conteúdo baixado",
+  "Downloaded Bibles": "Bíblias baixadas",
+  "Indexing downloaded content…": "Indexando conteúdo baixado…",
+  "Search is unavailable on this device.": "A pesquisa não está disponível neste dispositivo.",
+  "Search index is incomplete; some content may be missing.": "O índice de pesquisa está incompleto; alguns conteúdos podem estar faltando.",
+  "Retry indexing": "Tentar indexação novamente",
+  "Searching…": "Pesquisando…",
+  "Italian": "Italiano",
 };

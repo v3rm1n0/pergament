@@ -422,4 +422,15 @@ export const de: Record<string, string> = {
     "Wähle einen Ordner, den Nextcloud, Syncthing, Dropbox oder eine andere Sync-App abgleicht. Jeder Computer schreibt dort seine eigene Datei und führt die der anderen zusammen; Löschungen werden übernommen.",
   "Sync is on: this also changes your data on the other synced computers.":
     "Die Synchronisierung ist aktiv: Dadurch ändern sich auch deine Daten auf den anderen synchronisierten Computern.",
+  "Unmatched quotation mark": "Nicht geschlossenes Anführungszeichen",
+  "Search library": "Bibliothek durchsuchen",
+  "Search scope": "Suchbereich",
+  "All downloaded content": "Alle heruntergeladenen Inhalte",
+  "Downloaded Bibles": "Heruntergeladene Bibeln",
+  "Indexing downloaded content…": "Heruntergeladene Inhalte werden indexiert…",
+  "Search is unavailable on this device.": "Die Suche ist auf diesem Gerät nicht verfügbar.",
+  "Search index is incomplete; some content may be missing.": "Der Suchindex ist unvollständig; einige Inhalte fehlen möglicherweise.",
+  "Retry indexing": "Indexierung wiederholen",
+  "Searching…": "Wird gesucht…",
+  "Italian": "Italienisch",
 };

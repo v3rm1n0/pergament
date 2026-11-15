@@ -7,8 +7,9 @@ type ViewKind =
   | { name: "bible" }
   | { name: "publication"; dir: string; tab?: number }
   | { name: "chapters"; dir: string; book: number }
-  | { name: "reader"; target: Target; note?: boolean; noteGuid?: string }
+  | { name: "reader"; target: Target; note?: boolean; noteGuid?: string; fromSearch?: boolean }
   | { name: "online" }
+  | { name: "search" }
   | { name: "settings" }
   | { name: "library"; tab?: LibraryTab }
   | { name: "category"; id: number; title: string }
