@@ -71,6 +71,7 @@ impl Library {
         let root = root.into();
         fs::create_dir_all(root.join(PUBLICATIONS))?;
         let index = Connection::open(root.join("index.sqlite"))?;
+        index.busy_timeout(std::time::Duration::from_secs(2))?;
         index.execute_batch(
             "CREATE TABLE IF NOT EXISTS publication (
                  id               INTEGER PRIMARY KEY,
