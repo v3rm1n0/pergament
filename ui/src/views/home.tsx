@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
-import { api, samePublication, type CatalogEntry, type DatedPage, type HomeLists, type LanguageEntry, type WhatsNewRow } from "@/lib/api";
+import { api, samePublication, type CatalogEntry, type DatedPage, type HomeLists, type LanguageEntry, type Media, type WhatsNewRow } from "@/lib/api";
 import { isoDate, longDate } from "@/lib/dates";
 import { themeScriptureParts } from "@/lib/page";
 import { loadToolboxLang, loadWhatsNewLangs, saveToolboxLang, saveWhatsNewLangs } from "@/lib/settings";
@@ -11,23 +11,32 @@ import { SectionLanguagePicker } from "@/components/language-menu";
 import { CatalogPrompt, EntryImage, useEntryAction } from "@/components/catalog";
 import { WhatsNewLanguages } from "@/components/whats-new-languages";
 import { EntryCover, PubCover } from "@/components/cover";
+import { MediaCard, useMediaDownloads } from "@/components/media-card";
+import { streamItem } from "@/lib/recording";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
-/** First row of the Teaching Toolbox: brochures, books, then the current magazines. Everything else, such as tracts, follows on the next row. */
-const TOOLBOX_ROW = ["Brochures and Booklets", "Books", "Watchtower", "Awake!"];
+/** First row of the Teaching Toolbox: videos, brochures, books, then the current magazines. */
+const TOOLBOX_FIRST_ROW = ["Brochures and Booklets", "Books", "Watchtower", "Awake!"];
+const TOOLBOX_VIDEO_KEYS = [
+  /^pub-wsb_[^_]+_2_VIDEO$/,
+  /^pub-wsb_[^_]+_1_VIDEO$/,
+  /^pub-whbs_[^_]+_1_VIDEO$/,
+  /^pub-whkh_[^_]+_1_VIDEO$/,
+  /^pub-imv_[^_]+_5_VIDEO$/,
+];
 
 /** Publications the Teaching Toolbox leaves out (bh, bhs, lvs, lv, fg and jl). */
 const TOOLBOX_HIDDEN = ["bh", "bhs", "lvs", "lv", "fg", "jl"];
 
-/** Splits entries into the two toolbox rows of category groups, keeping the list order within each category. */
+/** Splits entries into toolbox rows of category groups, keeping the list order within each category. */
 function toolboxRows(entries: CatalogEntry[]): CatalogEntry[][][] {
   const shown = entries.filter((e) => !TOOLBOX_HIDDEN.includes(e.item.symbol));
   const group = (categories: (string | null)[]) =>
     categories.map((c) => shown.filter((e) => e.category === c)).filter((g) => g.length > 0);
-  const others = [...new Set(shown.map((e) => e.category))].filter((c) => !TOOLBOX_ROW.includes(c ?? ""));
-  return [group(TOOLBOX_ROW), group(others)].filter((row) => row.length > 0);
+  const others = [...new Set(shown.map((e) => e.category))].filter((c) => c == null || !TOOLBOX_FIRST_ROW.includes(c));
+  return [group(TOOLBOX_FIRST_ROW), group(others)].filter((row) => row.length > 0);
 }
 
 /** One What's New row: thumbnail, title, category and a small button that downloads or opens the entry. */
@@ -72,11 +81,12 @@ function NewRow({ row, showLang }: { row: WhatsNewRow; showLang: boolean }) {
 let cachedLists: { lang: string; lists: HomeLists | null } | undefined;
 let cachedToday: { lang: string; page: DatedPage | null } | undefined;
 let cachedToolbox: { lang: string; entries: CatalogEntry[] | null } | undefined;
+const cachedToolboxVideos = new Map<string, Media[]>();
 /** The last What's New rows for the selected languages, keyed by the joined codes. */
 let cachedNew: { key: string; rows: WhatsNewRow[] | null } | undefined;
 
 export function HomeView() {
-  const { lang, publications, catalogVersion, favorites, toast, push } = useApp();
+  const { lang, publications, catalogVersion, favorites, toast, push, playItem } = useApp();
   const [lists, setLists] = useState<HomeLists | null | undefined>(
     cachedLists?.lang === lang ? cachedLists.lists : undefined,
   );
@@ -87,6 +97,10 @@ export function HomeView() {
     cachedToolbox?.lang === toolboxEff ? cachedToolbox.entries : undefined,
   );
   const { activate } = useEntryAction();
+  const mediaStore = useMediaDownloads(toolboxEff);
+  const [toolboxVideoState, setToolboxVideos] = useState<{ lang: string; items: Media[] }>(
+    { lang: toolboxEff, items: cachedToolboxVideos.get(toolboxEff) ?? [] },
+  );
   const missingKeys = favorites.filter((k) => !publications.some((p) => samePublication(k, cardTarget(p, lang))));
   const [extra, setExtra] = useState<LanguageEntry[]>([]);
   useEffect(() => {
@@ -149,6 +163,27 @@ export function HomeView() {
     };
   }, [toolboxEff, catalogVersion, toast]);
 
+  useEffect(() => {
+    let live = true;
+    api
+      .mediaCategory(toolboxEff, "VODMinistryTools", true)
+      .then((category) => {
+        const byKey = new Map(category.media.map((item) => [item.key, item]));
+        const videos = TOOLBOX_VIDEO_KEYS.flatMap((pattern) => {
+          const item = [...byKey.values()].find((candidate) => pattern.test(candidate.key));
+          return item ? [item] : [];
+        });
+        cachedToolboxVideos.set(toolboxEff, videos);
+        if (live) setToolboxVideos({ lang: toolboxEff, items: videos });
+      })
+      .catch((e) => {
+        toast(String(e));
+      });
+    return () => {
+      live = false;
+    };
+  }, [toolboxEff, toast]);
+
   // Today's text from a downloaded daily text booklet, if there is one.
   const [today, setToday] = useState<DatedPage | null>(cachedToday?.lang === lang ? cachedToday.page : null);
   useEffect(() => {
@@ -199,12 +234,16 @@ export function HomeView() {
   const daily = lists?.dailyText;
   const scripture = today ? themeScriptureParts(today.html) : null;
   const toolboxEntries = toolboxLang == null ? lists?.teachingToolbox : toolboxState;
-  const groups = toolboxEntries ? toolboxRows(toolboxEntries).flat() : [];
+  const toolboxVideoItems = toolboxVideoState.lang === toolboxEff
+    ? toolboxVideoState.items
+    : cachedToolboxVideos.get(toolboxEff) ?? [];
+  const rows = toolboxEntries ? toolboxRows(toolboxEntries) : [];
+  const groups = rows.flat();
   const categories = groups.filter((g) => g[0].category != null);
   const [tab, setTab] = useState("all");
   // A category that the new language does not have falls back to All.
   const active = categories.some((g) => g[0].category === tab) ? tab : "all";
-  const shownGroups = active === "all" ? groups : groups.filter((g) => g[0].category === active);
+  const shownRows = active === "all" ? rows : [groups.filter((g) => g[0].category === active)];
   return (
     <>
       <AppBar title={t("Home")} />
@@ -236,7 +275,7 @@ export function HomeView() {
           <section>
             <SectionTitle variant="quiet">Favorites</SectionTitle>
             {favoriteTiles.length > 0 ? (
-              <div className="flex flex-wrap gap-x-3 gap-y-4">
+              <div className="flex flex-wrap gap-x-1 gap-y-4">
                 {favoriteTiles}
               </div>
             ) : (
@@ -275,9 +314,32 @@ export function HomeView() {
                     ))}
                   </TabsList>
                 )}
-                <TabsContent value={active} className="flex flex-wrap gap-x-3 gap-y-4">
-                  {shownGroups.flat().map((e) => (
-                    <EntryCover key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} lang={toolboxEff} />
+                <TabsContent value={active} className="flex flex-col gap-4">
+                  {shownRows.map((row, i) => (
+                    <div key={i} className="flex w-full flex-nowrap items-start gap-x-6 overflow-x-auto pb-1">
+                      {active === "all" && i === 0 && toolboxVideoItems.length > 0 && (
+                        <div className="flex shrink-0 flex-nowrap gap-x-1">
+                          {toolboxVideoItems.map((item) => (
+                            <MediaCard
+                              key={item.key}
+                              media={item}
+                              from={{ category: "VODMinistryTools", detailed: true }}
+                              store={mediaStore}
+                              lang={toolboxEff}
+                              compact
+                              onPlay={() => playItem(streamItem(item))}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {row.map((group) => (
+                        <div key={group[0].category ?? "uncategorized"} className="flex shrink-0 flex-nowrap gap-x-1">
+                          {group.map((e) => (
+                            <EntryCover key={`${e.item.symbol}-${e.item.issue_tag}`} entry={e} lang={toolboxEff} />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </TabsContent>
               </Tabs>
