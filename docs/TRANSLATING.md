@@ -1,6 +1,6 @@
 # Translating Pergament
 
-The interface is available in English, German, Portuguese (Brazil) and French.
+The interface is available in English, German, Portuguese (Brazil), French and Italian.
 Adding another language is one new file and one line in a list. You do not need
 to know TypeScript; the file is a list of English texts with room for yours
 next to them.
@@ -36,14 +36,16 @@ You need [bun](https://bun.sh) (`nix develop` in the repository has it).
    [language tag](https://www.w3.org/International/articles/language-tags/):
 
    ```sh
-   git switch -c translate-fr
-   bun run i18n:new fr "Français" fr-FR
+   git switch -c translate-es
+   bun run i18n:new es "Español" es-ES
    ```
 
-   This creates `ui/src/locales/fr.ts` with every text still to translate and
-   adds the language to `ui/src/locales/index.ts`.
+   For example, this creates `ui/src/locales/es.ts` with every text still to
+   translate and adds the language to `ui/src/locales/index.ts`. Choose a code
+   and syntactically valid BCP 47 tag for your language; the code must not
+   already be registered.
 
-2. Open `ui/src/locales/fr.ts` and fill in the empty texts. They are grouped
+2. Open `ui/src/locales/es.ts` and fill in the empty texts. They are grouped
    by screen, in the order they appear in the app. Texts you leave empty stay
    English.
 
@@ -55,8 +57,10 @@ You need [bun](https://bun.sh) (`nix develop` in the repository has it).
    bun run test --run          # the checks every language must pass
    ```
 
-   It fails on changed `{markers}`, a duplicate code or a language tag the
-   browser does not know. Missing texts are not an error.
+   The i18n check reports duplicate codes and mismatched `{markers}`; the
+   tests also check language-tag syntax and spaces at the edges of translated
+   texts. Missing texts are not an error. Coverage is an estimate based on
+   literal `t(...)` calls.
 
 4. Look at it in the app: `bun run tauri dev`, then Settings, then the
    interface language. Long texts can be too wide for a button; shorten them if
@@ -64,10 +68,10 @@ You need [bun](https://bun.sh) (`nix develop` in the repository has it).
 
 5. Open a pull request. Changes to `main` come in through pull requests, so
    please do not push there directly. One language per pull request, with a
-   title such as `feat: add French translation`.
+   title such as `feat: add Spanish translation`.
 
 Without bun you can do the same by hand: copy `ui/src/locales/de.ts` to
-`ui/src/locales/fr.ts`, translate the values, rename the exported object, add
+`ui/src/locales/es.ts`, translate the values, rename the exported object, add
 an import and a line to `ui/src/locales/index.ts`, and run the tests.
 
 ## Improving a language

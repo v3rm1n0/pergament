@@ -32,8 +32,9 @@ bun run i18n
 
 The Rust tests build small valid and malicious `.jwpub` files and user data
 backups in memory. To also test against real publications, set
-`PERGAMENT_TEST_JWPUB` (study Bible) and `PERGAMENT_TEST_JWPUB_WP` (a
-Watchtower issue) to their paths; without them those tests are skipped.
+`PERGAMENT_TEST_JWPUB` (study Bible), `PERGAMENT_TEST_JWPUB_WP` (a
+Watchtower issue), and `PERGAMENT_TEST_JWPUB_LFF` (Enjoy Life Forever) to their
+paths; without them the corresponding tests are skipped.
 `PERGAMENT_TEST_NETWORK=1` enables a test that downloads one Watchtower issue
 (about 3 MB) from jw.org.
 

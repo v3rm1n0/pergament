@@ -1,0 +1,17 @@
+name: Translation contribution
+description: Offer to translate Pergament
+title: "[Translation]: "
+labels: ["translation"]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Which language would you like to translate into?
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: Experience
+      description: Tell us about your experience with translation and any relevant skills.
