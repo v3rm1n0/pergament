@@ -54,12 +54,15 @@ export function ReaderView({
   note,
   noteGuid,
   scroll,
+  fromSearch,
 }: {
   target: Target;
   note?: boolean;
   /** A note to jump to once the text is shown. */
   noteGuid?: string;
   scroll?: number;
+  /** A jump from search results: verse 1 falls back to the verse anchor even without a backend fragment. */
+  fromSearch?: boolean;
 }) {
   const {
     push,
@@ -271,7 +274,13 @@ export function ReaderView({
   useEffect(() => {
     const root = articleRef.current;
     if (!root || !split) return;
-    if (page?.fragment) flash(root.querySelector(`[id="${CSS.escape(page.fragment)}"]`));
+    const paragraph = "documentParagraph" in target.kind ? target.kind.documentParagraph.paragraph : null;
+    const verse = chapter ? `v${chapter.book}-${chapter.chapter}-${chapter.verse}-1` : null;
+    const fragment = page?.fragment ?? (fromSearch ? verse : null);
+    const destination = paragraph !== null
+      ? root.querySelector(`[data-pid="${CSS.escape(String(paragraph))}"]`) ?? root.querySelector(`[id="${CSS.escape(`p${paragraph}`)}"]`)
+      : fragment ? root.querySelector(`[id="${CSS.escape(fragment)}"]`) : null;
+    if (destination) flash(destination);
     else {
       const el = root.closest<HTMLElement>(".overflow-y-auto");
       // Coming back to the tab continues where the user stopped, once.
@@ -281,7 +290,9 @@ export function ReaderView({
     }
     if (note && chapter && study) selectVerse(`${chapter.chapter}:${chapter.verse}`);
     // Runs once per loaded page and study data, not on every selection.
-  }, [split, page, owners, study]);
+    // User data arrives after this and must not re-run the jump: note positioning
+    // is the note-jump effect's job, and it tracks user separately.
+  }, [split, page, target, note, noteGuid, fromSearch]);
 
   /** Show a reference in the pane: replace the pane stack, push onto it, or replace its top. */
   const showRef = useCallback((ref: PaneRef, mode: RefMode) => {
@@ -492,7 +503,7 @@ export function ReaderView({
 
   const books = detail?.books;
   const docs = useMemo(() => (detail ? documentOrder(detail.toc) : []), [detail]);
-  const docId = "document" in target.kind ? target.kind.document : null;
+  const docId = "document" in target.kind ? target.kind.document : "documentParagraph" in target.kind ? target.kind.documentParagraph.document : null;
   const docIndex = docId !== null ? docs.indexOf(docId) : -1;
   const paged = chapter !== null || dated !== null || docIndex >= 0;
   const go = (delta: number) => {
