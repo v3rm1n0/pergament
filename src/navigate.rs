@@ -18,6 +18,7 @@ pub struct Target {
 #[serde(rename_all = "camelCase")]
 pub enum TargetKind {
     Document(i64),
+    DocumentParagraph { document: i64, paragraph: i64 },
     Chapter {
         book: i64,
         chapter: i64,
@@ -190,6 +191,17 @@ pub fn render(
             html: renderer.document(id)?,
             fragment: None,
             name: format!("{}-d{id}", entry.dir_name),
+        },
+        TargetKind::DocumentParagraph { document, paragraph } => Page {
+            title: publication
+                .documents()?
+                .into_iter()
+                .find(|d| d.id == document)
+                .map(|d| d.title)
+                .unwrap_or_default(),
+            html: renderer.document(document)?,
+            fragment: Some(format!("p{paragraph}")),
+            name: format!("{}-d{document}", entry.dir_name),
         },
         TargetKind::Chapter {
             book,

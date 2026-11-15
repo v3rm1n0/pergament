@@ -116,6 +116,7 @@ impl Library {
         if !has_sha1 {
             index.execute_batch("ALTER TABLE publication ADD COLUMN package_sha1 TEXT;")?;
         }
+        crate::search::initialize(&index)?;
         Ok(Self {
             root,
             index,
@@ -130,6 +131,32 @@ impl Library {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn search_status(&self) -> Result<crate::search::SearchStatus> {
+        crate::search::status(&self.index)
+    }
+
+    pub fn search(
+        &self,
+        request: &crate::search::SearchRequest,
+    ) -> Result<crate::search::SearchResponse> {
+        crate::search::search(&self.index, request)
+    }
+
+    pub fn rebuild_search(&mut self) -> Result<crate::search::SearchStatus> {
+        let entries = self.list()?;
+        crate::search::begin_rebuild(&self.index)?;
+        crate::search::rebuild(&self.index)?;
+        for entry in entries {
+            if crate::search::is_ready(&self.index, &entry)? {
+                continue;
+            }
+            if let Err(_error) = crate::search::index_publication(&self.index, self, &entry) {
+                crate::search::index_error(&self.index, &entry)?;
+            }
+        }
+        crate::search::status(&self.index)
     }
 
     /// Directory holding the unpacked files of `entry`.
@@ -239,6 +266,7 @@ impl Library {
         if had_old {
             fs::remove_dir_all(&old)?;
         }
+        crate::search::invalidate_publication(&self.index, &entry)?;
         Ok(entry)
     }
 
@@ -271,10 +299,22 @@ impl Library {
 
     /// Remove a publication from the index and delete its files.
     pub fn remove(&mut self, entry: &Entry) -> Result<bool> {
-        let n = self.index.execute(
+        let tx = self.index.transaction()?;
+        let n = tx.execute(
             "DELETE FROM publication WHERE dir_name = ?1",
             [&entry.dir_name],
         )?;
+        if crate::search::available(&tx)? {
+            tx.execute(
+                "DELETE FROM search_fts WHERE dir_name = ?1",
+                [&entry.dir_name],
+            )?;
+        }
+        tx.execute(
+            "DELETE FROM search_coverage WHERE dir_name = ?1",
+            [&entry.dir_name],
+        )?;
+        tx.commit()?;
         let dir = self.publication_dir(entry);
         if dir.exists() {
             fs::remove_dir_all(dir)?;

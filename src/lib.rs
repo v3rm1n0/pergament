@@ -19,6 +19,8 @@ pub mod net;
 pub mod reader;
 pub mod remote;
 pub mod render;
+pub mod search;
+pub mod search_index;
 pub mod sync_snapshot;
 pub mod updates;
 pub mod userdata;
