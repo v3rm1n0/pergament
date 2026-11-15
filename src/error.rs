@@ -41,6 +41,9 @@ pub enum Error {
     #[error("not found: {0}")]
     NotFound(String),
 
+    #[error("invalid search query: {0}")]
+    InvalidQuery(String),
+
     #[error("network error: {0}")]
     Http(String),
 

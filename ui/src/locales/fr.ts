@@ -381,4 +381,15 @@ export const fr: Record<string, string> = {
     "Choisissez un dossier que Nextcloud, Syncthing, Dropbox ou une autre application de synchronisation tient à jour. Chaque ordinateur y écrit son propre fichier et fusionne ceux des autres ; les suppressions sont reprises.",
   "Sync is on: this also changes your data on the other synced computers.":
     "La synchronisation est activée : cela modifie aussi vos données sur les autres ordinateurs synchronisés.",
+  "Unmatched quotation mark": "Guillemet non fermé",
+  "Search library": "Rechercher dans la bibliothèque",
+  "Search scope": "Périmètre de recherche",
+  "All downloaded content": "Tous les contenus téléchargés",
+  "Downloaded Bibles": "Bibles téléchargées",
+  "Indexing downloaded content…": "Indexation du contenu téléchargé en cours…",
+  "Search is unavailable on this device.": "La recherche n'est pas disponible sur cet appareil.",
+  "Search index is incomplete; some content may be missing.": "L'index de recherche est incomplet ; certains contenus peuvent manquer.",
+  "Retry indexing": "Réessayer l'indexation",
+  "Searching…": "Recherche en cours…",
+  "Italian": "Italien",
 };

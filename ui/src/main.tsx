@@ -19,6 +19,7 @@ import { PersonalView } from "./views/personal";
 import { PublicationView } from "./views/publication";
 import { ReaderView } from "./views/reader";
 import { SettingsView } from "./views/settings";
+import { SearchView } from "./views/search";
 import { t } from "./lib/i18n";
 import { installFocusModality } from "./lib/focus";
 import { watchDesignClasses } from "./lib/design-classes";
@@ -42,9 +43,11 @@ function CurrentView() {
     case "chapters":
       return <ChaptersView dir={view.dir} book={view.book} />;
     case "reader":
-      return <ReaderView target={view.target} note={view.note} noteGuid={view.noteGuid} scroll={view.scroll} />;
+      return <ReaderView target={view.target} note={view.note} noteGuid={view.noteGuid} scroll={view.scroll} fromSearch={view.fromSearch} />;;
     case "online":
       return <OnlineView />;
+    case "search":
+      return <SearchView />;
     case "settings":
       return <SettingsView />;
     case "library":

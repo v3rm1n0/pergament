@@ -9,6 +9,7 @@ import {
   Ellipsis,
   FolderInput,
   Gem,
+  Globe,
   Home,
   LibraryBig,
   Menu,
@@ -1311,8 +1312,11 @@ export function AppBar({
         {subtitle && <div className="truncate text-[13px] text-muted">{subtitle}</div>}
       </div>
       {children}
-      <BarButton label="Search and download" onClick={() => push({ name: "online" })}>
+      <BarButton label="Search library" onClick={() => push({ name: "search" })}>
         <Search size={18} strokeWidth={1.6} />
+      </BarButton>
+      <BarButton label="Search and download" onClick={() => push({ name: "online" })}>
+        <Globe size={18} strokeWidth={1.6} />
       </BarButton>
       <LanguageMenu value={lang} onChange={setLang} libraryCodes={libraryCodes} translations={translations} />
       <MoreMenu />

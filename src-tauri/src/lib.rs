@@ -7,7 +7,7 @@ pub mod auto;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
@@ -32,6 +32,8 @@ use auto::{SyncMsg, SyncStatus};
 
 pub struct AppState {
     library: Mutex<Library>,
+    search: SearchRebuildQueue,
+
     /// Highlights, notes and tags (`userData.db` in the library root).
     user: Mutex<UserData>,
     root: PathBuf,
@@ -61,6 +63,49 @@ impl<'a> JobGuard<'a> {
 impl Drop for JobGuard<'_> {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+#[derive(Clone)]
+struct SearchRebuildQueue {
+    pending: Arc<AtomicBool>,
+    tx: Sender<()>,
+}
+
+impl SearchRebuildQueue {
+    fn new() -> (Self, Receiver<()>) {
+        let (tx, rx) = mpsc::channel();
+        (
+            Self {
+                pending: Arc::new(AtomicBool::new(false)),
+                tx,
+            },
+            rx,
+        )
+    }
+
+    fn request(&self) -> bool {
+        if self
+            .pending
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return false;
+        }
+        if self.tx.send(()).is_err() {
+            self.pending.store(false, Ordering::Release);
+            return false;
+        }
+        true
+    }
+
+    fn started(&self) {
+        self.pending.store(false, Ordering::Release);
+    }
+
+    #[cfg(test)]
+    fn test() -> (Self, Receiver<()>) {
+        Self::new()
     }
 }
 
@@ -383,6 +428,7 @@ fn remove_publication(state: State<'_, AppState>, dir: String) -> ApiResult<()> 
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("{dir} is not in the library"))?;
     lib.remove(&entry).map_err(|e| e.to_string())?;
+    state.search.request();
     Ok(())
 }
 
@@ -405,10 +451,13 @@ async fn import_files(app: AppHandle, paths: Vec<String>) -> ApiResult<Vec<Impor
         Ok(paths
             .into_iter()
             .map(|path| match lib.import(&path) {
-                Ok(e) => ImportResult {
-                    path,
-                    title: Some(e.title),
-                    error: None,
+                Ok(e) => {
+                    state.search.request();
+                    ImportResult {
+                        path,
+                        title: Some(e.title),
+                        error: None,
+                    }
                 },
                 Err(e) => ImportResult {
                     path,
@@ -1037,6 +1086,7 @@ async fn download_publication(
             ),
         )
         .map_err(|e| e.to_string())?;
+        state.search.request();
         Ok(entry.dir_name)
     })
     .await
@@ -1140,6 +1190,43 @@ async fn install_app_update(app: AppHandle, version: String) -> ApiResult<()> {
 #[tauri::command]
 fn running_jobs(state: State<'_, AppState>) -> usize {
     state.jobs.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn search_publications(
+    state: State<'_, AppState>,
+    request: pergament::search::SearchRequest,
+) -> ApiResult<pergament::search::SearchResponse> {
+    api::search(&*state.lib()?, &request)
+}
+
+#[tauri::command]
+fn search_status(state: State<'_, AppState>) -> ApiResult<pergament::search::SearchStatus> {
+    api::search_status(&*state.lib()?)
+}
+
+#[tauri::command]
+fn rebuild_search(state: State<'_, AppState>) -> ApiResult<()> {
+    state.search.request();
+    Ok(())
+}
+
+fn search_worker(app: AppHandle, queue: SearchRebuildQueue, rx: Receiver<()>) {
+    while rx.recv().is_ok() {
+        queue.started();
+        let state = app.state::<AppState>();
+        let _job = state.job();
+        let mut library = match Library::open(&state.root) {
+            Ok(library) => library,
+            Err(error) => {
+                eprintln!("search indexing failed: {error}");
+                continue;
+            }
+        };
+        if let Err(error) = library.rebuild_search() {
+            eprintln!("search indexing failed: {error}");
+        }
+    }
 }
 
 /// Start the installed (possibly just replaced) app again.
@@ -1624,6 +1711,7 @@ pub fn run() {
         .or_else(|| dirs::cache_dir().map(|d| pergament::library::app_dir(&d)))
         .expect("no cache directory (set XDG_CACHE_HOME or PERGAMENT_CACHE)");
     let library = Library::open(&root).expect("cannot open library");
+    let (search, search_rx) = SearchRebuildQueue::new();
     std::fs::create_dir_all(library.media_dir()).expect("cannot create media directory");
     let media_dir = library.media_dir();
     let user = UserData::open(root.join(userdata::DB_NAME)).expect("cannot open user data");
@@ -1633,6 +1721,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             library: Mutex::new(library),
+            search,
             user: Mutex::new(user),
             root,
             cache,
@@ -1698,6 +1787,11 @@ pub fn run() {
                     std::thread::sleep(Duration::from_secs(3600));
                 }
             });
+            let search_queue = app.state::<AppState>().search.clone();
+            let search_app = app.handle().clone();
+            std::thread::spawn(move || search_worker(search_app, search_queue, search_rx));
+            app.state::<AppState>().search.request();
+
             // Folder sync: one worker, starting with a round at startup.
             let (tx, rx) = mpsc::channel();
             let auto = &app.state::<AppState>().auto;
@@ -1790,6 +1884,9 @@ pub fn run() {
             sync_now,
             sync_status,
             resolve_peer,
+            search_publications,
+            search_status,
+            rebuild_search,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Pergament")
@@ -1803,8 +1900,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::JobGuard;
+    use super::{JobGuard, SearchRebuildQueue};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Barrier};
+    use std::time::{Duration, Instant};
 
     /// The update waits for this count, so every way out of a job has to lower it.
     #[test]
@@ -1823,6 +1922,59 @@ mod tests {
         assert_eq!(jobs.load(Ordering::SeqCst), 2);
         drop((a, b));
         assert_eq!(jobs.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn search_scopes_use_stable_camel_case_payloads() {
+        use pergament::search::SearchScope;
+        assert_eq!(serde_json::to_value(SearchScope::All).unwrap(), serde_json::json!({"kind": "all"}));
+        assert_eq!(serde_json::to_value(SearchScope::Bibles).unwrap(), serde_json::json!({"kind": "bibles"}));
+        assert_eq!(
+            serde_json::to_value(SearchScope::Publication { dir_name: "w_0_1".into() }).unwrap(),
+            serde_json::json!({"kind": "publication", "dirName": "w_0_1"})
+        );
+    }
+
+    #[test]
+    fn unavailable_search_status_is_serializable() {
+        use pergament::search::{CoverageState, SearchStatus};
+        let status = SearchStatus {
+            state: CoverageState::Unavailable,
+            total: 2,
+            indexed: 0,
+            failed: 0,
+            unanchored: 0,
+        };
+        assert_eq!(serde_json::to_value(status).unwrap()["state"], "unavailable");
+    }
+
+    #[test]
+    fn search_rebuild_requests_are_coalesced_without_waiting() {
+        let (queue, receiver) = SearchRebuildQueue::test();
+        let started = Instant::now();
+        assert!(queue.request());
+        assert!(!queue.request());
+        assert!(!queue.request());
+        assert!(started.elapsed() < Duration::from_millis(100));
+        assert!(receiver.try_recv().is_ok());
+        assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn search_rebuild_request_does_not_block_while_worker_is_busy() {
+        let (queue, receiver) = SearchRebuildQueue::test();
+        let entered = Arc::new(Barrier::new(2));
+        let entered_worker = Arc::clone(&entered);
+        let worker = std::thread::spawn(move || {
+            entered_worker.wait();
+            receiver.recv().unwrap();
+            std::thread::sleep(Duration::from_millis(100));
+        });
+        entered.wait();
+        let started = Instant::now();
+        assert!(queue.request());
+        assert!(started.elapsed() < Duration::from_millis(100));
+        worker.join().unwrap();
     }
 
     /// The watcher ignores this computer's own writes, so they don't start a merge.

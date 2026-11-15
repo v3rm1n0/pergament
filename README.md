@@ -27,6 +27,13 @@ More in [docs/screenshots](docs/screenshots). All content shown is invented.
 - **Library:** the catalog's publications, video and audio, what you have
   downloaded, and updates. Recordings play in a built-in player with quality,
   speed and subtitles.
+- **Search:** search downloaded publications and Bibles offline, across the
+  library or within a publication. Results open at the matching paragraph or
+  verse. Indexing runs in the background and can take time after downloads;
+  the search view reports incomplete coverage and offers a retry. The index is
+  separate from the read-only publication databases. Search relies on SQLite's
+  word tokenizer, so results for languages without spaces between words can be
+  limited.
 - **Meetings:** the week's workbook program and Watchtower study article.
 - **Personal Study:** highlights in six colors, Markdown notes with tags, and
   bookmarks, all searchable. Notes can move to their own window. There,

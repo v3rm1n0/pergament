@@ -49,6 +49,7 @@ pub struct Fixture {
     pub extra_entries: Vec<(String, Vec<u8>)>,
     pub db_file_name: Option<String>,
     pub documents: Vec<(i64, String)>,
+    pub bible_chapters: Vec<(i64, i64, String)>,
     pub extracts: Vec<ExtractFixture>,
     pub with_extract_tables: bool,
 }
@@ -66,6 +67,7 @@ impl Default for Fixture {
             extra_entries: vec![("img_1.jpg".into(), b"\xff\xd8not really a jpeg".to_vec())],
             db_file_name: None,
             documents: vec![(1, "<p id=\"p1\" data-pid=\"1\">Hello</p>".into())],
+            bible_chapters: Vec::new(),
             extracts: Vec::new(),
             with_extract_tables: true,
         }
@@ -107,6 +109,19 @@ impl Fixture {
                     rusqlite::params![id, k.encode(html.as_bytes()), html.len() as i64],
                 )
                 .unwrap();
+            }
+        }
+        if !self.bible_chapters.is_empty() {
+            conn.execute_batch(
+                "CREATE TABLE BibleBook (BibleBookId INTEGER PRIMARY KEY, BookDisplayTitle TEXT, ChapterDisplayTitle TEXT, BookDocumentId INTEGER);
+                 CREATE TABLE BibleChapter (BookNumber INTEGER, ChapterNumber INTEGER, Content BLOB, PreContent BLOB, PostContent BLOB, FirstVerseId INTEGER, LastVerseId INTEGER);",
+            ).unwrap();
+            for (book, chapter, html) in &self.bible_chapters {
+                conn.execute("INSERT OR IGNORE INTO BibleBook VALUES (?1, 'Genesis', 'Genesis', NULL)", [book]).unwrap();
+                conn.execute(
+                    "INSERT INTO BibleChapter VALUES (?1, ?2, ?3, NULL, NULL, 1, 2)",
+                    rusqlite::params![book, chapter, key(&self.issue).encode(html.as_bytes())],
+                ).unwrap();
             }
         }
         if self.with_extract_tables {

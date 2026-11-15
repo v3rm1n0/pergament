@@ -96,16 +96,65 @@ function Where() {
   return <span data-testid="where">{JSON.stringify(view)}</span>;
 }
 
-const reader = (target: Target) => (
+const reader = (target: Target, fromSearch = false) => (
   <StrictMode>
     <AppProvider>
-      <ReaderView target={target} />
+      <ReaderView target={target} fromSearch={fromSearch} />
       <Where />
     </AppProvider>
   </StrictMode>
 );
 
 describe("Reader", () => {
+  it("scrolls to different exact paragraphs even when they have no id", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    backend.render_page = ({ target }: { target: Target }) => ({
+      title: "Lesson",
+      html: '<p data-pid="12">First paragraph</p><p data-pid="13">Second paragraph</p>',
+      fragment: "documentParagraph" in target.kind ? `p${target.kind.documentParagraph.paragraph}` : null,
+      name: "lesson",
+    });
+    const first: Target = { publication: "lff_E", kind: { documentParagraph: { document: 3, paragraph: 12 } } };
+    const second: Target = { publication: "lff_E", kind: { documentParagraph: { document: 3, paragraph: 13 } } };
+    const view = render(reader(first));
+    await waitFor(() => expect(screen.getByText("First paragraph").classList.contains("selected")).toBe(true));
+    expect(scroll).toHaveBeenCalled();
+    view.rerender(reader(second));
+    await waitFor(() => expect(screen.getByText("Second paragraph").classList.contains("selected")).toBe(true));
+  });
+
+  it("scrolls to verse one from search even when the backend supplies no fragment", async () => {
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-1-1">Verse one</span>', fragment: null, name: "john" });
+    render(reader(chapterTarget("nwtsty_E", 43, 3, 1), true));
+    await waitFor(() => expect(screen.getByText("Verse one").classList.contains("selected")).toBe(true));
+  });
+
+  it("does not flash verse one on an ordinary chapter open", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-1-1">Verse one</span>', fragment: null, name: "john" });
+    render(reader(chapterTarget("nwtsty_E", 43, 3, 1)));
+    await waitFor(() => expect(screen.getByText("Verse one")).toBeTruthy());
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it("does not reset scroll when async user data arrives", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    let resolveUser: ((value: unknown) => void) | null = null;
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-16-1">Verse sixteen</span>', fragment: "v43-3-16-1", name: "john" });
+    backend.page_user_data = () => new Promise((resolve) => { resolveUser = resolve; });
+    const view = render(reader(chapterTarget("nwtsty_E", 43, 3, 16)));
+    await waitFor(() => expect(screen.getByText("Verse sixteen").classList.contains("selected")).toBe(true));
+    scroll.mockClear();
+    await act(async () => {
+      resolveUser?.({ marks: [], notes: [], answers: {} });
+    });
+    expect(scroll).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   it("turns a lesson's goals into checkboxes, a date line and a text box that keep their answers", async () => {
     // A lesson's goal box, as the backend sends it: each field is a marker that names its kind.
     backend.render_page = () => ({

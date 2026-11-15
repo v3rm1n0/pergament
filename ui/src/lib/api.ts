@@ -64,6 +64,7 @@ export function samePublication(a: PublicationKey, b: PublicationKey): boolean {
 /** Mirrors pergament::navigate::Target (serde external tagging). */
 export type TargetKind =
   | { document: number }
+  | { documentParagraph: { document: number; paragraph: number } }
   | { chapter: { book: number; chapter: number; verse: number } }
   | { dated: { date: number } };
 
@@ -77,6 +78,40 @@ export interface Page {
   html: string;
   fragment: string | null;
   name: string;
+}
+
+export type SearchScope =
+  | { kind: "all" }
+  | { kind: "bibles" }
+  | { kind: "publication"; dirName: string };
+
+export type CoverageState = "ready" | "indexing" | "incomplete" | "unavailable";
+
+export interface SearchRequest {
+  query: string;
+  scope: SearchScope;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface SearchStatus {
+  state: CoverageState;
+  total: number;
+  indexed: number;
+  failed: number;
+  unanchored: number;
+}
+
+export interface SearchHit {
+  title: string;
+  publicationTitle: string;
+  snippet: string;
+  target: Target;
+}
+
+export interface SearchResponse {
+  hits: SearchHit[];
+  status: SearchStatus;
 }
 
 /** A recording a publication links to (`pergament::links::MediaRef`). */
@@ -496,6 +531,10 @@ export const api = {
     invoke<number[]>("research_verses", { dir, book, chapter }),
   researchGuide: (dir: string, book: number, chapter: number, verse: number) =>
     invoke<ResearchEntry[]>("research_guide", { dir, book, chapter, verse }),
+  searchPublications: (request: SearchRequest) =>
+    invoke<SearchResponse>("search_publications", { request }),
+  searchStatus: () => invoke<SearchStatus>("search_status"),
+  rebuildSearch: () => invoke<void>("rebuild_search"),
 };
 
 export function chapterTarget(publication: string, book: number, chapter: number, verse = 1): Target {

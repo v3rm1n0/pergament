@@ -14,6 +14,7 @@ use pergament::mediator;
 use pergament::navigate::{self, Page, Target, TargetKind};
 use pergament::reader::{BibleBook, TocNode};
 use pergament::render::{RenderOptions, Renderer, media_name};
+use pergament::search::{SearchRequest, SearchResponse, SearchStatus};
 use pergament::userdata::{Loc, Mark, Note, PublicationKey, UserData};
 use pergament::{Entry, Library, Publication};
 use serde::Serialize;
@@ -111,6 +112,14 @@ pub fn publication(library: &Library, dir: &str) -> ApiResult<PubDetail> {
 /// Render a page as an HTML fragment with images served via [`MEDIA_SCHEME`].
 pub fn render(library: &Library, target: &Target) -> ApiResult<Page> {
     navigate::render(library, target, false, |e, _| Some(media_base(&e.dir_name))).map_err(err)
+}
+
+pub fn search(library: &Library, request: &SearchRequest) -> ApiResult<SearchResponse> {
+    library.search(request).map_err(err)
+}
+
+pub fn search_status(library: &Library) -> ApiResult<SearchStatus> {
+    library.search_status().map_err(err)
 }
 
 pub fn chapter_study(
@@ -871,7 +880,7 @@ pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, Stri
         Ok((info.meps_document_id, info.title))
     };
     let title = match target.kind {
-        TargetKind::Document(id) => {
+        TargetKind::Document(id) | TargetKind::DocumentParagraph { document: id, .. } => {
             let (meps, title) = document(id)?;
             loc.document_id = Some(meps);
             title
