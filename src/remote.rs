@@ -265,25 +265,33 @@ pub fn download(
     );
     let dest = download_dir.join(name);
     client.download(&file.file.url, &dest, &expected, progress)?;
-    let result = library.import(&dest);
+    let result = import_download(library, &dest, catalog_item);
     let _ = fs::remove_file(&dest);
-    let entry = result?;
+    result
+}
 
-    if let Some(c) = catalog_item {
-        let issue_ok = entry.issue_tag.parse::<i64>().unwrap_or(0) == c.issue_tag;
-        if entry.meps_language != c.meps_language || entry.symbol != c.symbol || !issue_ok {
-            return Err(Error::NotFound(format!(
-                "downloaded {} ({} {}) but expected {} ({} {})",
-                entry.symbol,
-                entry.meps_language,
-                entry.issue_tag,
-                c.symbol,
-                c.meps_language,
-                c.issue_tag
-            )));
+fn import_download(
+    library: &mut Library,
+    dest: &Path,
+    catalog_item: Option<&CatalogItem>,
+) -> Result<Entry> {
+    library.import_checked(dest, |entry| {
+        if let Some(c) = catalog_item {
+            let issue_ok = entry.issue_tag.parse::<i64>().unwrap_or(0) == c.issue_tag;
+            if entry.meps_language != c.meps_language || entry.symbol != c.symbol || !issue_ok {
+                return Err(Error::NotFound(format!(
+                    "downloaded {} ({} {}) but expected {} ({} {})",
+                    entry.symbol,
+                    entry.meps_language,
+                    entry.issue_tag,
+                    c.symbol,
+                    c.meps_language,
+                    c.issue_tag
+                )));
+            }
         }
-    }
-    Ok(entry)
+        Ok(())
+    })
 }
 
 /// File extension for a recording's MIME type, if it is one we save.
@@ -380,6 +388,57 @@ fn earlier_captions(library: &Library, key: &str, lang_code: &str, name: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn catalog_mismatch_does_not_replace_existing_publication() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut lib = Library::open(tmp.path()).unwrap();
+        let path = tmp.path().join("test.jwpub");
+        let db = tmp.path().join("source.db");
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch("CREATE TABLE Publication (PublicationId INTEGER PRIMARY KEY, Title TEXT, ShortTitle TEXT, Symbol TEXT, Year INTEGER, MepsLanguageIndex INTEGER, IssueTagNumber TEXT, PublicationType TEXT); INSERT INTO Publication VALUES (1, 'Test', 'Test', 'tst', 2024, 0, '0', 'Book'); CREATE TABLE Document (DocumentId INTEGER PRIMARY KEY);").unwrap();
+        drop(conn);
+        let db_bytes = fs::read(&db).unwrap();
+        use sha1::Digest;
+        use std::io::{Cursor, Write};
+        let options = zip::write::SimpleFileOptions::default();
+        let mut inner = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        inner.start_file("tst_E.db", options).unwrap();
+        inner.write_all(&db_bytes).unwrap();
+        let contents = inner.finish().unwrap().into_inner();
+        let manifest = serde_json::json!({"name":"tst_E.jwpub", "hash":hex::encode(sha2::Sha256::digest(&contents)), "timestamp":"2024-01-01T00:00:00Z", "version":1, "expandedSize":db_bytes.len(), "contentFormat":"z-a", "mepsPlatformVersion":"2.10", "publication":{"fileName":"tst_E.db", "title":"Test", "symbol":"tst", "language":0, "year":2024, "hash":hex::encode(sha1::Sha1::digest(&db_bytes))}});
+        let mut outer = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        outer.start_file("manifest.json", options).unwrap();
+        outer
+            .write_all(serde_json::to_string(&manifest).unwrap().as_bytes())
+            .unwrap();
+        outer.start_file("contents", options).unwrap();
+        outer.write_all(&contents).unwrap();
+        outer.finish().unwrap();
+        let original = lib.import(&path).unwrap();
+        let marker = lib.publication_dir(&original).join("keep.txt");
+        fs::write(&marker, "keep").unwrap();
+        let catalog = CatalogItem {
+            key_symbol: "wrong".into(),
+            symbol: "wrong".into(),
+            meps_language: original.meps_language,
+            issue_tag: original.issue_tag.parse().unwrap(),
+            year: original.year,
+            title: "Wrong".into(),
+            issue_title: None,
+            size: 0,
+            sha1: String::new(),
+            publication_type: 0,
+            short_title: None,
+            cataloged_on: None,
+            image: None,
+            attributes: vec![],
+            expanded_size: 0,
+        };
+        assert!(import_download(&mut lib, &path, Some(&catalog)).is_err());
+        assert_eq!(lib.list().unwrap(), vec![original]);
+        assert_eq!(fs::read_to_string(marker).unwrap(), "keep");
+    }
 
     #[test]
     fn urls() {

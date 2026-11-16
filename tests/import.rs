@@ -91,6 +91,35 @@ fn reimport_replaces_entry() {
 }
 
 #[test]
+fn colliding_directory_names_preserve_both_publications_and_reimports() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut lib = Library::open(tmp.path().join("lib")).unwrap();
+    let first = tmp.path().join("first.jwpub");
+    let second = tmp.path().join("second.jwpub");
+    Fixture {
+        issue: "a/b".into(),
+        title: "First".into(),
+        ..Fixture::default()
+    }
+    .write_to(&first);
+    Fixture {
+        issue: "ab".into(),
+        title: "Second".into(),
+        ..Fixture::default()
+    }
+    .write_to(&second);
+    let a = lib.import(&first).unwrap();
+    let b = lib.import(&second).unwrap();
+    assert_ne!(a.dir_name, b.dir_name);
+    assert_eq!(lib.list().unwrap().len(), 2);
+    assert!(lib.db_path(&a).is_file());
+    assert!(lib.db_path(&b).is_file());
+    assert_eq!(lib.import(&second).unwrap().dir_name, b.dir_name);
+    assert_eq!(lib.list().unwrap().len(), 2);
+    assert!(lib.db_path(&a).is_file());
+}
+
+#[test]
 fn issues_are_separate_entries() {
     let tmp = tempfile::tempdir().unwrap();
     let mut lib = Library::open(tmp.path().join("lib")).unwrap();
