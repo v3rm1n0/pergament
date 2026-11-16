@@ -77,6 +77,15 @@ const renderSearch = () =>
   );
 
 describe("SearchView", () => {
+  it("refreshes the active query when indexing completes", async () => {
+    status = { state: "indexing", total: 2, indexed: 1, failed: 0, unanchored: 0 };
+    runSearch = () => ({ hits: status.state === "ready" ? response.hits : [], status });
+    renderSearch();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search library" }), { target: { value: "lesson" } });
+    expect(await screen.findByText("Nothing found.")).toBeTruthy();
+    status = { state: "ready", total: 2, indexed: 2, failed: 0, unanchored: 0 };
+    expect(await screen.findByText("Lesson", {}, { timeout: 4000 })).toBeTruthy();
+  });
   it("opens library search from the existing app bar", () => {
     render(<AppProvider><AppBar title="Home" /><Where /></AppProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Search library" }));

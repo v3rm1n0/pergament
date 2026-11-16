@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppBar, useApp } from "@/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,17 @@ export function SearchView() {
   const [loading, setLoading] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [indexVersion, setIndexVersion] = useState(0);
+  const previousStatus = useRef<SearchStatus | null>(null);
 
   useEffect(() => {
     let current = true;
-    const poll = () => api.searchStatus().then((value) => { if (current) setStatus(value); }).catch((e) => { if (current) setError(String(e)); });
+    const poll = () => api.searchStatus().then((value) => {
+      if (!current) return;
+      if (previousStatus.current?.state === "indexing" && value.state !== "indexing") setIndexVersion((v) => v + 1);
+      previousStatus.current = value;
+      setStatus(value);
+    }).catch((e) => { if (current) setError(String(e)); });
     void poll();
     const interval = window.setInterval(poll, 2000);
     return () => { current = false; window.clearInterval(interval); };
@@ -47,7 +54,7 @@ export function SearchView() {
         .finally(() => { if (current) setLoading(false); });
     }, 250);
     return () => { current = false; window.clearTimeout(timer); };
-  }, [query, scope, offset, refresh]);
+  }, [query, scope, offset, refresh, indexVersion]);
 
   const retry = async () => {
     setRetrying(true);

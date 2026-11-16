@@ -48,6 +48,7 @@ export function NoteWindowView() {
   const dirty = useRef(false);
   /** Set while a save or delete runs, so a second click does not save the note twice. */
   const busy = useRef(false);
+  const [saving, setSaving] = useState<number | null>(null);
   // References link to the Bible the note was started in, else the one the app chose for its language.
   const [publications, setPublications] = useState<PubCard[]>([]);
   useEffect(() => void api.listPublications().then(setPublications, () => undefined), []);
@@ -151,13 +152,15 @@ export function NoteWindowView() {
   const run = (action: () => Promise<unknown>) => {
     if (busy.current) return;
     busy.current = true;
+    const id = shown.current?.id;
+    setSaving(id ?? null);
     action()
       .then(async () => {
         await emitTo("main", NOTES_CHANGED).catch(() => undefined);
-        close();
+        if (shown.current?.id === id) close();
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => (busy.current = false));
+      .catch((e) => { if (shown.current?.id === id) setError(String(e)); })
+      .finally(() => { busy.current = false; setSaving(null); });
   };
 
   if (!message) return <div className="h-full bg-surface" />;
@@ -182,6 +185,7 @@ export function NoteWindowView() {
       )}
       <NoteForm
         key={message.id}
+        disabled={saving === message.id}
         note={draft.note}
         initial={message.fields}
         onDirty={setDirty}

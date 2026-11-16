@@ -222,6 +222,7 @@ export function NoteForm({
   note,
   initial,
   focus = true,
+  disabled = false,
   onSave,
   onDelete,
   onCancel,
@@ -237,6 +238,7 @@ export function NoteForm({
   initial?: NoteFields;
   /** Focus the title once this is true; a hidden field cannot take focus. */
   focus?: boolean;
+  disabled?: boolean;
   onSave: (input: NoteSaveInput) => void;
   onDelete?: () => void;
   onCancel: () => void;
@@ -302,7 +304,7 @@ export function NoteForm({
     openNoteLink(a, onAppLink, (message) => onError?.(message));
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <fieldset disabled={disabled} className="flex min-h-0 flex-1 flex-col gap-3">
       <Input
         id="note-title"
         ref={titleRef}
@@ -380,7 +382,7 @@ export function NoteForm({
           {t("Save")}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -397,6 +399,7 @@ export function InlineNoteEditor({ onAppLink }: { onAppLink?: (href: string) => 
     useApp();
   /** Set while a save or delete runs, so a second click does not save the note twice. */
   const busy = useRef(false);
+  const [saving, setSaving] = useState<number | null>(null);
   const bible = useLinkBible(view.name === "reader" ? view.target.publication : null, publications, lang, bibles);
   if (!note || note.moving) return null;
   const { id, draft } = note;
@@ -404,13 +407,14 @@ export function InlineNoteEditor({ onAppLink }: { onAppLink?: (href: string) => 
   const run = (action: () => Promise<unknown>) => {
     if (busy.current) return;
     busy.current = true;
+    setSaving(id);
     action()
       .then(() => {
         notesChanged();
         return closeNote(id, { force: true });
       })
       .catch((e) => toast(String(e)))
-      .finally(() => (busy.current = false));
+      .finally(() => { busy.current = false; setSaving(null); });
   };
   const label = draft.note.guid ? t("Edit note") : t("New note");
   return (
@@ -444,6 +448,7 @@ export function InlineNoteEditor({ onAppLink }: { onAppLink?: (href: string) => 
       </div>
       <NoteForm
         key={`${id}.${note.restart ?? 0}`}
+        disabled={saving === id}
         note={draft.note}
         initial={note.fields}
         onDirty={setNoteDirty}
