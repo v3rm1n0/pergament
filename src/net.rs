@@ -94,7 +94,7 @@ impl Client {
             .user_agent(config.user_agent.as_str())
             .https_only(!config.allow_plain_http)
             .http_status_as_error(false)
-            .max_redirects(5)
+            .max_redirects(0)
             .timeout_connect(Some(Duration::from_secs(15)))
             .timeout_recv_response(Some(Duration::from_secs(30)))
             // A stalled body read fails instead of hanging forever.
@@ -167,9 +167,11 @@ impl Client {
     fn get(&self, url: &str, range_from: Option<u64>) -> Result<Response<ureq::Body>> {
         self.check_url(url)?;
         let mut attempt = 0;
+        let mut current = url.to_owned();
+        let mut redirects = 0;
         loop {
             self.throttle();
-            let mut req = self.agent.get(url);
+            let mut req = self.agent.get(&current);
             if let Some(from) = range_from {
                 req = req.header("Range", format!("bytes={from}-"));
             }
@@ -177,6 +179,23 @@ impl Client {
                 Ok(resp) => {
                     self.check_url(&resp.get_uri().to_string())?;
                     let status = resp.status().as_u16();
+                    if matches!(status, 301 | 302 | 303 | 307 | 308) {
+                        if redirects >= 5 {
+                            return Err(Error::Http(format!("too many redirects for {url}")));
+                        }
+                        let location = resp.headers().get("location")
+                            .and_then(|v| v.to_str().ok())
+                            .ok_or_else(|| Error::Http(format!("invalid redirect for {url}")))?;
+                        let base = ammonia::Url::parse(&current)
+                            .map_err(|e| Error::Http(format!("invalid URL {current}: {e}")))?;
+                        let next = base.join(location)
+                            .map_err(|e| Error::Http(format!("invalid redirect for {url}: {e}")))?;
+                        self.check_url(next.as_str())?;
+                        current = next.into();
+                        redirects += 1;
+                        attempt = 0;
+                        continue;
+                    }
                     if status == 429 || (500..600).contains(&status) {
                         (
                             retry_after(&resp),
@@ -228,8 +247,12 @@ impl Client {
             fs::create_dir_all(parent)?;
         }
         let limit = expected.size.unwrap_or(MAX_UNKNOWN_SIZE);
+        let can_resume = expected.md5.is_some() || expected.sha1.is_some();
         let mut failures = 0;
         loop {
+            if !can_resume && part.exists() {
+                fs::remove_file(&part)?;
+            }
             match self.download_once(url, &part, limit, expected.size, progress) {
                 Ok(()) => break,
                 Err(DownloadError::Fatal(e)) => return Err(e),
@@ -273,8 +296,25 @@ impl Client {
             .get(url, (have > 0).then_some(have))
             .map_err(DownloadError::Fatal)?;
         let status = resp.status().as_u16();
+        let range = if status == 206 {
+            let range = content_range(&resp).ok_or_else(|| {
+                DownloadError::Fatal(Error::Http(format!("invalid Content-Range for {url}")))
+            })?;
+            if range.0 != have || range.1.checked_add(1) != Some(range.2)
+                || total.is_some_and(|t| t != range.2)
+                || resp.headers().get("content-length").is_some_and(|v| {
+                    v.to_str().ok().and_then(|s| s.parse::<u64>().ok())
+                        != range.2.checked_sub(range.0)
+                })
+            {
+                return Err(DownloadError::Fatal(Error::Http(format!("invalid Content-Range for {url}"))));
+            }
+            Some(range)
+        } else {
+            None
+        };
         let (mut file, start) = match status {
-            206 if content_range_start(&resp) == Some(have) => {
+            206 if have > 0 => {
                 let f = OpenOptions::new()
                     .append(true)
                     .open(part)
@@ -282,7 +322,6 @@ impl Client {
                 (f, have)
             }
             200 | 206 => {
-                // Server ignored or mangled the range: start over.
                 let f = File::create(part).map_err(|e| DownloadError::Fatal(e.into()))?;
                 (f, 0)
             }
@@ -299,7 +338,7 @@ impl Client {
         };
         // Without an expected size, the advertised length gives progress and
         // detects truncated bodies; `limit` still bounds what is written.
-        let total = total.or_else(|| {
+        let total = total.or(range.map(|r| r.2)).or_else(|| {
             resp.headers()
                 .get("content-length")?
                 .to_str()
@@ -376,9 +415,12 @@ fn retry_after(resp: &Response<ureq::Body>) -> Option<Duration> {
         .map(Duration::from_secs)
 }
 
-/// Start offset from `Content-Range: bytes START-END/TOTAL`.
-fn content_range_start(resp: &Response<ureq::Body>) -> Option<u64> {
-    parse_content_range_start(resp.headers().get("content-range")?.to_str().ok()?)
+fn content_range(resp: &Response<ureq::Body>) -> Option<(u64, u64, u64)> {
+    let value = resp.headers().get("content-range")?.to_str().ok()?.trim();
+    let (range, total) = value.strip_prefix("bytes ")?.split_once('/')?;
+    let (start, end) = range.split_once('-')?;
+    let (start, end, total) = (start.parse().ok()?, end.parse().ok()?, total.parse().ok()?);
+    (start <= end && end < total).then_some((start, end, total))
 }
 
 pub fn parse_content_range_start(v: &str) -> Option<u64> {
