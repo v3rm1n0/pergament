@@ -58,6 +58,9 @@ pub struct PeerState {
 /// The sync state of this computer, kept in `<state_dir>/state.json`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncState {
+    /// The database this state was written for ([`UserData::generation`]).
+    #[serde(default)]
+    pub database: Option<i64>,
     /// Fingerprint of the data in this computer's own file.
     #[serde(default)]
     pub last_written: Option<String>,
@@ -176,12 +179,15 @@ impl SyncFolder {
     /// Write this computer's file unless it holds the current data already
     /// or there are no synced rows. Returns whether it was written.
     pub fn write_own(&self, ud: &UserData, host: &str, state: &mut SyncState) -> Result<bool> {
-        // An empty file is never written: another computer may hold a base
-        // for this computer's file (even from before a "Stop syncing"), and
-        // an empty file would delete its rows. A computer writes once it
-        // has rows, e.g. after a merge refilled it.
+        // An empty file is published only when this very database held
+        // synced rows and the user deleted them. After a reset, a new file
+        // or a "Stop syncing", the state is not this database's, so an
+        // empty file would delete the rows other computers still hold.
         if ud.snapshot()?.0.is_empty() {
-            return Ok(false);
+            let deliberate = state.database == Some(ud.generation()?) && self.has_bases(state);
+            if !deliberate {
+                return Ok(false);
+            }
         }
         let dest = self.dir.join(&self.own);
         let fingerprint = ud.fingerprint()?;
@@ -214,7 +220,7 @@ impl SyncFolder {
     ) -> Result<Vec<PeerResult>> {
         let mut results = Vec::new();
         let files = self.peers()?;
-        self.forget_if_emptied(ud, state)?;
+        self.reconcile_database(ud, state)?;
         for path in files {
             let file = path
                 .file_name()
@@ -225,6 +231,17 @@ impl SyncFolder {
             }
         }
         Ok(results)
+    }
+
+    /// A private copy of the peer file, made once per round.
+    fn copy_peer(&self, path: &Path) -> Result<tempfile::NamedTempFile> {
+        fs::create_dir_all(&self.state_dir)?;
+        let mut copy = tempfile::Builder::new()
+            .prefix(".peer-")
+            .tempfile_in(&self.state_dir)?;
+        std::io::copy(&mut fs::File::open(path)?, copy.as_file_mut())?;
+        copy.as_file_mut().flush()?;
+        Ok(copy)
     }
 
     /// `None` when the file needs nothing.
@@ -240,7 +257,13 @@ impl SyncFolder {
             file: file.to_owned(),
             error: error.to_string(),
         };
-        let (device, hash) = match backup_identity(path) {
+        // The identity and the merge read the same copy: a peer file that
+        // is replaced in between cannot be recorded under the old hash.
+        let copy = match self.copy_peer(path) {
+            Ok(copy) => copy,
+            Err(e) => return Some(failed(e)),
+        };
+        let (device, hash) = match backup_identity(copy.path()) {
             Ok(identity) => identity,
             Err(e) => return Some(failed(e)),
         };
@@ -256,7 +279,7 @@ impl SyncFolder {
         }
         let base = self.load_base(file);
         let guard = choice.unwrap_or(DeleteGuard::Check);
-        match ud.sync_merge(path, base.as_ref(), guard) {
+        match ud.sync_merge(copy.path(), base.as_ref(), guard) {
             Err(e) => Some(failed(e)),
             Ok(SyncOutcome::NeedsConfirmation { deletions, .. }) => {
                 state.peers.insert(
@@ -325,16 +348,25 @@ impl SyncFolder {
                 .is_ok_and(|mut entries| entries.next().is_some())
     }
 
-    /// Treat an emptied computer as new: drop the bases and the state, so
-    /// the merges that follow only add and the own file is written again.
-    /// Returns whether it did.
-    fn forget_if_emptied(&self, ud: &UserData, state: &mut SyncState) -> Result<bool> {
-        if !self.is_emptied(ud, state)? {
-            return Ok(false);
+    /// Bind the state to this database. The bases were made for another
+    /// database (reset, replaced or restored from elsewhere), so they are
+    /// dropped: the merges that follow only add. A state from before the
+    /// database id was stored is dropped only when its database is emptied.
+    fn reconcile_database(&self, ud: &UserData, state: &mut SyncState) -> Result<()> {
+        let generation = ud.generation()?;
+        let other_database = match state.database {
+            Some(known) => known != generation,
+            None => self.is_emptied(ud, state)?,
+        };
+        if other_database {
+            self.forget();
+            *state = SyncState::default();
         }
-        self.forget();
-        *state = SyncState::default();
-        Ok(true)
+        if state.database != Some(generation) {
+            state.database = Some(generation);
+            state.save(&self.state_dir)?;
+        }
+        Ok(())
     }
 
     fn base_path(&self, file: &str) -> PathBuf {
@@ -559,7 +591,7 @@ mod tests {
         let local = b.ud.snapshot().unwrap();
         let r = b.sync();
         assert!(matches!(&r[0], PeerResult::Failed { file, .. } if *file == a.folder.own));
-        assert_eq!(b.state, before);
+        assert_eq!(b.state.peers, before.peers);
         assert_eq!(b.ud.snapshot().unwrap(), local);
         fs::write(&path, &good).unwrap();
         assert_eq!(merged(&b.sync()), 1);
@@ -920,6 +952,24 @@ mod tests {
             "{r:?}"
         );
         assert_eq!(a.ud.snapshot().unwrap(), before);
+    }
+
+    #[test]
+    fn deleting_every_row_publishes_the_empty_file() {
+        let (_tmp, mut a, mut b) = setup();
+        let guids: Vec<String> = (1..=3).map(|i| a.mark(1, i)).collect();
+        assert!(a.write());
+        assert_eq!(merged(&b.sync()), 1);
+        b.ud.export_backup_as(&b.folder.dir.join(&b.folder.own), "Pergament")
+            .unwrap();
+        assert_eq!(merged(&a.sync()), 1);
+        for g in &guids {
+            a.ud.delete_mark(g).unwrap();
+        }
+        assert!(a.write(), "an intentional delete of every row is published");
+        b.sync();
+        assert!(b.ud.snapshot().unwrap().0.is_empty());
+        assert_eq!(b.ud.snapshot().unwrap(), a.ud.snapshot().unwrap());
     }
 
     #[test]

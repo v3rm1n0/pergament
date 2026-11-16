@@ -299,6 +299,30 @@ impl UserData {
         &self.path
     }
 
+    /// Identity of this database file, kept in the SQLite header
+    /// (`application_id`), which `VACUUM INTO` keeps and the data does not
+    /// touch. A file that is replaced or created anew gets a new one; a
+    /// database that has none gets one on first use.
+    pub fn generation(&self) -> Result<i64> {
+        let current: i64 = self
+            .conn
+            .query_row("PRAGMA application_id", [], |r| r.get(0))?;
+        if current != 0 {
+            return Ok(current);
+        }
+        let mut bytes = [0u8; 4];
+        if fs::File::open("/dev/urandom").and_then(|mut f| f.read_exact(&mut bytes)).is_err() {
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or_default();
+            bytes.copy_from_slice(&Sha256::digest(nanos.to_le_bytes())[..4]);
+        }
+        let fresh = i64::from(u32::from_le_bytes(bytes) & 0x7fff_ffff).max(1);
+        self.conn.pragma_update(None, "application_id", fresh)?;
+        Ok(fresh)
+    }
+
     /// The open database, for reading in sibling modules.
     pub(crate) fn conn(&self) -> &Connection {
         &self.conn
