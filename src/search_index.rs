@@ -115,8 +115,11 @@ fn extract(html: &str, selector: &'static str, block_for: impl Fn(&str) -> Optio
             }
             if let Some(block) = state.active.last_mut() {
                 block.text.push_str(text.as_str());
-            } else if !text.as_str().trim().is_empty() && let Some(stray) = state.stray.last_mut() {
-                *stray = true;
+            } else if !text.as_str().trim().is_empty() {
+                match state.stray.last_mut() {
+                    Some(stray) => *stray = true,
+                    None => state.unanchored += 1,
+                }
             }
             Ok(())
         }));
@@ -131,7 +134,7 @@ fn extract(html: &str, selector: &'static str, block_for: impl Fn(&str) -> Optio
 }
 
 pub fn extract_document_blocks(html: &str, document: i64) -> Result<ExtractedBlocks> {
-    extract(html, "p, div", move |anchor| {
+    extract(html, "p, div, h1, h2, h3, h4, h5, h6", move |anchor| {
         anchor.parse().ok().map(|paragraph| IndexedBlock {
             text: String::new(),
             document: Some(document),
