@@ -117,11 +117,16 @@ impl Fixture {
                  CREATE TABLE BibleChapter (BookNumber INTEGER, ChapterNumber INTEGER, Content BLOB, PreContent BLOB, PostContent BLOB, FirstVerseId INTEGER, LastVerseId INTEGER);",
             ).unwrap();
             for (book, chapter, html) in &self.bible_chapters {
-                conn.execute("INSERT OR IGNORE INTO BibleBook VALUES (?1, 'Genesis', 'Genesis', NULL)", [book]).unwrap();
+                conn.execute(
+                    "INSERT OR IGNORE INTO BibleBook VALUES (?1, 'Genesis', 'Genesis', NULL)",
+                    [book],
+                )
+                .unwrap();
                 conn.execute(
                     "INSERT INTO BibleChapter VALUES (?1, ?2, ?3, NULL, NULL, 1, 2)",
                     rusqlite::params![book, chapter, key(&self.issue).encode(html.as_bytes())],
-                ).unwrap();
+                )
+                .unwrap();
             }
         }
         if self.with_extract_tables {
