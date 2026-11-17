@@ -172,6 +172,14 @@ impl Library {
     /// Import a `.jwpub`. An existing entry for the same publication
     /// (symbol, language, issue) is replaced.
     pub fn import(&mut self, path: impl AsRef<Path>) -> Result<Entry> {
+        self.import_checked(path, |_| Ok(()))
+    }
+
+    pub(crate) fn import_checked(
+        &mut self,
+        path: impl AsRef<Path>,
+        validate: impl FnOnce(&Entry) -> Result<()>,
+    ) -> Result<Entry> {
         let package_sha1 = crate::net::file_sha1(path.as_ref())?;
         let mut pub_ = JwPub::open_with_limits(path, self.limits)?;
         let db_file = pub_.db_file_name()?.to_owned();
@@ -189,7 +197,7 @@ impl Library {
         jwpub::verify_db_hash(&pub_.manifest, &db_path)?;
         let info = jwpub::inspect_db(&db_path)?;
 
-        let entry = Entry {
+        let mut entry = Entry {
             dir_name: dir_name(&info)?,
             symbol: info.symbol,
             meps_language: info.meps_language,
@@ -205,17 +213,33 @@ impl Library {
             package_sha1: Some(package_sha1),
         };
 
-        let final_dir = pubs_dir.join(&entry.dir_name);
+        validate(&entry)?;
         let tx = self.index.transaction()?;
+        let existing: Option<String> = tx.query_row(
+            "SELECT dir_name FROM publication WHERE symbol = ?1 AND meps_language = ?2 AND issue_tag = ?3",
+            params![entry.symbol, entry.meps_language, entry.issue_tag],
+            |row| row.get(0),
+        ).optional()?;
+        if let Some(existing) = existing {
+            entry.dir_name = existing;
+        } else {
+            let base = entry.dir_name.clone();
+            let mut suffix = 0u64;
+            loop {
+                let taken: bool = tx
+                    .prepare("SELECT 1 FROM publication WHERE dir_name = ?1")?
+                    .exists([&entry.dir_name])?;
+                if !taken && !pubs_dir.join(&entry.dir_name).exists() {
+                    break;
+                }
+                suffix += 1;
+                entry.dir_name = format!("{base}_{suffix}");
+            }
+        }
+        let final_dir = pubs_dir.join(&entry.dir_name);
         tx.execute(
-            "DELETE FROM publication
-             WHERE (symbol = ?1 AND meps_language = ?2 AND issue_tag = ?3) OR dir_name = ?4",
-            params![
-                entry.symbol,
-                entry.meps_language,
-                entry.issue_tag,
-                entry.dir_name
-            ],
+            "DELETE FROM publication WHERE symbol = ?1 AND meps_language = ?2 AND issue_tag = ?3",
+            params![entry.symbol, entry.meps_language, entry.issue_tag],
         )?;
         tx.execute(
             "INSERT INTO publication (symbol, meps_language, issue_tag, year, title, short_title,

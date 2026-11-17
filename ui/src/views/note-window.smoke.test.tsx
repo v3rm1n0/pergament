@@ -10,12 +10,13 @@ let closeRequested: ((e: { preventDefault: () => void }) => Promise<void>) | nul
 const destroy = vi.fn(async () => undefined);
 let resized: ((e: { payload: { toLogical: (scale: number) => { width: number; height: number } } }) => Promise<void>) | null = null;
 let maximized = false;
+let pendingSave: Promise<string> | null = null;
 let subscriptions = 0;
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string, args?: unknown) => {
     calls.push({ cmd, args });
-    if (cmd === "save_note") return "n1";
+    if (cmd === "save_note") return pendingSave ?? "n1";
     if (cmd === "list_publications") return [{ dir: "nwtsty_E", symbol: "nwtsty", langCode: "E", isBible: true }];
     if (cmd === "publication") return { toc: [], books: [{ number: 43, title: "John", chapters: 21 }] };
     if (cmd === "book_abbreviations") return { 43: "Joh" };
@@ -64,6 +65,7 @@ const text = () => (screen.getByPlaceholderText("Note") as HTMLTextAreaElement).
 beforeEach(() => {
   localStorage.clear();
   maximized = false;
+  pendingSave = null;
   calls.length = 0;
   emitted.length = 0;
   destroy.mockClear();
@@ -77,6 +79,27 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("Note window", () => {
+  it("locks the form during a pending save", async () => {
+    let resolve!: (value: string) => void;
+    pendingSave = new Promise((r) => { resolve = r; });
+    await waitFor(() => expect(handlers["note-open"]).toBeTruthy());
+    await open(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByPlaceholderText("Note").matches(":disabled")).toBe(true);
+    await act(async () => resolve("n1"));
+  });
+
+  it("does not close a different note when an earlier save completes", async () => {
+    let resolve!: (value: string) => void;
+    pendingSave = new Promise((r) => { resolve = r; });
+    await waitFor(() => expect(handlers["note-open"]).toBeTruthy());
+    await open(1);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await open(2, { title: "two", content: "second", tags: "" });
+    await act(async () => resolve("n1"));
+    expect(destroy).not.toHaveBeenCalled();
+    expect(text()).toBe("second");
+  });
   it("says it is ready, then shows the note it is sent once", async () => {
     await waitFor(() => expect(emitted.some((e) => e.to === "main" && e.event === "note-ready")).toBe(true));
     await open(1);

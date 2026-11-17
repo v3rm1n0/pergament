@@ -283,12 +283,44 @@ impl UserData {
         if !has_schema {
             conn.execute_batch(SCHEMA)?;
             conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        } else {
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS InputField(
+                    LocationId INTEGER NOT NULL REFERENCES Location(LocationId),
+                    TextTag TEXT NOT NULL,
+                    Value TEXT NOT NULL,
+                    PRIMARY KEY(LocationId, TextTag));",
+            )?;
         }
         Ok(Self { conn, path })
     }
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Identity of this database file, kept in the SQLite header
+    /// (`application_id`), which `VACUUM INTO` keeps and the data does not
+    /// touch. A file that is replaced or created anew gets a new one; a
+    /// database that has none gets one on first use.
+    pub fn generation(&self) -> Result<i64> {
+        let current: i64 = self
+            .conn
+            .query_row("PRAGMA application_id", [], |r| r.get(0))?;
+        if current != 0 {
+            return Ok(current);
+        }
+        let mut bytes = [0u8; 4];
+        if fs::File::open("/dev/urandom").and_then(|mut f| f.read_exact(&mut bytes)).is_err() {
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or_default();
+            bytes.copy_from_slice(&Sha256::digest(nanos.to_le_bytes())[..4]);
+        }
+        let fresh = i64::from(u32::from_le_bytes(bytes) & 0x7fff_ffff).max(1);
+        self.conn.pragma_update(None, "application_id", fresh)?;
+        Ok(fresh)
     }
 
     /// The open database, for reading in sibling modules.
@@ -998,16 +1030,36 @@ impl UserData {
             }
         }
 
+        // Validate the same initialization and summary used after the swap.
+        let candidate = Self::open(incoming.path())?;
+        candidate.summary()?;
+        drop(candidate);
+
         let previous = self.path.with_extension("db.before-restore");
-        // Swap files while no connection is open on the old one.
+        let (file, temp_path) = incoming.keep().map_err(|e| Error::Io(e.error))?;
+        drop(file);
         let placeholder = Connection::open_in_memory()?;
         drop(std::mem::replace(&mut self.conn, placeholder));
-        if self.path.exists() {
-            fs::rename(&self.path, &previous)?;
+        if let Err(e) = fs::rename(&self.path, &previous) {
+            let _ = fs::remove_file(&temp_path);
+            *self = Self::open(&self.path)?;
+            return Err(e.into());
         }
-        let (_, temp_path) = incoming.keep().map_err(|e| Error::Io(e.error))?;
-        fs::rename(&temp_path, &self.path)?;
-        *self = Self::open(&self.path)?;
+        if let Err(e) = fs::rename(&temp_path, &self.path) {
+            let _ = fs::remove_file(&temp_path);
+            fs::rename(&previous, &self.path)?;
+            *self = Self::open(&self.path)?;
+            return Err(e.into());
+        }
+        match Self::open(&self.path) {
+            Ok(restored) => *self = restored,
+            Err(e) => {
+                fs::remove_file(&self.path)?;
+                fs::rename(&previous, &self.path)?;
+                *self = Self::open(&self.path)?;
+                return Err(e);
+            }
+        }
         let mut summary = self.summary()?;
         summary.device = Some(manifest.user_data_backup.device_name);
         Ok(summary)
@@ -3137,6 +3189,37 @@ mod tests {
                 .join("c")
                 .join("userData.db.before-restore")
                 .is_file()
+        );
+    }
+
+    #[test]
+    fn restore_swap_failure_keeps_connection_usable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        ud.add_mark(&bible(23), None, 6, &[verse(1, 0, 3)]).unwrap();
+        let backup = tmp.path().join("backup.jwlibrary");
+        ud.export_backup(&backup).unwrap();
+        fs::create_dir(tmp.path().join("userData.db.before-restore")).unwrap();
+        assert!(ud.restore_backup(&backup).is_err());
+        assert_eq!(ud.summary().unwrap().marks, 1);
+        ud.add_mark(&bible(24), None, 1, &[verse(1, 0, 3)]).unwrap();
+        assert_eq!(ud.summary().unwrap().marks, 2);
+    }
+
+    #[test]
+    fn restore_without_input_field_initializes_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let source = UserData::open(tmp.path().join("source").join(DB_NAME)).unwrap();
+        source.conn.execute("DROP TABLE InputField", []).unwrap();
+        let backup = tmp.path().join("backup.jwlibrary");
+        source.export_backup(&backup).unwrap();
+        let mut dest = UserData::open(tmp.path().join("dest").join(DB_NAME)).unwrap();
+        dest.restore_backup(&backup).unwrap();
+        dest.fingerprint().unwrap();
+        dest.save_answer(&bible(23), None, "a", "answer").unwrap();
+        assert_eq!(
+            dest.answers(&bible(23)).unwrap().get("a").unwrap(),
+            "answer"
         );
     }
 

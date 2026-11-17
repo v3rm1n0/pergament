@@ -350,18 +350,13 @@ fn commit_index(
             |row| row.get(0),
         )
         .optional()?;
-    tx.execute("DELETE FROM search_fts WHERE dir_name = ?1", [&entry.dir_name])?;
-    tx.execute("DELETE FROM search_coverage WHERE dir_name = ?1", [&entry.dir_name])?;
-    let Some(authoritative_hash) = authoritative_hash else {
+    if authoritative_hash.as_ref().is_some_and(|hash| hash != &entry.contents_hash) {
         tx.commit()?;
         return Ok(());
-    };
-    if authoritative_hash != entry.contents_hash {
-        tx.execute(
-            "INSERT INTO search_coverage (dir_name, contents_hash, state, failed, unanchored)
-             VALUES (?1, ?2, 'pending', 0, 0)",
-            params![entry.dir_name, authoritative_hash],
-        )?;
+    }
+    tx.execute("DELETE FROM search_fts WHERE dir_name = ?1", [&entry.dir_name])?;
+    tx.execute("DELETE FROM search_coverage WHERE dir_name = ?1", [&entry.dir_name])?;
+    if authoritative_hash.is_none() {
         tx.commit()?;
         return Ok(());
     }
@@ -457,6 +452,36 @@ mod tests {
         assert_eq!(
             status.indexed, 1
         );
+    }
+
+    #[test]
+    fn stale_commit_preserves_newer_search_results() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE publication (dir_name TEXT PRIMARY KEY, contents_hash TEXT NOT NULL)",
+            [],
+        )
+        .unwrap();
+        initialize(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO publication (dir_name, contents_hash) VALUES ('test', 'current')",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO search_coverage VALUES ('test', 'current', 'ready', 0, 0)", []).unwrap();
+        conn.execute("INSERT INTO search_fts (text, dir_name, document_id, paragraph_id, title, publication_title) VALUES ('newer', 'test', 1, 1, 'Doc', 'Pub')", []).unwrap();
+        let entry = Entry {
+            symbol: "tst".into(), meps_language: 0, issue_tag: "0".into(), year: 2024,
+            title: "Test".into(), short_title: None, publication_type: None,
+            dir_name: "test".into(), db_file: "tst_E.db".into(),
+            contents_hash: "stale".into(), imported_at: 0, lang_code: None, package_sha1: None,
+        };
+
+        commit_index(&conn, &entry, vec![], 0).unwrap();
+
+        let result = search(&conn, &SearchRequest { query: "newer".into(), scope: SearchScope::All, limit: None, offset: None }).unwrap();
+        assert_eq!(result.status.state, CoverageState::Ready);
+        assert_eq!(result.hits.len(), 1);
     }
 
     #[test]

@@ -34,6 +34,23 @@ fn extracts_anchored_paragraphs_as_plain_text() {
 }
 
 #[test]
+fn standalone_headings_are_indexed_or_reported_unanchored() {
+    let result = extract_document_blocks(r#"<h1 data-pid="4">Anchored heading</h1><h2>Missing heading</h2>"#, 7).unwrap();
+
+    assert_eq!(result.blocks.len(), 1);
+    assert_eq!(result.blocks[0].text, "Anchored heading");
+    assert_eq!(result.blocks[0].paragraph, Some(4));
+    assert_eq!(result.unanchored, 1);
+}
+
+#[test]
+fn standalone_visible_text_is_reported_unanchored() {
+    let result = extract_document_blocks("<ul><li>List item</li></ul><section>Other text</section>", 7).unwrap();
+
+    assert!(result.unanchored > 0);
+}
+
+#[test]
 fn extracts_bible_verse_anchors_including_verse_one() {
     let html = r#"<p><span id="v1-2-1-1" class="v">One <strong>text</strong></span>
         <span id="v1-2-2-1" class="v">Two</span></p>"#;
