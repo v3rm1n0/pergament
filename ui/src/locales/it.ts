@@ -117,7 +117,7 @@ export const it: Record<string, string> = {
   "Download ({size})": "Scarica ({size})",
   "Open on jw.org": "Apri su jw.org",
   "Parallel Translations": "Traduzioni parallele",
-  "Research Guide": "Guida alla ricerca",
+  "Research Guide": "Guida alle ricerche",
   "Customize": "Personalizza",
   "Move up": "Sposta in alto",
   "Move down": "Sposta in basso",
