@@ -31,7 +31,11 @@ cargo test --workspace
 bun run lint
 bun run test --run
 bun run i18n
+bun run format:locales:check
 ```
+
+The language files in `ui/src/locales` have one fixed layout (one `"English": "translation",` per line, keys
+quoted); `bun run format:locales` puts them back into it.
 
 The Rust tests build small valid and malicious `.jwpub` files and user data
 backups in memory. To also test against real publications, set

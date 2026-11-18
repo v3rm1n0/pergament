@@ -55,6 +55,7 @@ You need [bun](https://bun.sh) (`nix develop` in the repository has it).
    bun run i18n                # how much is translated, and what is wrong
    bun run i18n -- --missing   # also lists every text still to do
    bun run test --run          # the checks every language must pass
+   bun run format:locales      # puts the file back into its layout
    ```
 
    The i18n check reports duplicate codes and mismatched `{markers}`; the
