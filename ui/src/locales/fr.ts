@@ -354,38 +354,22 @@ export const fr: Record<string, string> = {
   "Write backups automatically": "Écrire les sauvegardes automatiquement",
   "Keep the last … backups": "Conserver les … dernières sauvegardes",
   "Open backups folder": "Ouvrir le dossier des sauvegardes",
-  "A backup is written to the backups folder in the library folder when you close Pergament and once a day, if something changed. Older ones are deleted.":
-    "Une sauvegarde est écrite dans le dossier « backups » du dossier de la bibliothèque à la fermeture de Pergament et une fois par jour, si quelque chose a changé. Les plus anciennes sont supprimées.",
-  "Could not load the backup settings: {error}":
-    "Impossible de charger les réglages de sauvegarde : {error}",
-  "Choose sync folder…":
-    "Choisir le dossier de synchronisation…",
-  "Sync now":
-    "Synchroniser maintenant",
-  "Stop syncing":
-    "Arrêter la synchronisation",
-  "Last synced {time} with {device}":
-    "Dernière synchronisation : {time} avec {device}",
-  "Last synced {time}":
-    "Dernière synchronisation : {time}",
-  "{device} wants to delete {n} items. Open Settings to decide.":
-    "{device} veut supprimer {n} éléments. Ouvrez les Paramètres pour décider.",
-  "Sync: {error}":
-    "Synchronisation : {error}",
-  "The library folder and its backups folder cannot be the sync folder.":
-    "Le dossier de la bibliothèque et son dossier des sauvegardes ne peuvent pas être le dossier de synchronisation.",
-  "{device} would delete {n} items.":
-    "{device} supprimerait {n} éléments.",
-  "Apply deletions":
-    "Appliquer les suppressions",
-  "Keep my data":
-    "Garder mes données",
-  "Show conflicts":
-    "Afficher les conflits",
-  "Choose a folder that Nextcloud, Syncthing, Dropbox or another sync app keeps in sync. Each computer writes its own file there and merges the others; deletions carry over.":
-    "Choisissez un dossier que Nextcloud, Syncthing, Dropbox ou une autre application de synchronisation tient à jour. Chaque ordinateur y écrit son propre fichier et fusionne ceux des autres ; les suppressions sont reprises.",
-  "Sync is on: this also changes your data on the other synced computers.":
-    "La synchronisation est activée : cela modifie aussi vos données sur les autres ordinateurs synchronisés.",
+  "A backup is written to the backups folder in the library folder when you close Pergament and once a day, if something changed. Older ones are deleted.": "Une sauvegarde est écrite dans le dossier « backups » du dossier de la bibliothèque à la fermeture de Pergament et une fois par jour, si quelque chose a changé. Les plus anciennes sont supprimées.",
+  "Could not load the backup settings: {error}": "Impossible de charger les réglages de sauvegarde : {error}",
+  "Choose sync folder…": "Choisir le dossier de synchronisation…",
+  "Sync now": "Synchroniser maintenant",
+  "Stop syncing": "Arrêter la synchronisation",
+  "Last synced {time} with {device}": "Dernière synchronisation : {time} avec {device}",
+  "Last synced {time}": "Dernière synchronisation : {time}",
+  "{device} wants to delete {n} items. Open Settings to decide.": "{device} veut supprimer {n} éléments. Ouvrez les Paramètres pour décider.",
+  "Sync: {error}": "Synchronisation : {error}",
+  "The library folder and its backups folder cannot be the sync folder.": "Le dossier de la bibliothèque et son dossier des sauvegardes ne peuvent pas être le dossier de synchronisation.",
+  "{device} would delete {n} items.": "{device} supprimerait {n} éléments.",
+  "Apply deletions": "Appliquer les suppressions",
+  "Keep my data": "Garder mes données",
+  "Show conflicts": "Afficher les conflits",
+  "Choose a folder that Nextcloud, Syncthing, Dropbox or another sync app keeps in sync. Each computer writes its own file there and merges the others; deletions carry over.": "Choisissez un dossier que Nextcloud, Syncthing, Dropbox ou une autre application de synchronisation tient à jour. Chaque ordinateur y écrit son propre fichier et fusionne ceux des autres ; les suppressions sont reprises.",
+  "Sync is on: this also changes your data on the other synced computers.": "La synchronisation est activée : cela modifie aussi vos données sur les autres ordinateurs synchronisés.",
   "Unmatched quotation mark": "Guillemet non fermé",
   "Search library": "Rechercher dans la bibliothèque",
   "Search scope": "Périmètre de recherche",

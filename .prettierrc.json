@@ -1,0 +1,11 @@
+{
+  "overrides": [
+    {
+      "files": "ui/src/locales/*.ts",
+      "options": {
+        "printWidth": 1000,
+        "quoteProps": "consistent"
+      }
+    }
+  ]
+}
