@@ -643,7 +643,7 @@ export function ReaderView({
     <>
       <AppBar title={dated !== null ? t("Daily Text") : (page?.title ?? "")} subtitle={subtitle}>
         {chapter && <GoToButton />}
-        <BookmarksButton dir={target.publication} title={subtitle} current={() => {
+        {dated === null && <BookmarksButton dir={target.publication} title={subtitle} current={() => {
           const root = articleRef.current;
           if (!page || !root) return null;
           const selection = window.getSelection();
@@ -663,7 +663,7 @@ export function ReaderView({
               snippet: element?.textContent?.trim().slice(0, 160) ?? null,
             },
           };
-        }} />
+        }} />}
         {hasPane && (
           <BarButton label={paneOpen ? "Hide study pane" : "Show study pane"} onClick={() => setPaneOpen((o) => !o)}>
             {paneOpen ? (

@@ -883,12 +883,13 @@ pub fn save_bookmark(
     target: &Target,
     bookmark: &pergament::userdata::BookmarkInput,
 ) -> ApiResult<()> {
+    if matches!(target.kind, TargetKind::Dated { .. }) {
+        return Err(
+            "Saving Daily Text bookmarks is not supported: the exact day cannot be restored."
+                .into(),
+        );
+    }
     let (loc, title) = page_location(library, target)?;
-    let title = match (bookmark.block_type, bookmark.block_identifier) {
-        (pergament::userdata::BLOCK_VERSE, Some(verse)) => format!("{title}:{verse}"),
-        (pergament::userdata::BLOCK_PARAGRAPH, Some(paragraph)) => format!("{title} ({paragraph})"),
-        _ => title,
-    };
     user.save_bookmark(&loc, &title, bookmark).map_err(err)
 }
 
@@ -1239,6 +1240,27 @@ pub fn mime_for(path: &Path) -> &'static str {
 mod tests {
     use super::*;
     use pergament::catalog::Catalog;
+
+    #[test]
+    fn dated_bookmark_saves_are_rejected_without_writing_data() {
+        let tmp = tempfile::tempdir().unwrap();
+        let library = Library::open(tmp.path().join("library")).unwrap();
+        let mut user = UserData::open(tmp.path().join("userData.db")).unwrap();
+        let before = user.fingerprint().unwrap();
+        let target = Target {
+            publication: "es26_E".into(),
+            kind: TargetKind::Dated { date: 20261118 },
+        };
+        let bookmark = pergament::userdata::BookmarkInput {
+            slot: 0,
+            snippet: None,
+            block_type: 0,
+            block_identifier: None,
+        };
+        let error = save_bookmark(&library, &mut user, &target, &bookmark).unwrap_err();
+        assert!(error.contains("Daily Text"));
+        assert_eq!(user.fingerprint().unwrap(), before);
+    }
 
     /// A catalog with `w26` (August 2026) in German and English, `lff` in German only, a row listed twice
     /// (the real catalog has such duplicates) and one whose language has no cover to derive a code from.

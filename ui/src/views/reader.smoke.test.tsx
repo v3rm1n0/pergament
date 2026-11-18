@@ -109,6 +109,103 @@ const reader = (target: Target, fromSearch = false) => (
 );
 
 describe("Reader", () => {
+  it("scrolls to different exact paragraphs even when they have no id", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    backend.render_page = ({ target }: { target: Target }) => ({
+      title: "Lesson",
+      html: '<p data-pid="12">First paragraph</p><p data-pid="13">Second paragraph</p>',
+      fragment: "documentParagraph" in target.kind ? `p${target.kind.documentParagraph.paragraph}` : null,
+      name: "lesson",
+    });
+    const first: Target = { publication: "lff_E", kind: { documentParagraph: { document: 3, paragraph: 12 } } };
+    const second: Target = { publication: "lff_E", kind: { documentParagraph: { document: 3, paragraph: 13 } } };
+    const view = render(reader(first));
+    await waitFor(() => expect(screen.getByText("First paragraph").classList.contains("selected")).toBe(true));
+    expect(scroll).toHaveBeenCalled();
+    view.rerender(reader(second));
+    await waitFor(() => expect(screen.getByText("Second paragraph").classList.contains("selected")).toBe(true));
+  });
+
+  it("scrolls to verse one from search even when the backend supplies no fragment", async () => {
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-1-1">Verse one</span>', fragment: null, name: "john" });
+    render(reader(chapterTarget("nwtsty_E", 43, 3, 1), true));
+    await waitFor(() => expect(screen.getByText("Verse one").classList.contains("selected")).toBe(true));
+  });
+
+  it("does not flash verse one on an ordinary chapter open", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-1-1">Verse one</span>', fragment: null, name: "john" });
+    render(reader(chapterTarget("nwtsty_E", 43, 3, 1)));
+    await waitFor(() => expect(screen.getByText("Verse one")).toBeTruthy());
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
+  it("does not reset scroll when async user data arrives", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    let resolveUser: ((value: unknown) => void) | null = null;
+    backend.render_page = () => ({ title: "John 3", html: '<span class="v" id="v43-3-16-1">Verse sixteen</span>', fragment: "v43-3-16-1", name: "john" });
+    backend.page_user_data = () => new Promise((resolve) => { resolveUser = resolve; });
+    const view = render(reader(chapterTarget("nwtsty_E", 43, 3, 16)));
+    await waitFor(() => expect(screen.getByText("Verse sixteen").classList.contains("selected")).toBe(true));
+    scroll.mockClear();
+    await act(async () => {
+      resolveUser?.({ marks: [], notes: [], bookmarks: [], answers: {} });
+    });
+    expect(scroll).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("bookmarks a clicked paragraph addressed only by data-pid and draws its marker", async () => {
+    backend.render_page = () => ({
+      title: "Lesson", html: '<p data-pid="12">A paragraph without an id</p>',
+      fragment: null, name: "lesson",
+    });
+    let bookmarks: Partial<Bookmark>[] = [];
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks, answers: {} });
+    backend.save_bookmark = ({ bookmark }: { bookmark: Partial<Bookmark> }) => { bookmarks = [bookmark]; };
+    render(reader(documentTarget("lff_E", 3)));
+    await screen.findByText("A paragraph without an id");
+    fireEvent.click(screen.getByText("A paragraph without an id"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: documentTarget("lff_E", 3),
+        bookmark: { slot: 0, blockType: 1, blockIdentifier: 12, snippet: "A paragraph without an id" },
+      },
+    }));
+    await waitFor(() => expect(document.querySelector(".bookmark-marker[data-slot='0']")).toBeTruthy());
+  });
+
+  it("jumps to bookmarked paragraphs addressed only by data-pid", async () => {
+    backend.render_page = () => ({
+      title: "Lesson", html: '<p data-pid="12">Bookmarked destination</p>',
+      fragment: null, name: "lesson",
+    });
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks: [], answers: {} });
+    const scrolling = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      render(<AppProvider><ReaderView target={documentTarget("lff_E", 3)} bookmark={{ blockType: 1, blockIdentifier: 12 }} /></AppProvider>);
+      await screen.findByText("Bookmarked destination");
+      await waitFor(() => expect(scrolling.mock.instances.some((el) => (el as Element).getAttribute("data-pid") === "12")).toBe(true));
+    } finally {
+      scrolling.mockRestore();
+    }
+  });
+
+  it("hides the bookmark button on Daily Text pages", async () => {
+    render(reader({ publication: "es26_E", kind: { dated: { date: 20261118 } } }));
+    await screen.findByText("Daily Text");
+    expect(screen.queryByRole("button", { name: "Bookmarks" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.some((call) => call.cmd === "publication_bookmarks")).toBe(false);
+    expect(calls.some((call) => call.cmd === "save_bookmark")).toBe(false);
+  });
+
   it("bookmarks the whole chapter by default, even when scrolled", async () => {
     render(reader(chapterTarget("nwtsty_E", 43, 3)));
     await screen.findByLabelText("Show note");

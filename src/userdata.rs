@@ -955,10 +955,15 @@ impl UserData {
         let publication_id = Self::location_id_kind(&tx, &publication, None, 1)?;
         Self::remove_bookmark(&tx, &publication, bookmark.slot)?;
         let location_id = Self::location_id(&tx, loc, Some(title))?;
+        let bookmark_title = match (bookmark.block_type, bookmark.block_identifier) {
+            (BLOCK_VERSE, Some(verse)) => format!("{title}:{verse}"),
+            (BLOCK_PARAGRAPH, Some(paragraph)) => format!("{title} ({paragraph})"),
+            _ => title.to_owned(),
+        };
         tx.execute(
             "INSERT INTO Bookmark (LocationId, PublicationLocationId, Slot, Title, Snippet, BlockType, BlockIdentifier)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![location_id, publication_id, bookmark.slot, title, bookmark.snippet,
+            params![location_id, publication_id, bookmark.slot, bookmark_title, bookmark.snippet,
                     bookmark.block_type, bookmark.block_identifier],
         )?;
         touch(&tx)?;
@@ -3051,6 +3056,57 @@ mod tests {
     }
 
     #[test]
+    fn bookmark_labels_do_not_change_note_page_titles() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut ud = UserData::open(tmp.path().join(DB_NAME)).unwrap();
+        let verse = BookmarkInput {
+            slot: 0,
+            snippet: None,
+            block_type: BLOCK_VERSE,
+            block_identifier: Some(4),
+        };
+        ud.save_bookmark(&bible(23), "Psalm 23", &verse).unwrap();
+        let rows = ud.publication_bookmarks(&bible(23)).unwrap();
+        assert_eq!(rows[0].title, "Psalm 23:4");
+        assert_eq!(rows[0].location.title.as_deref(), Some("Psalm 23"));
+        let guid = ud
+            .save_note(
+                Some(&bible(23)),
+                Some("Psalm 23"),
+                &NoteInput {
+                    title: "Another verse".into(),
+                    block_type: BLOCK_VERSE,
+                    block_identifier: Some(5),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let notes = ud.notes(&bible(23)).unwrap();
+        let note = notes.iter().find(|note| note.guid == guid).unwrap();
+        assert_eq!(
+            note.location.as_ref().unwrap().title.as_deref(),
+            Some("Psalm 23")
+        );
+
+        let lesson = Loc {
+            key_symbol: "lff".into(),
+            document_id: Some(100),
+            book: None,
+            chapter: None,
+            ..bible(1)
+        };
+        let paragraph = BookmarkInput {
+            block_type: BLOCK_PARAGRAPH,
+            block_identifier: Some(7),
+            ..verse
+        };
+        ud.save_bookmark(&lesson, "Lesson", &paragraph).unwrap();
+        let rows = ud.publication_bookmarks(&lesson).unwrap();
+        assert_eq!(rows[0].title, "Lesson (7)");
+        assert_eq!(rows[0].location.title.as_deref(), Some("Lesson"));
+    }
+
+    #[test]
     fn bookmarks_save_replace_delete_and_reopen() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join(DB_NAME);
@@ -3081,7 +3137,7 @@ mod tests {
         let mut ud = UserData::open(&path).unwrap();
         let rows = ud.publication_bookmarks(&bible(1)).unwrap();
         assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0].title, "Psalm 25");
+        assert_eq!(rows[0].title, "Psalm 25:4");
         assert_eq!(rows[0].location.loc, bible(25));
         assert_eq!(rows[0].block_identifier, Some(4));
         assert_eq!(rows[0].snippet.as_deref(), Some("Reading position"));

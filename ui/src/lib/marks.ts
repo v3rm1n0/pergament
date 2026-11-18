@@ -40,7 +40,7 @@ export function blockElements(root: Element, blockType: number, identifier: numb
       return m !== null && Number(m[2]) === identifier && (chapter === undefined || Number(m[1]) === chapter);
     });
   }
-  const el = root.querySelector(`[id="p${identifier}"]`);
+  const el = root.querySelector(`[data-pid="${identifier}"]`) ?? root.querySelector(`[id="p${identifier}"]`);
   return el ? [el] : [];
 }
 
@@ -49,9 +49,10 @@ export function blockOf(el: Element | null): { blockType: number; identifier: nu
   const verse = el?.closest("span.v[id]");
   const vm = verse ? /^v\d+-\d+-(\d+)-\d+$/.exec(verse.id) : null;
   if (verse && vm) return { blockType: BLOCK_VERSE, identifier: Number(vm[1]), element: verse };
-  const para = el?.closest("[id^=p]");
-  const pm = para ? /^p(\d+)$/.exec(para.id) : null;
-  if (para && pm) return { blockType: BLOCK_PARAGRAPH, identifier: Number(pm[1]), element: para };
+  const para = el?.closest("[data-pid], [id^=p]");
+  const pid = para?.getAttribute("data-pid");
+  const identifier = pid && /^\d+$/.test(pid) ? pid : para ? /^p(\d+)$/.exec(para.id)?.[1] : null;
+  if (para && identifier) return { blockType: BLOCK_PARAGRAPH, identifier: Number(identifier), element: para };
   return null;
 }
 
@@ -102,7 +103,7 @@ export function applyMarks(root: Element, marks: Mark[], chapter?: number) {
 /** Token ranges covered by a selection inside `root`. */
 export function selectionRanges(root: Element, range: Range): MarkRange[] {
   const blocks = new Map<string, { blockType: number; identifier: number }>();
-  const candidates = root.querySelectorAll("span.v[id], [id^=p]");
+  const candidates = root.querySelectorAll("span.v[id], [data-pid], [id^=p]");
   for (const el of candidates) {
     if (!range.intersectsNode(el)) continue;
     const b = blockOf(el);
