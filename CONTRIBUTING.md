@@ -5,6 +5,9 @@ directly. Keep commits small and use conventional titles (`feat:`, `fix:`,
 `docs:` ...). The title of a pull request ends up in the release notes, so make
 it read well as one line.
 
+See [Platform maintainers](MAINTAINERS.md) for Windows maintainer permissions,
+Scoop bucket requirements, and the Windows portable smoke test.
+
 ## Running from source
 
 ```sh
