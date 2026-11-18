@@ -11,6 +11,8 @@
     "test": "vitest",
     "i18n": "bun scripts/i18n.ts",
     "i18n:new": "bun scripts/i18n.ts new",
+    "format:locales": "prettier --write \"ui/src/locales/*.ts\" \"!ui/src/locales/*.test.ts\" \"!ui/src/locales/tools.ts\"",
+    "format:locales:check": "prettier --check \"ui/src/locales/*.ts\" \"!ui/src/locales/*.test.ts\" \"!ui/src/locales/tools.ts\"",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -46,6 +48,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^30.1.2",
+    "prettier": "3.10.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^8.3.2",
