@@ -25,8 +25,7 @@ export const ptBR: Record<string, string> = {
   "What's New languages": "Idiomas de Novidades",
   "{count} languages": "{count} idiomas",
   "Not downloaded": "Não baixado",
-  "Pick a translation to download. More languages are in the language menu.":
-    "Escolha uma tradução para baixar. Mais idiomas estão no menu de idiomas.",
+  "Pick a translation to download. More languages are in the language menu.": "Escolha uma tradução para baixar. Mais idiomas estão no menu de idiomas.",
   "Parallel accounts": "Passagens paralelas",
   "Introduction video": "Vídeo de apresentação",
   "Not in your library: {link}": "Não está na sua biblioteca: {link}",
@@ -69,12 +68,10 @@ export const ptBR: Record<string, string> = {
   "Removed {title}": "Removido: {title}",
   "Remove failed: {error}": "Falha ao remover: {error}",
   "Nothing downloaded in this language": "Nada baixado neste idioma",
-  "Import .jwpub files, browse the publications, or pick another language.":
-    "Importe arquivos .jwpub, navegue pelas publicações ou escolha outro idioma.",
+  "Import .jwpub files, browse the publications, or pick another language.": "Importe arquivos .jwpub, navegue pelas publicações ou escolha outro idioma.",
   "Load catalog": "Carregar catálogo",
   "Loading catalog…": "Carregando catálogo…",
-  "New publications, categories and meeting materials come from the public jw.org catalog (about 58 MB, checked for updates once a day). Nothing is downloaded until you ask.":
-    "Novas publicações, categorias e materiais para as reuniões vêm do catálogo público de jw.org (cerca de 58 MB, verificado quanto a atualizações uma vez por dia). Nada é baixado sem você pedir.",
+  "New publications, categories and meeting materials come from the public jw.org catalog (about 58 MB, checked for updates once a day). Nothing is downloaded until you ask.": "Novas publicações, categorias e materiais para as reuniões vêm do catálogo público de jw.org (cerca de 58 MB, verificado quanto a atualizações uma vez por dia). Nada é baixado sem você pedir.",
 
   // Categories and groups
   "Books": "Livros",
@@ -135,8 +132,7 @@ export const ptBR: Record<string, string> = {
   "Move down": "Mover para baixo",
   "Not Included": "Não incluídas",
   "Done": "Concluído",
-  "Import or download more Bibles to add translations.":
-    "Importe ou baixe mais Bíblias para adicionar traduções.",
+  "Import or download more Bibles to add translations.": "Importe ou baixe mais Bíblias para adicionar traduções.",
 
   // Highlights and notes
   "Yellow": "Amarelo",
@@ -193,8 +189,7 @@ export const ptBR: Record<string, string> = {
   "Restore backup…": "Restaurar backup…",
   "Restore backup?": "Restaurar backup?",
   "Restore": "Restaurar",
-  "Restoring replaces all favorites, highlights, notes, tags and bookmarks with those in the backup.":
-    "Restaurar substitui todos os favoritos, destaques, notas, etiquetas e marcadores pelos do backup.",
+  "Restoring replaces all favorites, highlights, notes, tags and bookmarks with those in the backup.": "Restaurar substitui todos os favoritos, destaques, notas, etiquetas e marcadores pelos do backup.",
   "Backup created": "Backup criado",
   "Backup failed: {error}": "Falha no backup: {error}",
   "Restore failed: {error}": "Falha ao restaurar: {error}",
@@ -203,20 +198,17 @@ export const ptBR: Record<string, string> = {
   "Merge backup…": "Mesclar backup…",
   "Merge backup?": "Mesclar backup?",
   "Merge": "Mesclar",
-  "Merging adds what is only in the backup and keeps the newer version of everything that is in both. Nothing is deleted. Your current data is kept as userData.db.before-restore.":
-    "Mesclar adiciona o que está apenas no backup e mantém a versão mais recente de tudo o que está nos dois. Nada é excluído. Seus dados atuais são guardados como userData.db.before-restore.",
+  "Merging adds what is only in the backup and keeps the newer version of everything that is in both. Nothing is deleted. Your current data is kept as userData.db.before-restore.": "Mesclar adiciona o que está apenas no backup e mantém a versão mais recente de tudo o que está nos dois. Nada é excluído. Seus dados atuais são guardados como userData.db.before-restore.",
   "Merge failed: {error}": "Falha ao mesclar: {error}",
   "Merge backups instead of replacing": "Mesclar backups em vez de substituir",
-  "Favorites, highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.":
-    "Favoritos, destaques, notas, etiquetas e marcadores em um arquivo .jwlibrary. Restaurar substitui os dados atuais; com a mesclagem ativada, os backups são mesclados a eles, e a versão mais recente de tudo o que está nos dois é mantida. Nos dois casos, os dados anteriores são guardados como userData.db.before-restore na pasta da biblioteca.",
+  "Favorites, highlights, notes, tags and bookmarks as a .jwlibrary file. Restoring replaces the current data; with merging turned on, backups are merged into it instead and the newer version of everything in both is kept. Either way the previous data is kept as userData.db.before-restore in the library folder.": "Favoritos, destaques, notas, etiquetas e marcadores em um arquivo .jwlibrary. Restaurar substitui os dados atuais; com a mesclagem ativada, os backups são mesclados a eles, e a versão mais recente de tudo o que está nos dois é mantida. Nos dois casos, os dados anteriores são guardados como userData.db.before-restore na pasta da biblioteca.",
   "Nothing new in the backup": "Nada de novo no backup",
   "Merged 1 change": "1 alteração mesclada",
   "Merged {count} changes": "{count} alterações mescladas",
   "Conflicts": "Conflitos",
   "1 conflict, your version was kept:": "1 conflito; a sua versão foi mantida:",
   "{count} conflicts, your version was kept:": "{count} conflitos; a sua versão foi mantida:",
-  "Backups are .jwlibrary files with favorites, highlights, notes, tags and bookmarks.":
-    "Backups são arquivos .jwlibrary com favoritos, destaques, notas, etiquetas e marcadores.",
+  "Backups are .jwlibrary files with favorites, highlights, notes, tags and bookmarks.": "Backups são arquivos .jwlibrary com favoritos, destaques, notas, etiquetas e marcadores.",
   "Notes and Tags": "Notas e etiquetas",
   "Bookmarks": "Marcadores",
   "All": "Tudo",
@@ -225,8 +217,7 @@ export const ptBR: Record<string, string> = {
   "Reading font": "Fonte de leitura",
   "Standard": "Padrão",
   "Easy to read": "Fácil de ler",
-  "Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.":
-    "A Atkinson Hyperlegible Next foi criada para que as letras sejam fáceis de distinguir. Ela substitui a fonte em todo o app, inclusive no texto da Bíblia.",
+  "Atkinson Hyperlegible Next was designed so that letters are easy to tell apart. It replaces the font everywhere, the Bible text included.": "A Atkinson Hyperlegible Next foi criada para que as letras sejam fáceis de distinguir. Ela substitui a fonte em todo o app, inclusive no texto da Bíblia.",
   "Main navigation": "Navegação principal",
   "Skip to content": "Pular para o conteúdo",
   "Go to…": "Ir para…",
@@ -244,20 +235,16 @@ export const ptBR: Record<string, string> = {
   "Content width": "Largura do conteúdo",
   "Centered": "Centralizado",
   "Full width": "Largura total",
-  "A centered column is easier to read; full width uses the whole window for lists, covers and the reader.":
-    "Uma coluna centralizada é mais fácil de ler; a largura total usa toda a janela para listas, capas e o leitor.",
-  "Select text in a publication to highlight it or add a note.":
-    "Selecione um texto em uma publicação para destacá-lo ou adicionar uma nota.",
-  "{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks":
-    "{notes} notas · {marks} destaques · {tags} etiquetas · {bookmarks} marcadores",
+  "A centered column is easier to read; full width uses the whole window for lists, covers and the reader.": "Uma coluna centralizada é mais fácil de ler; a largura total usa toda a janela para listas, capas e o leitor.",
+  "Select text in a publication to highlight it or add a note.": "Selecione um texto em uma publicação para destacá-lo ou adicionar uma nota.",
+  "{notes} notes · {marks} highlights · {tags} tags · {bookmarks} bookmarks": "{notes} notas · {marks} destaques · {tags} etiquetas · {bookmarks} marcadores",
 
   // Search and catalog
   "Search": "Buscar",
   "Title or symbol, e.g. Wachtturm Studienausgabe": "Título ou sigla, por exemplo A Sentinela edição de estudo",
   "Downloading the public catalog…": "Baixando o catálogo público…",
   "Nothing found.": "Nada encontrado.",
-  "Searches the public jw.org catalog in {language}. The first search downloads the catalog (about 58 MB); downloads are verified and then imported into your library.":
-    "Busca no catálogo público de jw.org em {language}. A primeira busca baixa o catálogo (cerca de 58 MB); os downloads são verificados e importados para a sua biblioteca.",
+  "Searches the public jw.org catalog in {language}. The first search downloads the catalog (about 58 MB); downloads are verified and then imported into your library.": "Busca no catálogo público de jw.org em {language}. A primeira busca baixa o catálogo (cerca de 58 MB); os downloads são verificados e importados para a sua biblioteca.",
   "Cannot read library: {error}": "Não é possível ler a biblioteca: {error}",
   "Importing {count} file(s)…": "Importando {count} arquivo(s)…",
   "Import failed: {error}": "Falha ao importar: {error}",
@@ -279,15 +266,13 @@ export const ptBR: Record<string, string> = {
   "Text size": "Tamanho do texto",
   "In the beginning God created the heavens and the earth.": "No princípio, Deus criou os céus e a terra.",
   "About": "Sobre",
-  "Pergament is an unofficial reader for publications you import or download yourself, for personal use. It is not affiliated with Jehovah's Witnesses or the Watch Tower Bible and Tract Society and contains no publication content. No telemetry.":
-    "Pergament é um leitor não oficial de publicações que você mesmo importa ou baixa, para uso pessoal. Ele não é afiliado às Testemunhas de Jeová nem à Sociedade Torre de Vigia de Bíblias e Tratados e não contém conteúdo de publicações. Sem telemetria.",
+  "Pergament is an unofficial reader for publications you import or download yourself, for personal use. It is not affiliated with Jehovah's Witnesses or the Watch Tower Bible and Tract Society and contains no publication content. No telemetry.": "Pergament é um leitor não oficial de publicações que você mesmo importa ou baixa, para uso pessoal. Ele não é afiliado às Testemunhas de Jeová nem à Sociedade Torre de Vigia de Bíblias e Tratados e não contém conteúdo de publicações. Sem telemetria.",
   // Media player
   "Recording": "Gravação",
   "Quality": "Qualidade",
   "Open in browser": "Abrir no navegador",
   "This recording is not available.": "Esta gravação não está disponível.",
-  "This system cannot play the recording here. Open it in your browser instead.":
-    "Este sistema não consegue reproduzir a gravação aqui. Abra-a no navegador.",
+  "This system cannot play the recording here. Open it in your browser instead.": "Este sistema não consegue reproduzir a gravação aqui. Abra-a no navegador.",
   // Video and audio
   "Video": "Vídeo",
   "Audio": "Áudio",
@@ -322,8 +307,7 @@ export const ptBR: Record<string, string> = {
   "Auto": "Automático",
   "Second display": "Segunda tela",
   "Use a second display": "Usar uma segunda tela",
-  "Opens a black window, fullscreen on another monitor if there is one, that shows the year text. Recordings and pictures you open are shown there too, without controls. If the window opens on the wrong screen, move it there and press F to switch to fullscreen.":
-    "Abre uma janela preta, em tela cheia em outro monitor, se houver, que mostra o texto do ano. Gravações e imagens que você abrir também aparecem lá, sem controles. Se a janela abrir na tela errada, mova-a para lá e pressione F para alternar para a tela cheia.",
+  "Opens a black window, fullscreen on another monitor if there is one, that shows the year text. Recordings and pictures you open are shown there too, without controls. If the window opens on the wrong screen, move it there and press F to switch to fullscreen.": "Abre uma janela preta, em tela cheia em outro monitor, se houver, que mostra o texto do ano. Gravações e imagens que você abrir também aparecem lá, sem controles. Se a janela abrir na tela errada, mova-a para lá e pressione F para alternar para a tela cheia.",
   "Cannot open the second display: {error}": "Não é possível abrir a segunda tela: {error}",
   "Image": "Imagem",
   "Zoom in": "Ampliar",
@@ -342,8 +326,7 @@ export const ptBR: Record<string, string> = {
   "Wait for the running downloads to finish.": "Aguarde os downloads em andamento terminarem.",
   "Could not clear the cache: {error}": "Não foi possível limpar o cache: {error}",
   "Cached files are downloaded again when you need them.": "Arquivos em cache são baixados de novo quando você precisa deles.",
-  "Removes the catalog, cover images and unfinished downloads. Downloaded publications and your notes stay. The catalog (about 58 MB) is downloaded again when you next need it.":
-    "Remove o catálogo, as imagens de capa e os downloads inacabados. As publicações baixadas e as suas notas ficam. O catálogo (cerca de 58 MB) é baixado de novo na próxima vez que você precisar.",
+  "Removes the catalog, cover images and unfinished downloads. Downloaded publications and your notes stay. The catalog (about 58 MB) is downloaded again when you next need it.": "Remove o catálogo, as imagens de capa e os downloads inacabados. As publicações baixadas e as suas notas ficam. O catálogo (cerca de 58 MB) é baixado de novo na próxima vez que você precisar.",
   "Needs network": "Precisa de internet",
   // Updates
   "Updates": "Atualizações",
@@ -359,11 +342,9 @@ export const ptBR: Record<string, string> = {
   "{count} publication updates are available": "{count} atualizações de publicação disponíveis",
   "Show": "Mostrar",
   "Update check failed: {error}": "Falha ao verificar atualizações: {error}",
-  "Updating downloads the new version and replaces the old one. Your highlights, notes and bookmarks are kept.":
-    "Atualizar baixa a nova versão e substitui a antiga. Seus destaques, notas e marcadores são mantidos.",
+  "Updating downloads the new version and replaces the old one. Your highlights, notes and bookmarks are kept.": "Atualizar baixa a nova versão e substitui a antiga. Seus destaques, notas e marcadores são mantidos.",
   "Check for publication updates at startup": "Verificar atualizações de publicações ao iniciar",
-  "Compares your downloaded publications with the catalog, which is refreshed at most once a day, and only if you have loaded the catalog before. Nothing is downloaded until you update.":
-    "Compara as suas publicações baixadas com o catálogo, que é atualizado no máximo uma vez por dia, e apenas se você já tiver carregado o catálogo antes. Nada é baixado até você atualizar.",
+  "Compares your downloaded publications with the catalog, which is refreshed at most once a day, and only if you have loaded the catalog before. Nothing is downloaded until you update.": "Compara as suas publicações baixadas com o catálogo, que é atualizado no máximo uma vez por dia, e apenas se você já tiver carregado o catálogo antes. Nada é baixado até você atualizar.",
   "Download referenced publications (needs network)": "Baixar publicações referenciadas (precisa de internet)",
   "Download referenced publications?": "Baixar publicações referenciadas?",
   "… and {count} more": "… e mais {count}",
@@ -391,38 +372,22 @@ export const ptBR: Record<string, string> = {
   "Write backups automatically": "Gravar backups automaticamente",
   "Keep the last … backups": "Manter os últimos … backups",
   "Open backups folder": "Abrir a pasta de backups",
-  "A backup is written to the backups folder in the library folder when you close Pergament and once a day, if something changed. Older ones are deleted.":
-    "Um backup é gravado na pasta “backups” dentro da pasta da biblioteca quando você fecha o Pergament e uma vez por dia, se algo mudou. Os mais antigos são excluídos.",
-  "Could not load the backup settings: {error}":
-    "Não foi possível carregar as configurações de backup: {error}",
-  "Choose sync folder…":
-    "Escolher a pasta de sincronização…",
-  "Sync now":
-    "Sincronizar agora",
-  "Stop syncing":
-    "Parar de sincronizar",
-  "Last synced {time} with {device}":
-    "Última sincronização: {time} com {device}",
-  "Last synced {time}":
-    "Última sincronização: {time}",
-  "{device} wants to delete {n} items. Open Settings to decide.":
-    "{device} quer excluir {n} itens. Abra as Configurações para decidir.",
-  "Sync: {error}":
-    "Sincronização: {error}",
-  "The library folder and its backups folder cannot be the sync folder.":
-    "A pasta da biblioteca e a pasta de backups dela não podem ser a pasta de sincronização.",
-  "{device} would delete {n} items.":
-    "{device} excluiria {n} itens.",
-  "Apply deletions":
-    "Aplicar exclusões",
-  "Keep my data":
-    "Manter meus dados",
-  "Show conflicts":
-    "Mostrar conflitos",
-  "Choose a folder that Nextcloud, Syncthing, Dropbox or another sync app keeps in sync. Each computer writes its own file there and merges the others; deletions carry over.":
-    "Escolha uma pasta que o Nextcloud, o Syncthing, o Dropbox ou outro aplicativo de sincronização mantém sincronizada. Cada computador grava ali o seu próprio arquivo e mescla os dos outros; as exclusões são aplicadas.",
-  "Sync is on: this also changes your data on the other synced computers.":
-    "A sincronização está ativada: isso também altera seus dados nos outros computadores sincronizados.",
+  "A backup is written to the backups folder in the library folder when you close Pergament and once a day, if something changed. Older ones are deleted.": "Um backup é gravado na pasta “backups” dentro da pasta da biblioteca quando você fecha o Pergament e uma vez por dia, se algo mudou. Os mais antigos são excluídos.",
+  "Could not load the backup settings: {error}": "Não foi possível carregar as configurações de backup: {error}",
+  "Choose sync folder…": "Escolher a pasta de sincronização…",
+  "Sync now": "Sincronizar agora",
+  "Stop syncing": "Parar de sincronizar",
+  "Last synced {time} with {device}": "Última sincronização: {time} com {device}",
+  "Last synced {time}": "Última sincronização: {time}",
+  "{device} wants to delete {n} items. Open Settings to decide.": "{device} quer excluir {n} itens. Abra as Configurações para decidir.",
+  "Sync: {error}": "Sincronização: {error}",
+  "The library folder and its backups folder cannot be the sync folder.": "A pasta da biblioteca e a pasta de backups dela não podem ser a pasta de sincronização.",
+  "{device} would delete {n} items.": "{device} excluiria {n} itens.",
+  "Apply deletions": "Aplicar exclusões",
+  "Keep my data": "Manter meus dados",
+  "Show conflicts": "Mostrar conflitos",
+  "Choose a folder that Nextcloud, Syncthing, Dropbox or another sync app keeps in sync. Each computer writes its own file there and merges the others; deletions carry over.": "Escolha uma pasta que o Nextcloud, o Syncthing, o Dropbox ou outro aplicativo de sincronização mantém sincronizada. Cada computador grava ali o seu próprio arquivo e mescla os dos outros; as exclusões são aplicadas.",
+  "Sync is on: this also changes your data on the other synced computers.": "A sincronização está ativada: isso também altera seus dados nos outros computadores sincronizados.",
   "Unmatched quotation mark": "Aspas não correspondentes",
   "Search library": "Pesquisar na biblioteca",
   "Search scope": "Escopo da pesquisa",
