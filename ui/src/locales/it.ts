@@ -1,5 +1,10 @@
 /** Italian interface texts, keyed by the English text. */
 export const it: Record<string, string> = {
+  "Retry": "Riprova",
+  "Open bookmark {slot}: {title}": "Apri il segnalibro {slot}: {title}",
+  "Save bookmark {slot}": "Salva il segnalibro {slot}",
+  "Bookmark {slot} options": "Opzioni del segnalibro {slot}",
+  "Replace with current location": "Sostituisci con la posizione attuale",
   "Menu": "Menu",
   "Home": "Home",
   "Bible": "Bibbia",
