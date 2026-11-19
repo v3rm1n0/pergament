@@ -5,9 +5,11 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use pergament::catalog::Catalog;
+use pergament::navigate::TargetKind;
 use pergament::net::{Client, HttpConfig};
 use pergament::remote::{self, Request};
 use pergament::render::file_url_for_dir;
+use pergament::search::{CoverageState, SearchRequest, SearchScope};
 use pergament::{Entry, Library, Publication, RenderOptions, Renderer};
 
 /// Unofficial reader for JW publications (.jwpub). Personal use only.
@@ -47,6 +49,23 @@ enum Command {
         /// Emit only the HTML fragment, without page wrapper and styles
         #[arg(long)]
         fragment: bool,
+    },
+    /// Search the text of the imported publications, indexing new ones first
+    Grep {
+        /// Words to find, all of them; put a phrase in quotes, e.g. '"in the beginning"'
+        #[arg(required = true)]
+        query: Vec<String>,
+        /// Search only the Bibles
+        #[arg(long, conflicts_with = "publication")]
+        bible: bool,
+        /// Search only this publication: symbol (e.g. nwtsty, wp26) or library directory name
+        #[arg(long = "in", value_name = "PUBLICATION")]
+        publication: Option<String>,
+        /// MEPS language index, if the symbol exists in several languages
+        #[arg(long, requires = "publication")]
+        lang: Option<i64>,
+        #[arg(long, default_value_t = 50, value_parser = clap::value_parser!(u32).range(1..=100))]
+        limit: u32,
     },
     /// Search the online catalog for publications in a language
     Search {
@@ -187,6 +206,76 @@ fn main() -> Result<()> {
         Command::List => {
             for e in library.list()? {
                 println!("{:<20} {:>4}  {}", e.dir_name, e.year, e.title);
+            }
+        }
+        Command::Grep {
+            query,
+            bible,
+            publication,
+            lang,
+            limit,
+        } => {
+            let scope = match (&publication, bible) {
+                (Some(name), _) => SearchScope::Publication {
+                    dir_name: resolve(&library, name, lang)?.dir_name,
+                },
+                (None, true) => SearchScope::Bibles,
+                (None, false) => SearchScope::All,
+            };
+            let status = library.search_status()?;
+            if status.state == CoverageState::Unavailable {
+                bail!("full-text search is not available (SQLite without FTS5)");
+            }
+            // Not `state != Ready`: a library with unanchored blocks stays
+            // `Incomplete` once everything is indexed.
+            let pending = status.total.saturating_sub(status.indexed);
+            if pending > 0 {
+                eprintln!("indexing {pending} publication(s)…");
+                let status = library.rebuild_search()?;
+                if status.failed > 0 {
+                    eprintln!(
+                        "warning: {} publication(s) could not be indexed",
+                        status.failed
+                    );
+                }
+            }
+            let hits = library
+                .search(&SearchRequest {
+                    query: query.join(" "),
+                    scope,
+                    limit: Some(limit),
+                    offset: None,
+                })?
+                .hits;
+            if hits.is_empty() {
+                println!("nothing found");
+            }
+            for hit in &hits {
+                // The first two columns are what `pergament show` takes.
+                let place = match hit.target.kind {
+                    TargetKind::DocumentParagraph {
+                        document,
+                        paragraph,
+                    } => format!("{document}  ¶{paragraph}"),
+                    TargetKind::Chapter {
+                        book,
+                        chapter,
+                        verse,
+                    } => format!("{book}:{chapter}  v{verse}"),
+                    // Search only returns paragraphs and verses.
+                    _ => continue,
+                };
+                println!(
+                    "{} {place}  {} · {}",
+                    hit.target.publication, hit.publication_title, hit.title
+                );
+                println!(
+                    "    {}",
+                    hit.snippet.split_whitespace().collect::<Vec<_>>().join(" ")
+                );
+            }
+            if hits.len() == limit as usize {
+                eprintln!("showing the first {limit} matches (see --limit)");
             }
         }
         Command::Show {
