@@ -4,7 +4,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { card } from "@/lib/fixtures";
-import type { Note, Target } from "@/lib/api";
+import type { Bookmark, Note, Target } from "@/lib/api";
 
 const calls: { cmd: string; args: unknown }[] = [];
 let backend: Record<string, (args: any) => unknown> = {};
@@ -82,9 +82,12 @@ beforeEach(() => {
     research_verses: () => [],
     page_user_data: ({ target }: { target: Target }) => ({
       marks: [],
+      bookmarks: [],
       notes: "chapter" in target.kind && target.kind.chapter.chapter === 3 ? [note] : [],
       answers: {},
     }),
+    publication_bookmarks: () => [],
+    save_bookmark: () => undefined,
     open_note_window: () => undefined,
   };
 });
@@ -149,10 +152,253 @@ describe("Reader", () => {
     await waitFor(() => expect(screen.getByText("Verse sixteen").classList.contains("selected")).toBe(true));
     scroll.mockClear();
     await act(async () => {
-      resolveUser?.({ marks: [], notes: [], answers: {} });
+      resolveUser?.({ marks: [], notes: [], bookmarks: [], answers: {} });
     });
     expect(scroll).not.toHaveBeenCalled();
     view.unmount();
+  });
+
+  it("bookmarks a clicked paragraph addressed only by data-pid and draws its marker", async () => {
+    backend.render_page = () => ({
+      title: "Lesson", html: '<p data-pid="12">A paragraph without an id</p>',
+      fragment: null, name: "lesson",
+    });
+    let bookmarks: Partial<Bookmark>[] = [];
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks, answers: {} });
+    backend.save_bookmark = ({ bookmark }: { bookmark: Partial<Bookmark> }) => { bookmarks = [bookmark]; };
+    render(reader(documentTarget("lff_E", 3)));
+    await screen.findByText("A paragraph without an id");
+    fireEvent.click(screen.getByText("A paragraph without an id"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: documentTarget("lff_E", 3),
+        bookmark: { slot: 0, blockType: 1, blockIdentifier: 12, snippet: "A paragraph without an id" },
+      },
+    }));
+    await waitFor(() => expect(document.querySelector(".bookmark-marker[data-slot='0']")).toBeTruthy());
+  });
+
+  it("jumps to bookmarked paragraphs addressed only by data-pid", async () => {
+    backend.render_page = () => ({
+      title: "Lesson", html: '<p data-pid="12">Bookmarked destination</p>',
+      fragment: null, name: "lesson",
+    });
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks: [], answers: {} });
+    const scrolling = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      render(<AppProvider><ReaderView target={documentTarget("lff_E", 3)} bookmark={{ blockType: 1, blockIdentifier: 12 }} /></AppProvider>);
+      await screen.findByText("Bookmarked destination");
+      await waitFor(() => expect(scrolling.mock.instances.some((el) => (el as Element).getAttribute("data-pid") === "12")).toBe(true));
+    } finally {
+      scrolling.mockRestore();
+    }
+  });
+
+  it("hides the bookmark button on Daily Text pages", async () => {
+    render(reader({ publication: "es26_E", kind: { dated: { date: 20261118 } } }));
+    await screen.findByText("Daily Text");
+    expect(screen.queryByRole("button", { name: "Bookmarks" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.some((call) => call.cmd === "publication_bookmarks")).toBe(false);
+    expect(calls.some((call) => call.cmd === "save_bookmark")).toBe(false);
+  });
+
+  it("bookmarks the whole chapter by default, even when scrolled", async () => {
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByLabelText("Show note");
+    const text = screen.getByText("For God loved the world");
+    const scroller = text.closest(".overflow-y-auto")!;
+    scroller.scrollTop = 500;
+    fireEvent.scroll(scroller);
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: chapterTarget("nwtsty_E", 43, 3),
+        bookmark: { slot: 0, blockType: 0, blockIdentifier: null, snippet: null },
+      },
+    }));
+  });
+
+  it("bookmarks a clicked verse without requiring a text selection", async () => {
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByLabelText("Show note");
+    fireEvent.click(screen.getByText("For God loved the world"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 2" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: chapterTarget("nwtsty_E", 43, 3),
+        bookmark: { slot: 1, blockType: 2, blockIdentifier: 16, snippet: "For God loved the world" },
+      },
+    }));
+  });
+
+  it("bookmarks a clicked paragraph, then resets to the whole section on its heading", async () => {
+    backend.render_page = () => ({
+      title: "Article", html: '<h1>Section heading</h1><p id="p7">A paragraph</p>',
+      fragment: null, name: "",
+    });
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks: [], answers: {} });
+    render(reader(documentTarget("nwtsty_E", 1)));
+    await screen.findByText("A paragraph");
+    fireEvent.click(screen.getByText("A paragraph"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: documentTarget("nwtsty_E", 1),
+        bookmark: { slot: 0, blockType: 1, blockIdentifier: 7, snippet: "A paragraph" },
+      },
+    }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByText("Section heading"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 2" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: documentTarget("nwtsty_E", 1),
+        bookmark: { slot: 1, blockType: 0, blockIdentifier: null, snippet: null },
+      },
+    }));
+  });
+
+  it("shows page and verse bookmark colors and refreshes them after saving", async () => {
+    let saved: Bookmark[] = [{
+      slot: 0, title: "John 3", snippet: null, blockType: 0, blockIdentifier: null,
+      location: { keySymbol: "nwtsty", mepsLanguage: 0, issueTag: 0, documentId: null, book: 43, chapter: 3, title: "John 3" },
+    }];
+    backend.page_user_data = () => ({ marks: [], notes: [], bookmarks: [...saved], answers: {} });
+    backend.publication_bookmarks = () => [...saved];
+    backend.delete_bookmark = ({ slot }: { slot: number }) => {
+      saved = saved.filter((b) => b.slot !== slot);
+    };
+    backend.save_bookmark = ({ bookmark }: { bookmark: Pick<Bookmark, "slot" | "blockType" | "blockIdentifier" | "snippet"> }) => {
+      saved.push({ ...saved[0], ...bookmark });
+    };
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await waitFor(() => expect(document.querySelector(".reader .bookmark-page [data-slot='0']")).toBeTruthy());
+    const root = document.querySelector(".reader")!;
+    expect(root.querySelector<HTMLElement>(".bookmark-marker")?.style.backgroundColor).toBe("rgb(181, 45, 105)");
+    fireEvent.click(screen.getByText("For God loved the world"));
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 2" }));
+    await waitFor(() => expect(root.querySelector(".bookmark-marker[data-slot='1']")).toBeTruthy());
+    expect(root.querySelectorAll(".bookmark-marker")).toHaveLength(2);
+    expect(root.querySelector<HTMLElement>(".bookmark-marker[data-slot='1']")?.style.backgroundColor).toBe("rgb(132, 87, 166)");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.pointerDown(await screen.findByRole("button", { name: "Bookmark 2 options" }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(root.querySelector(".bookmark-marker[data-slot='1']")).toBeNull());
+    expect(root.querySelectorAll(".bookmark-marker")).toHaveLength(1);
+  });
+
+  it("shows multiple bookmarks beside the same paragraph without changing its text", async () => {
+    backend.render_page = () => ({
+      title: "Article", html: '<h1>Section heading</h1><p id="p7">A paragraph</p>',
+      fragment: null, name: "",
+    });
+    backend.page_user_data = () => ({
+      marks: [], notes: [], answers: {},
+      bookmarks: [1, 4].map((slot) => ({ slot, title: "Paragraph", blockType: 1, blockIdentifier: 7 })),
+    });
+    render(reader(documentTarget("nwtsty_E", 1)));
+    await waitFor(() => expect(document.querySelectorAll(".reader .bookmark-marker")).toHaveLength(2));
+    expect(document.querySelector("#p7")?.textContent).toBe("A paragraph");
+    expect(document.querySelectorAll(".bookmark-markers")).toHaveLength(1);
+  });
+
+  it("positions publication bookmarks at the lesson title and paragraph despite nested layouts", async () => {
+    backend.render_page = () => ({
+      title: "Lesson", html: '<figure>Cover image</figure><header><h1>Lesson title</h1></header><div style="position:relative;overflow:hidden"><p id="p7">Lesson paragraph</p></div>',
+      fragment: null, name: "",
+    });
+    backend.page_user_data = () => ({
+      marks: [], notes: [], answers: {},
+      bookmarks: [
+        { slot: 0, blockType: 0, blockIdentifier: null },
+        { slot: 1, blockType: 1, blockIdentifier: 7 },
+      ],
+    });
+    const rects = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const top = this.matches(".reader") ? 100 : this.matches("h1") ? 300 : this.id === "p7" ? 500 : 0;
+      return { top, bottom: top + 30, left: 0, right: 100, width: 100, height: 30, x: 0, y: top, toJSON: () => ({}) };
+    });
+    try {
+      render(reader(documentTarget("nwtsty_E", 1)));
+      await waitFor(() => expect(document.querySelectorAll(".bookmark-marker")).toHaveLength(2));
+      const pageMarker = document.querySelector<HTMLElement>(".bookmark-page")!;
+      const paragraphMarker = document.querySelector<HTMLElement>(".bookmark-marker[data-slot='1']")!.parentElement!;
+      expect(pageMarker.style.top).toBe("200px");
+      expect(paragraphMarker.style.top).toBe("400px");
+      expect(pageMarker.parentElement?.classList.contains("reader")).toBe(true);
+      expect(paragraphMarker.parentElement?.classList.contains("reader")).toBe(true);
+      expect(document.querySelector("#p7")?.textContent).toBe("Lesson paragraph");
+    } finally {
+      rects.mockRestore();
+    }
+  });
+
+  it("clears the clicked verse when navigating to another chapter", async () => {
+    const view = render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByLabelText("Show note");
+    fireEvent.click(screen.getByText("For God loved the world"));
+    view.rerender(reader(chapterTarget("nwtsty_E", 43, 4)));
+    await screen.findByText("John 4");
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls).toContainEqual({
+      cmd: "save_bookmark",
+      args: {
+        target: chapterTarget("nwtsty_E", 43, 4),
+        bookmark: { slot: 0, blockType: 0, blockIdentifier: null, snippet: null },
+      },
+    }));
+  });
+
+  it("saves the selected verse through the publication bookmark button", async () => {
+    backend.publication_bookmarks = () => [];
+    backend.save_bookmark = () => undefined;
+    render(reader(chapterTarget("nwtsty_E", 43, 3)));
+    await screen.findByLabelText("Show note");
+    const text = await screen.findByText("For God loved the world");
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    fireEvent.click(screen.getByRole("button", { name: "Bookmarks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save bookmark 1" }));
+    await waitFor(() => expect(calls.some((c) => c.cmd === "save_bookmark")).toBe(true));
+    expect(calls.find((c) => c.cmd === "save_bookmark")?.args).toEqual({
+      target: chapterTarget("nwtsty_E", 43, 3),
+      bookmark: { slot: 0, blockType: 2, blockIdentifier: 16, snippet: "For God loved the world" },
+    });
+    selection.removeAllRanges();
+  });
+
+  it("scrolls to a bookmarked paragraph after loading its document", async () => {
+    backend.render_page = () => ({
+      title: "Article", html: '<p id="p1">Beginning</p><p id="p7">Bookmarked paragraph</p>',
+      fragment: null, name: "",
+    });
+    const scrolling = vi.spyOn(Element.prototype, "scrollIntoView");
+    render(
+      <AppProvider>
+        <ReaderView target={documentTarget("nwtsty_E", 1)} bookmark={{ blockType: 1, blockIdentifier: 7 }} />
+      </AppProvider>,
+    );
+    await screen.findByText("Bookmarked paragraph");
+    await waitFor(() => expect(scrolling.mock.instances.some((el) => (el as Element).id === "p7")).toBe(true));
+    scrolling.mockRestore();
   });
 
   it("turns a lesson's goals into checkboxes, a date line and a text box that keep their answers", async () => {

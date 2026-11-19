@@ -864,7 +864,35 @@ pub fn publication_hrefs(library: &Library, dir: &str) -> ApiResult<Vec<String>>
     Ok(hrefs)
 }
 
-/// The user data location of a page, and a title to store with it.
+/// The publication-wide location used for bookmark slots.
+pub fn publication_location(library: &Library, dir: &str) -> ApiResult<Loc> {
+    let (entry, publication) = open_entry(library, dir)?;
+    Ok(Loc {
+        key_symbol: publication.key_symbol().map_err(err)?,
+        meps_language: entry.meps_language,
+        issue_tag: entry.issue_tag.parse().unwrap_or(0),
+        document_id: None,
+        book: None,
+        chapter: None,
+    })
+}
+
+pub fn save_bookmark(
+    library: &Library,
+    user: &mut UserData,
+    target: &Target,
+    bookmark: &pergament::userdata::BookmarkInput,
+) -> ApiResult<()> {
+    if matches!(target.kind, TargetKind::Dated { .. }) {
+        return Err(
+            "Saving Daily Text bookmarks is not supported: the exact day cannot be restored."
+                .into(),
+        );
+    }
+    let (loc, title) = page_location(library, target)?;
+    user.save_bookmark(&loc, &title, bookmark).map_err(err)
+}
+
 pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, String)> {
     let (entry, publication) = open_entry(library, &target.publication)?;
     let mut loc = Loc {
@@ -910,6 +938,7 @@ pub fn page_location(library: &Library, target: &Target) -> ApiResult<(Loc, Stri
 pub struct PageUserData {
     pub marks: Vec<Mark>,
     pub notes: Vec<Note>,
+    pub bookmarks: Vec<pergament::userdata::Bookmark>,
     /// Answer field texts by field id.
     pub answers: std::collections::BTreeMap<String, String>,
 }
@@ -923,6 +952,17 @@ pub fn page_user_data(
     Ok(PageUserData {
         marks: user.marks(&loc).map_err(err)?,
         notes: user.notes(&loc).map_err(err)?,
+        bookmarks: user
+            .publication_bookmarks(&loc)
+            .map_err(err)?
+            .into_iter()
+            .filter(|b| {
+                let saved = &b.location.loc;
+                saved.document_id.unwrap_or(0) == loc.document_id.unwrap_or(0)
+                    && saved.book.unwrap_or(0) == loc.book.unwrap_or(0)
+                    && saved.chapter.unwrap_or(0) == loc.chapter.unwrap_or(0)
+            })
+            .collect(),
         answers: user.answers(&loc).map_err(err)?,
     })
 }
@@ -1200,6 +1240,27 @@ pub fn mime_for(path: &Path) -> &'static str {
 mod tests {
     use super::*;
     use pergament::catalog::Catalog;
+
+    #[test]
+    fn dated_bookmark_saves_are_rejected_without_writing_data() {
+        let tmp = tempfile::tempdir().unwrap();
+        let library = Library::open(tmp.path().join("library")).unwrap();
+        let mut user = UserData::open(tmp.path().join("userData.db")).unwrap();
+        let before = user.fingerprint().unwrap();
+        let target = Target {
+            publication: "es26_E".into(),
+            kind: TargetKind::Dated { date: 20261118 },
+        };
+        let bookmark = pergament::userdata::BookmarkInput {
+            slot: 0,
+            snippet: None,
+            block_type: 0,
+            block_identifier: None,
+        };
+        let error = save_bookmark(&library, &mut user, &target, &bookmark).unwrap_err();
+        assert!(error.contains("Daily Text"));
+        assert_eq!(user.fingerprint().unwrap(), before);
+    }
 
     /// A catalog with `w26` (August 2026) in German and English, `lff` in German only, a row listed twice
     /// (the real catalog has such duplicates) and one whose language has no cover to derive a code from.

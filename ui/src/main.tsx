@@ -43,7 +43,7 @@ function CurrentView() {
     case "chapters":
       return <ChaptersView dir={view.dir} book={view.book} />;
     case "reader":
-      return <ReaderView target={view.target} note={view.note} noteGuid={view.noteGuid} scroll={view.scroll} fromSearch={view.fromSearch} />;;
+      return <ReaderView target={view.target} note={view.note} noteGuid={view.noteGuid} bookmark={view.bookmark} scroll={view.scroll} fromSearch={view.fromSearch} />;
     case "online":
       return <OnlineView />;
     case "search":

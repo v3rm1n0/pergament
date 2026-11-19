@@ -391,6 +391,10 @@ Checked against one backup made by JW Library on iOS (schema version 16,
   `div.gen-field`; a checkbox's `Value` is `1` or `0`, a text line's the text,
   as in a JW Library backup with checked goals and dates from `lff`),
   playlists and `IndependentMedia` (not used here yet).
+- Bookmark slots belong to a publication-wide type-1 `Location`, for both
+  Bibles and other publications. The target page remains a separate type-0
+  location. JW Library databases reject type-0 locations without a document,
+  track, book or chapter; do not use type 0 for a publication-wide identity.
 - `LastModified` holds one timestamp that the app's triggers update.
 
 ### Merging

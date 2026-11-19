@@ -6,6 +6,7 @@ import { api, chapterTarget, documentTarget, type BookOverview, type Page } from
 import { usePublication } from "./publication";
 import { hydrateMedia } from "@/lib/media";
 import { t } from "@/lib/i18n";
+import { BookmarksButton } from "@/components/bookmarks";
 
 export function ChaptersView({ dir, book }: { dir: string; book: number }) {
   const { openTarget, toast, playRecording } = useApp();
@@ -71,7 +72,9 @@ export function ChaptersView({ dir, book }: { dir: string; book: number }) {
   if (!info) return <AppBar title="" />;
   return (
     <>
-      <AppBar title={info.title} subtitle={detail!.card.shortTitle ?? detail!.card.title} />
+      <AppBar title={info.title} subtitle={detail!.card.shortTitle ?? detail!.card.title}>
+        <BookmarksButton dir={dir} title={detail!.card.shortTitle ?? detail!.card.title} />
+      </AppBar>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-visible">
         <div className="page shrink-0 lg:min-w-0 lg:flex-1 lg:overflow-y-auto">
           <h2 className="mb-3 text-sm font-semibold">{t("Chapters")}</h2>

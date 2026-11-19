@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Bookmark as BookmarkIcon, DatabaseBackup, FolderOpen, Pencil, Plus, Tag } from "lucide-react";
 import { AppBar, SectionTitle, useApp } from "@/app";
-import { api, type Bookmark, type Loc, type Note, type TagInfo, type UserDataSummary } from "@/lib/api";
+import { api, type Bookmark, type BookmarkAnchor, type Loc, type Note, type TagInfo, type UserDataSummary } from "@/lib/api";
+import { BOOKMARK_COLORS } from "@/components/bookmarks";
 import { cn } from "@/lib/utils";
 import { NoteCard } from "@/components/notes";
 import { Input } from "@/components/ui/input";
@@ -50,10 +51,10 @@ export function PersonalView() {
     };
   }, [tag, userVersion, notesVersion, toast]);
 
-  const open = async (loc: Loc, noteGuid?: string) => {
+  const open = async (loc: Loc, noteGuid?: string, bookmark?: BookmarkAnchor) => {
     try {
       const target = await api.openLocation(loc);
-      if (target) push({ name: "reader", target, noteGuid });
+      if (target) push({ name: "reader", target, noteGuid, bookmark });
       else toast(t("This publication is not in your library"));
     } catch (e) {
       toast(String(e));
@@ -171,10 +172,10 @@ export function PersonalView() {
                 {bookmarks.map((b) => (
                   <button
                     key={`${b.location.keySymbol}-${b.slot}-${b.title}`}
-                    onClick={() => void open(b.location)}
+                    onClick={() => void open(b.location, undefined, b)}
                     className="flex items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-bar"
                   >
-                    <BookmarkIcon size={18} className="shrink-0 text-accent" />
+                    <BookmarkIcon size={18} className="shrink-0" color={BOOKMARK_COLORS[b.slot] ?? "currentColor"} fill={BOOKMARK_COLORS[b.slot] ?? "currentColor"} />
                     <div className="min-w-0">
                       <div className="truncate text-sm">{b.title}</div>
                       {b.snippet && <div className="truncate text-[13px] text-muted">{b.snippet}</div>}
