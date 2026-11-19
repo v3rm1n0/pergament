@@ -139,6 +139,7 @@ files.
 pergament import file.jwpub                       # add to the library
 pergament list                                    # imported publications
 pergament show nwtsty 19:23 > psalm23.html        # a Bible chapter as HTML
+pergament grep '"living water"' --bible           # search the imported publications
 pergament search X wachtturm                      # search the catalog
 pergament download wp --lang X --issue 20260900   # download and import
 ```
