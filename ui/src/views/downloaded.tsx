@@ -2,7 +2,7 @@ import { CloudDownload, FolderInput } from "lucide-react";
 import { useApp } from "@/app";
 import type { PubCard } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { PubCover } from "@/components/cover";
+import { CoverCell, PubCover } from "@/components/cover";
 import { groupByCategory } from "@/lib/types";
 import { t } from "@/lib/i18n";
 
@@ -13,7 +13,9 @@ function Section({ title, pubs }: { title: string; pubs: PubCard[] }) {
       <h2 className="mb-3 text-sm font-semibold">{title}</h2>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-x-3 gap-y-4">
         {pubs.map((p) => (
-          <PubCover key={p.dir} pub={p} meta={`${p.symbol} · ${p.year}`} className="w-full" />
+          <CoverCell key={p.dir}>
+            <PubCover pub={p} meta={`${p.symbol} · ${p.year}`} className="w-full" />
+          </CoverCell>
         ))}
       </div>
     </section>

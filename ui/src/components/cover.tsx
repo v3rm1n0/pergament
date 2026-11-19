@@ -138,14 +138,27 @@ export function PubCover({ pub, meta, className }: { pub: PubCard; meta?: string
   );
 }
 
+/**
+ * Cell of a cover grid. WebKitGTK repaints the whole grid each time a cover
+ * image arrives, which stutters the first scroll through a long list;
+ * `content-visibility: auto` skips the cells that are off screen. It also
+ * clips painting to the cell, so the cell is 4px larger than its cover (padding
+ * with an equal negative margin) to keep the focus ring visible.
+ */
+export function CoverCell({ children }: { children: ReactNode }) {
+  return <div className="-m-1 p-1 [contain-intrinsic-size:auto_116px_auto_208px] [content-visibility:auto]">{children}</div>;
+}
+
 /** Entry cover in a fluid grid: larger entries show their size under the title. */
 export function GridCard({ entry }: { entry: CatalogEntry }) {
   return (
-    <EntryCover
-      entry={entry}
-      label={entry.item.issue_title || entry.item.short_title || entry.item.title}
-      meta={entry.item.size > 0 ? mb(entry.item.size) : null}
-      className="w-full"
-    />
+    <CoverCell>
+      <EntryCover
+        entry={entry}
+        label={entry.item.issue_title || entry.item.short_title || entry.item.title}
+        meta={entry.item.size > 0 ? mb(entry.item.size) : null}
+        className="w-full"
+      />
+    </CoverCell>
   );
 }
