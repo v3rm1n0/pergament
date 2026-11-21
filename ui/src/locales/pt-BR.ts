@@ -100,6 +100,11 @@ export const ptBR: Record<string, string> = {
 
   // Publications and reader
   "Cannot open publication: {error}": "Não é possível abrir a publicação: {error}",
+  "Cannot open Bible: {error}": "Não é possível abrir a Bíblia: {error}",
+  "Cannot open daily text: {error}": "Não é possível abrir o texto do dia: {error}",
+  "Link reference": "Vincular referência",
+  "Open linked reference": "Abrir referência vinculada",
+  "Pop out note": "Abrir nota",
   "Cannot show page: {error}": "Não é possível exibir a página: {error}",
   "Cannot load study notes: {error}": "Não é possível carregar as notas de estudo: {error}",
   "Cannot follow link: {error}": "Não é possível abrir o link: {error}",
@@ -399,4 +404,7 @@ export const ptBR: Record<string, string> = {
   "Retry indexing": "Tentar indexação novamente",
   "Searching…": "Pesquisando…",
   "Italian": "Italiano",
+  "Open Bible reference": "Abrir referência bíblica",
+  "Keyboard shortcuts": "Atalhos de teclado",
+  "Open command palette": "Abrir paleta de comandos",
 };

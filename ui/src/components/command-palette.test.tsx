@@ -3,19 +3,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PubCard, SearchResponse, Target } from "@/lib/api";
 
-const { push, searchPublications } = vi.hoisted(() => ({ push: vi.fn(), searchPublications: vi.fn() }));
+const { push, searchPublications, lastVerse, datedPage, loadBooks, toast, openTarget } = vi.hoisted(() => ({
+  push: vi.fn(),
+  searchPublications: vi.fn(),
+  lastVerse: vi.fn(),
+  datedPage: vi.fn(),
+  loadBooks: vi.fn(),
+  toast: vi.fn(),
+  openTarget: vi.fn(),
+}));
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
-  return { ...actual, api: { ...actual.api, searchPublications } };
+  return { ...actual, api: { ...actual.api, searchPublications, lastVerse, datedPage } };
 });
 const publications: PubCard[] = [
   { dir: "w26_1", title: "The Watchtower", shortTitle: "Watchtower", symbol: "w", keySymbol: "w", year: 2026, issueTag: "1", mepsLanguage: 0, langCode: "X", publicationType: null, isBible: false, cover: null },
   { dir: "lff", title: "Enjoy Life Forever!", shortTitle: "Enjoy Life", symbol: "lff", keySymbol: "lff", year: 2026, issueTag: "", mepsLanguage: 0, langCode: "X", publicationType: null, isBible: false, cover: null },
+  { dir: "bible", title: "Bible", shortTitle: "Bible", symbol: "nwtsty", keySymbol: "nwtsty", year: 2026, issueTag: "", mepsLanguage: 0, langCode: "X", publicationType: null, isBible: true, cover: null },
 ];
 
+vi.mock("@/lib/note-links", () => ({ loadBooks }));
+
 vi.mock("@/app", () => ({
-  useApp: () => ({ publications, push, openTarget: vi.fn(), toast: vi.fn(), lang: "X", bibles: {} }),
+  useApp: () => ({ publications, push, openTarget, toast, lang: "X", bibles: { X: "nwtsty" }, view: { name: "home" } }),
 }));
 
 import { CommandPalette } from "./command-palette";
@@ -24,6 +35,10 @@ afterEach(() => {
   cleanup();
   push.mockReset();
   searchPublications.mockReset();
+  lastVerse.mockReset();
+  datedPage.mockReset();
+  loadBooks.mockReset();
+  toast.mockReset();
 });
 
 describe("CommandPalette", () => {
@@ -136,6 +151,50 @@ describe("CommandPalette", () => {
     expect(screen.getByText("The Watchtower")).toBeTruthy();
     fireEvent.click(screen.getByText("The Watchtower"));
     expect(push).toHaveBeenCalledWith({ name: "publication", dir: "w26_1" });
+  });
+
+  it("offers Bible reference, daily text, and shortcut commands", async () => {
+    render(<CommandPalette />);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByText("Open Bible reference")).toBeTruthy();
+    expect(screen.getByText("Daily Text")).toBeTruthy();
+    expect(screen.getByText("Keyboard shortcuts")).toBeTruthy();
+  });
+
+  it("opens the shortcut reference dialog and lists shortcuts", () => {
+    render(<CommandPalette />);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.click(screen.getByText("Keyboard shortcuts"));
+    expect(screen.getByRole("heading", { name: "Keyboard shortcuts" })).toBeTruthy();
+    expect(screen.getByText("Open command palette")).toBeTruthy();
+    expect(screen.getByText("Go to a verse")).toBeTruthy();
+  });
+
+  it("opens a valid Bible reference and reports missing or invalid references", async () => {
+    loadBooks.mockResolvedValue([{ number: 58, title: "Hebrews", chapters: 13, abbreviation: "Heb" }]);
+    lastVerse.mockResolvedValue(25);
+    render(<CommandPalette />);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Heb 10:24" } });
+    fireEvent.click(screen.getByText("Open Bible reference"));
+    await waitFor(() => expect(openTarget).toHaveBeenCalled());
+
+    loadBooks.mockRejectedValue(new Error("missing Bible"));
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.click(screen.getByText("Open Bible reference"));
+    await waitFor(() => expect(toast).toHaveBeenCalled());
+  });
+
+  it("opens daily text and toasts when unavailable", async () => {
+    datedPage.mockResolvedValue({ target: { publication: "daily", kind: { documentParagraph: { document: 1, paragraph: 1 } } } });
+    render(<CommandPalette />);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.click(screen.getByText("Daily Text"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.objectContaining({ name: "reader" })));
+    datedPage.mockResolvedValue(null);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    fireEvent.click(screen.getByText("Daily Text"));
+    await waitFor(() => expect(toast).toHaveBeenCalled());
   });
 
   it("ignores stale full-text responses after a later query", async () => {

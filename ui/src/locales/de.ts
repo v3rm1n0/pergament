@@ -100,6 +100,11 @@ export const de: Record<string, string> = {
 
   // Publications and reader
   "Cannot open publication: {error}": "Publikation kann nicht geöffnet werden: {error}",
+  "Cannot open Bible: {error}": "Publikation kann nicht geöffnet werden: {error}",
+  "Cannot open daily text: {error}": "Täglicher Text kann nicht geöffnet werden: {error}",
+  "Link reference": "Referenz verknüpfen",
+  "Open linked reference": "Verknüpfte Referenz öffnen",
+  "Pop out note": "Notiz herauslösen",
   "Cannot show page: {error}": "Seite kann nicht angezeigt werden: {error}",
   "Cannot load study notes: {error}": "Studienanmerkungen können nicht geladen werden: {error}",
   "Cannot follow link: {error}": "Link kann nicht geöffnet werden: {error}",
@@ -399,4 +404,7 @@ export const de: Record<string, string> = {
   "Retry indexing": "Indexierung wiederholen",
   "Searching…": "Wird gesucht…",
   "Italian": "Italienisch",
+  "Open Bible reference": "Bibelstelle öffnen",
+  "Keyboard shortcuts": "Tastaturkürzel",
+  "Open command palette": "Befehlspalette öffnen",
 };
