@@ -1,0 +1,16 @@
+name: Label pull requests
+
+# pull_request_target so PRs from forks can be labeled. The job never checks
+# out or runs code from the PR.
+on:
+  pull_request_target:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v7
