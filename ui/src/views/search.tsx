@@ -6,8 +6,8 @@ import { api, type SearchResponse, type SearchScope, type SearchStatus } from "@
 import { t } from "@/lib/i18n";
 
 export function SearchView() {
-  const { publications, push } = useApp();
-  const [query, setQuery] = useState("");
+  const { publications, push, view } = useApp();
+  const [query, setQuery] = useState(() => view.name === "search" ? view.query ?? "" : "");
   const [scope, setScope] = useState("all");
   const [offset, setOffset] = useState(0);
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -18,6 +18,12 @@ export function SearchView() {
   const [refresh, setRefresh] = useState(0);
   const [indexVersion, setIndexVersion] = useState(0);
   const previousStatus = useRef<SearchStatus | null>(null);
+
+  useEffect(() => {
+    if (view.name !== "search" || view.query === undefined || view.query === query) return;
+    setOffset(0);
+    setQuery(view.query);
+  }, [view, query]);
 
   useEffect(() => {
     let current = true;

@@ -66,6 +66,11 @@ function Where() {
   return <div data-testid="where">{JSON.stringify(view)}</div>;
 }
 
+function SearchHandoff({ query }: { query: string }) {
+  const { push } = useApp();
+  return <button onClick={() => push({ name: "search", query })}>Use palette query</button>;
+}
+
 const renderSearch = () =>
   render(
     <StrictMode>
@@ -90,6 +95,12 @@ describe("SearchView", () => {
     render(<AppProvider><AppBar title="Home" /><Where /></AppProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Search library" }));
     expect(JSON.parse(screen.getByTestId("where").textContent!)).toEqual({ name: "search" });
+  });
+
+  it("updates an already-mounted SearchView when navigation supplies a palette query", async () => {
+    render(<AppProvider><SearchView /><SearchHandoff query="from palette" /></AppProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Use palette query" }));
+    expect((await screen.findByRole("searchbox", { name: "Search library" }) as HTMLInputElement).value).toBe("from palette");
   });
 
   it("reports incomplete coverage and lets the user request a rebuild", async () => {

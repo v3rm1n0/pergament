@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
 import { BarButton, useApp } from "@/app";
-import { api, chapterTarget } from "@/lib/api";
-import { bibleFor, parseReferences, type Book } from "@/lib/bible";
+import { bibleFor, type Book } from "@/lib/bible";
+import { openBibleReference } from "@/lib/go-to";
 import { loadBooks } from "@/lib/note-links";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -69,19 +69,21 @@ export function GoTo() {
     };
   }, []);
   const go = async () => {
-    // A list of verses goes to its first one.
-    const ref = bible && parseReferences(text, bible.books)?.[0].ref;
-    if (!bible || !ref) return setMissed(true);
-    try {
-      if (ref.verse != null && (ref.verse < 1 || ref.verse > (await api.lastVerse(bible.dir, ref.book, ref.chapter)))) {
-        return setMissed(true);
-      }
-    } catch (e) {
-      return toast(String(e));
+    let error = false;
+    const opened = await openBibleReference(text, {
+      bible,
+      toast: (message) => {
+        error = true;
+        toast(message);
+      },
+      open: openTarget,
+    });
+    if (!opened) {
+      if (!error) setMissed(true);
+      return;
     }
     went.current = true;
     setOpen(false);
-    openTarget(chapterTarget(bible.dir, ref.book, ref.chapter, ref.verse ?? 1));
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>

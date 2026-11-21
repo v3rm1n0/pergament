@@ -9,7 +9,7 @@ type ViewKind =
   | { name: "chapters"; dir: string; book: number }
   | { name: "reader"; target: Target; note?: boolean; noteGuid?: string; fromSearch?: boolean }
   | { name: "online" }
-  | { name: "search" }
+  | { name: "search"; query?: string }
   | { name: "settings" }
   | { name: "library"; tab?: LibraryTab }
   | { name: "category"; id: number; title: string }
