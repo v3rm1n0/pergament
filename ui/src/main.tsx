@@ -2,6 +2,7 @@ import { StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { AppProvider, Rail, TitleStrip, useApp } from "./app";
 import { GoTo } from "./components/go-to";
+import { CommandPalette } from "./components/command-palette";
 import { ImageViewer } from "./components/image-viewer";
 import { PlayerHost } from "./components/player-host";
 import { isDisplayWindow } from "./lib/display";
@@ -93,6 +94,7 @@ function Shell() {
           <PlayerHost />
           <ImageViewer />
           <GoTo />
+          <CommandPalette />
         </main>
       </div>
     </div>
