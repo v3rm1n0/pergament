@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/app";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { api, type SearchHit } from "@/lib/api";
 import { t } from "@/lib/i18n";
 
 /** The global command palette for navigation and quick actions. */
@@ -9,6 +10,9 @@ export function CommandPalette() {
   const { publications, push } = useApp();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRequest = useRef(0);
   const openRef = useRef(open);
   openRef.current = open;
 
@@ -16,6 +20,24 @@ export function CommandPalette() {
     setOpen(false);
     setQuery("");
   };
+
+  useEffect(() => {
+    const request = ++searchRequest.current;
+    setSearchHits([]);
+    setSearchLoading(Boolean(query.trim()));
+    if (!query.trim()) return;
+    const timer = window.setTimeout(() => {
+      api.searchPublications({ query, scope: { kind: "all" }, limit: 8, offset: 0 })
+        .then((response) => {
+          if (request === searchRequest.current) setSearchHits(response.hits.slice(0, 8));
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (request === searchRequest.current) setSearchLoading(false);
+        });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -70,13 +92,36 @@ export function CommandPalette() {
                 {t("Open library")}
               </CommandItem>
               <CommandItem
+                value={`Search all text ${query}`}
                 onSelect={() => {
                   close();
-                  push({ name: "search" });
+                  push({ name: "search", query: query.trim() || undefined });
                 }}
               >
                 {t("Search all text")}
               </CommandItem>
+            </CommandGroup>
+            {searchLoading && <CommandItem disabled>{t("Searching…")}</CommandItem>}
+            {/* Kept mounted while empty: cmdk 1.1 crashes when a group unmounts during a search. */}
+            <CommandGroup heading={searchHits.length > 0 ? t("Full-text results") : undefined}>
+              {searchHits.map((hit, index) => (
+                <CommandItem
+                  key={`${hit.target.publication}-${index}`}
+                  value={`${hit.title} ${hit.publicationTitle} ${hit.snippet}`}
+                  keywords={[query]}
+                  onSelect={() => {
+                    close();
+                    push({ name: "reader", target: hit.target, fromSearch: true });
+                  }}
+                >
+                  <span>
+                    <span className="block">{hit.title}</span>
+                    <span className="block text-xs text-muted">
+                      {hit.publicationTitle} — {hit.snippet}
+                    </span>
+                  </span>
+                </CommandItem>
+              ))}
             </CommandGroup>
             <CommandGroup heading={t("Publications")}>
               {publications.map((publication) => (
